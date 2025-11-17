@@ -1,88 +1,105 @@
-/* General Styles */
-body {
-    font-family: 'Poppins', sans-serif;
+/* General Reset */
+* {
     margin: 0;
     padding: 0;
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Body */
+body {
+    background-color: #f7f9fc;
     color: #333;
+    line-height: 1.6;
 }
 
 /* Hero Section */
 .hero {
-    text-align: center;
-    padding: 60px 20px 40px 20px;
+    background: linear-gradient(135deg, #6a11cb, #2575fc);
     color: #fff;
+    text-align: center;
+    padding: 80px 20px 40px 20px;
 }
 
 .hero h1 {
-    font-size: 48px;
-    margin: 0;
-    font-weight: 600;
+    font-size: 3rem;
+    margin-bottom: 10px;
 }
 
 .hero .tagline {
-    font-size: 18px;
+    font-size: 1.2rem;
     margin-top: 10px;
-    color: #e0e0e0;
 }
 
-/* Form Section */
+/* Form Container */
 .form-container {
     max-width: 500px;
-    margin: 20px auto 40px auto;
+    margin: 40px auto;
     background-color: #fff;
     padding: 30px;
     border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
 }
 
-form label {
+.form-container form label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     font-weight: 600;
 }
 
-form input {
+.form-container form input {
     width: 100%;
-    padding: 12px;
-    margin-bottom: 15px;
-    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
     border: 1px solid #ccc;
-    font-size: 16px;
-    box-sizing: border-box;
+    border-radius: 8px;
+    font-size: 1rem;
 }
 
+/* Info text under nickname */
+.info-text {
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: -15px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* WhatsApp input adjustments for intl-tel-input */
+#whatsapp {
+    padding-left: 55px; /* space for flag inside input */
+}
+
+.iti {
+    width: 100%;
+}
+
+.iti__flag-container {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Button */
 button#nextBtn {
     width: 100%;
-    padding: 14px;
-    background-color: #6a11cb;
+    padding: 12px;
+    background-color: #2575fc;
     color: #fff;
-    font-size: 18px;
+    font-size: 1.1rem;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background-color 0.3s ease;
 }
 
 button#nextBtn:hover {
-    background-color: #2575fc;
-}
-
-.info-text {
-    display: block;
-    font-size: 12px;
-    margin-top: -10px;
-    margin-bottom: 10px;
-    color: #555;
-    font-style: italic;
-    font-weight: bold;
+    background-color: #6a11cb;
 }
 
 /* Footer */
 .footer {
     text-align: center;
     padding: 20px;
-    background-color: rgba(255,255,255,0.1);
-    color: #fff;
-    font-size: 14px;
+    font-size: 0.9rem;
+    color: #777;
 }
