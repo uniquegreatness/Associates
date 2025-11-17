@@ -1,52 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Associates - Connect & Grow</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
-
-    <!-- intl-tel-input CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/css/intlTelInput.min.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Associates — Expand Your WhatsApp Network</title>
+  <meta name="description" content="Access curated contact lists by interest. Grow your WhatsApp status audience with real targeted connections." />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <header class="hero">
-        <div class="hero-content">
-            <h1>Associates</h1>
-            <p class="tagline">Connect with more people on WhatsApp and grow your network</p>
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="brand">Associates</div>
+      <div class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <button id="downloadTop" class="btn btn-primary small">DOWNLOAD CONTACTS</button>
+      </div>
+      <button id="navToggle" class="nav-toggle" aria-label="toggle menu">≡</button>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-grid">
+      <div class="hero-text">
+        <h1>Expand Your WhatsApp Network With Real, Targeted Connections Overnight</h1>
+        <p class="lead">
+          Access curated contact lists based on interests, build stronger engagement, discover local vendors, become visible to local and international customers and connect with friendly faces near you.
+        </p>
+
+        <div class="hero-ctas">
+          <a href="#download" id="ctaDownload" class="btn btn-primary large">DOWNLOAD CONTACTS</a>
+          <a href="#how" class="btn btn-ghost large">How it works</a>
         </div>
-    </header>
+      </div>
 
-    <main>
-        <div class="form-container">
-            <form id="landingForm">
-                <label for="whatsapp">WhatsApp Number</label>
-                <input type="tel" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
-
-                <label for="name">Name</label>
-                <input type="text" id="name" name="name" placeholder="Enter your name" required>
-
-                <label for="nickname">Nickname</label>
-                <input type="text" id="nickname" name="nickname" placeholder="Your WhatsApp display name" required>
-                <small class="info-text">
-                    <strong><em>This name is what new contacts will see on WhatsApp. Tip: add your business in brackets (e.g. David(shoe seller))</em></strong>
-                </small>
-
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="Enter your email" required>
-
-                <button type="submit" id="nextBtn">Next</button>
-            </form>
+      <div class="hero-card">
+        <div class="card-header">
+          <div class="card-title">Start growing your network</div>
+          <div class="card-sub">Free plan includes 5,000 contacts</div>
         </div>
-    </main>
 
-    <footer class="footer">
-        <p>&copy; 2025 Associates. All rights reserved.</p>
-    </footer>
+        <form id="quickForm" class="quick-form" autocomplete="off">
+          <label for="qPhone">WhatsApp number</label>
+          <input type="tel" id="qPhone" name="qPhone" placeholder="+234 801 234 5678" required>
 
-    <!-- intl-tel-input JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/intlTelInput.min.js"></script>
-    <script src="js/script.js"></script>
+          <label for="qNickname">Display name</label>
+          <input id="qNickname" name="qNickname" placeholder="Your WhatsApp display name" required>
+
+          <button type="submit" class="btn btn-primary">Get started</button>
+          <p class="tiny">You will be prompted to complete your profile and choose interest categories next.</p>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="features" class="section features">
+      <h2 class="section-title">Why Associates?</h2>
+      <p class="section-sub">Real people. Real interests. Real engagement.</p>
+
+      <div class="features-grid">
+        <article class="feature">
+          <div class="feature-index">1</div>
+          <h3>Download interest based contact files</h3>
+          <p>
+            Expand your WhatsApp reach instantly. Download contact files filled with real people who share your interests — business, football, entertainment, fashion, motivation, lifestyle and more. When you save these contacts and they save yours, your WhatsApp status audience grows fast with people who actually care about what you post.
+            No ads. No fake numbers. Just real mutual connections that bring real views.
+          </p>
+          <p class="feature-cta">Grow your audience. Grow your influence.</p>
+        </article>
+
+        <article class="feature">
+          <div class="feature-index">2</div>
+          <h3>Receive gifts on your birthday</h3>
+          <p>
+            Your special day should never pass unnoticed. Our community celebrates you. When it’s your birthday, members in your contact group can send you gifts, birthday wishes, airtime, or small surprises — a simple way to spread love and positivity.
+          </p>
+          <p class="feature-cta">Be celebrated — because you matter here.</p>
+        </article>
+
+        <article class="feature">
+          <div class="feature-index">3</div>
+          <h3>Find local vendors near you</h3>
+          <p>
+            Need a reliable vendor? Your contact group already has them. From hair stylists to fashion sellers, food vendors, logistics riders, event planners, gadget dealers, and more — your saved contacts automatically connect you to trusted local service providers around you.
+          </p>
+          <p class="feature-cta">Find what you need, faster and closer.</p>
+        </article>
+
+        <article class="feature">
+          <div class="feature-index">4</div>
+          <h3>Meet friends in your area</h3>
+          <p>
+            Your next friend, business partner, teammate, or collaborator might already be in your contact group. By downloading interest-based contacts, you discover people near you who share your hobbies, passions, goals, and lifestyle. Chat, connect, meet — and grow your social circle with real-life friendships.
+          </p>
+          <p class="feature-cta">Your community is closer than you think.</p>
+        </article>
+
+        <article class="feature">
+          <div class="feature-index">5</div>
+          <h3>Get paid to view status</h3>
+          <p>
+            Turn your WhatsApp into an income source. Some users and businesses want more visibility for their status updates — and they’re willing to pay for it. When you opt-in, you’ll receive weekly paid viewing campaigns where you earn simply by watching status updates from verified members or brands.
+          </p>
+          <p class="feature-cta">No stress. No requirements. Just view — and get paid.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="how" class="section how">
+      <div class="how-grid">
+        <div class="how-left">
+          <h2>How it works</h2>
+          <ol>
+            <li><strong>Sign up:</strong> Provide your WhatsApp number, display name and interests.</li>
+            <li><strong>Choose categories:</strong> Pick interests and content types relevant to you.</li>
+            <li><strong>Download contacts:</strong> Get .vcf files filtered by your chosen categories.</li>
+            <li><strong>Save & connect:</strong> Save contacts to your phone and start getting more views and replies.</li>
+          </ol>
+          <a href="#download" class="btn btn-secondary">Download Contacts</a>
+        </div>
+        <div class="how-right">
+          <div class="how-card">
+            <h3>Free plan</h3>
+            <p>Download up to <strong>5,000</strong> contacts per file. Upgrade anytime for higher limits and advanced filters.</p>
+            <ul>
+              <li>5000 contacts per file (free)</li>
+              <li>Category filtering</li>
+              <li>Basic support</li>
+            </ul>
+            <a class="btn btn-outline" href="#pricing">See pricing</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing" class="section pricing">
+      <h2 class="section-title">Pricing preview</h2>
+      <div class="pricing-grid">
+        <div class="price-card">
+          <h3>Free</h3>
+          <p class="price">₦0</p>
+          <p>Up to 5,000 contacts per download</p>
+        </div>
+        <div class="price-card">
+          <h3>Pro</h3>
+          <p class="price">₦2,500 / mo</p>
+          <p>Up to 50,000 contacts, advanced filters</p>
+        </div>
+        <div class="price-card">
+          <h3>Premium</h3>
+          <p class="price">Contact us</p>
+          <p>Custom limits & priority support</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="download" class="section cta-section">
+      <div class="cta-inner">
+        <h2>Ready to grow your WhatsApp reach?</h2>
+        <p>Download curated .vcf contact lists and start getting more views and connections today.</p>
+        <a id="downloadMain" class="btn btn-primary xlarge">DOWNLOAD CONTACTS</a>
+        <p class="tiny">Free users receive up to 5,000 contacts per file. Upgrade for larger files.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="brand">Associates</div>
+      <div class="footer-links">
+        <a href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#download">Download</a>
+      </div>
+      <p class="copyright">© 2025 Associates. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/script.js"></script>
 </body>
 </html>
