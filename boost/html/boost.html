@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost WhatsApp Views</title>
+<link rel="stylesheet" href="css/boost.css">
+</head>
+<body>
+
+<div class="boost-container">
+
+    <header>
+        <h2>Boost Your WhatsApp Views</h2>
+        <p>Select how many views you want and see the price update automatically</p>
+    </header>
+
+    <!-- How it works -->
+    <div class="how-it-works">
+        <h3>HOW IT WORKS:</h3>
+        <p>
+            Select how many views you want and pay the equivalent amount. After payment confirmation you get advertising credit which will continue depleting as you generate real organic views on WhatsApp.
+        </p>
+        <h3>HOW WE SEND VIEWERS TO YOU:</h3>
+        <p>
+            After payment you will receive a CRC (Credits Redemption Code) to post on any slide of your WhatsApp status. We display your contact alongside other boosters to our users so they can locate your code and view your status to redeem it. You get new CRC codes every day.
+        </p>
+    </div>
+
+    <!-- Slider Section -->
+    <div class="slider-section">
+        <label for="viewsSlider">Number of Views: <span id="viewsCount">500</span></label>
+        <input type="range" id="viewsSlider" min="500" max="100000" step="500" value="500">
+        <p>Total Price: $<span id="totalPrice">50</span></p>
+    </div>
+
+    <!-- Boost & Contact Section -->
+    <div class="action-buttons">
+        <button class="boost-btn" onclick="boostNow()">Boost Now</button>
+        <button class="contact-btn" onclick="contactUs()">Contact Us for More Views</button>
+    </div>
+
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">Back to Dashboard</button>
+
+</div>
+
+<script>
+const viewsSlider = document.getElementById('viewsSlider');
+const viewsCount = document.getElementById('viewsCount');
+const totalPrice = document.getElementById('totalPrice');
+
+// Update price based on slider
+function updatePrice(views) {
+    viewsCount.innerText = views;
+    totalPrice.innerText = (views * 0.10).toFixed(2);
+}
+
+viewsSlider.addEventListener('input', () => {
+    updatePrice(parseInt(viewsSlider.value));
+});
+
+// Boost Now button placeholder
+function boostNow() {
+    alert("Coming Soon!"); // Only displays "Coming Soon"
+}
+
+// Contact Us button
+function contactUs() {
+    window.location.href = "mailto:support@example.com?subject=Request%20for%20More%20Views&body=I%20would%20like%20to%20purchase%20more%20views%20than%20available%20on%20the%20slider.";
+}
+
+// Initialize
+updatePrice(parseInt(viewsSlider.value));
+</script>
+
+</body>
+</html>￼Enter
