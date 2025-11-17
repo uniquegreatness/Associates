@@ -3,31 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Associates - Landing Page</title>
+    <title>Associates - Connect & Grow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to Associates</h1>
-        <form id="landingForm">
-            <label for="whatsapp">WhatsApp Number</label>
-            <input type="text" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
+    <header class="hero">
+        <div class="hero-content">
+            <h1>Associates</h1>
+            <p class="tagline">Connect with more people on WhatsApp and grow your network</p>
+        </div>
+    </header>
 
-            <label for="name">Name</label>
-            <input type="text" id="name" name="name" placeholder="Enter your name" required>
+    <main>
+        <div class="form-container">
+            <form id="landingForm">
+                <label for="whatsapp">WhatsApp Number</label>
+                <input type="text" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
 
-            <label for="nickname">Nickname</label>
-            <input type="text" id="nickname" name="nickname" placeholder="Your WhatsApp display name" required>
-            <small class="info-text">
-                <strong><em>This name is the name that your new contact will see you as on WhatsApp (tips: if you run a business indicate it in brackets like David(shoe seller))</em></strong>
-            </small>
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" placeholder="Enter your name" required>
 
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                <label for="nickname">Nickname</label>
+                <input type="text" id="nickname" name="nickname" placeholder="Your WhatsApp display name" required>
+                <small class="info-text">
+                    <strong><em>This name is what new contacts will see on WhatsApp. Tip: add your business in brackets (e.g. David(shoe seller))</em></strong>
+                </small>
 
-            <button type="submit" id="nextBtn">Next</button>
-        </form>
-    </div>
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required>
+
+                <button type="submit" id="nextBtn">Next</button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2025 Associates. All rights reserved.</p>
+    </footer>
 
     <script src="js/script.js"></script>
 </body>
