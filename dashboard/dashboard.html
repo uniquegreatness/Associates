@@ -1,1 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Dashboard</title>
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
 
+<div class="dashboard-container">
+
+    <!-- HEADER -->
+    <header>
+        <h2>Welcome to Your Dashboard</h2>
+        <p>Your account overview and tools</p>
+    </header>
+
+    <!-- PROFILE SECTION -->
+    <div class="profile-section">
+        <h3>Profile</h3>
+        <p id="profileName">Name: John Doe</p>
+        <p id="profileEmail">Email: john@example.com</p>
+        <p id="profilePhone">WhatsApp: +1234567890</p>
+    </div>
+
+    <!-- BALANCE CARDS -->
+    <div class="balance-section">
+
+        <div class="balance-card">
+            <h3>Credits Balance</h3>
+            <p class="balance-number" id="creditsBalance">0</p>
+            <button class="action-btn small-btn" onclick="earnCredits()">Earn Credits</button>
+        </div>
+
+        <div class="balance-card">
+            <h3>Associates Coin</h3>
+            <p class="balance-number" id="coinBalance">0</p>
+            <button class="action-btn small-btn" onclick="mineCoin()">Mine Coin</button>
+        </div>
+
+    </div>
+
+    <!-- REFERRAL LINK -->
+    <div class="referral-box">
+        <input type="text" id="referralLink" value="https://example.com/referral" readonly>
+        <button onclick="copyReferral()">Copy</button>
+    </div>
+
+    <!-- ACTION BUTTONS HORIZONTAL -->
+    <div class="actions-horizontal">
+        <button class="action-btn">Download Contacts (VCF)</button>
+        <button class="action-btn" onclick="window.location.href='boost.html'">Boost WhatsApp Views</button>
+        <button class="action-btn">Birthday Club</button>
+        <button class="action-btn">Find Nearby Vendors</button>
+        <button class="action-btn">Meet Interest-Based Friends</button>
+    </div>
+
+    <!-- LEARN TO BUILD APPS SECTION -->
+    <div class="learn-apps-section">
+        <h3>Learn How I Turned My Idea into an App Using ChatGPT</h3>
+        <p>If you have that $1b idea and you don't know how to bring it to life, I can teach you step by step to see your ideas come alive. Even if you do not have ideas, join me as I walk you through how you can research and discover problems that need to be solved in any major multimillion dollar industries and how to use AI to build MONETIZABLE APPS to implement your solution and make money.</p>
+        <p>Join my WhatsApp group to learn how I use ChatGPT to develop this ASSOCIATES webapp without paid tools:</p>
+        <a href="https://chat.whatsapp.com/KgvB7TfRjUgEGYtAhYKOZv" target="_blank" class="whatsapp-link">Join WhatsApp Group</a>
+    </div>
+
+    <!-- LOGOUT BUTTON -->
+    <div class="logout-section">
+        <button class="logout-btn" onclick="logoutUser()">Logout</button>
+    </div>
+
+</div>
+
+<script src="js/script.js"></script>
+</body>
+</html>
