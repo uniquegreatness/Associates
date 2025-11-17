@@ -15,8 +15,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 })
                 .catch(() => callback("NG"));
         },
-        separateDialCode: false, // keep placeholder visible
-        dropdownContainer: document.body, // ensures dropdown is visible
+        separateDialCode: false, // keeps placeholder visible
+        dropdownContainer: document.body, // ensures flag dropdown is visible
         utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/utils.js",
     });
 
@@ -24,5 +24,6 @@ document.addEventListener("DOMContentLoaded", function() {
         e.preventDefault();
         const fullNumber = iti.getNumber();
         alert("Form submitted! Number: " + fullNumber);
+        // Future: window.location.href = "page2.html";
     });
 });
