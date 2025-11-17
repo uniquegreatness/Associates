@@ -6,6 +6,9 @@
     <title>Associates - Connect & Grow</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- intl-tel-input CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/css/intlTelInput.min.css"/>
 </head>
 <body>
     <header class="hero">
@@ -19,7 +22,7 @@
         <div class="form-container">
             <form id="landingForm">
                 <label for="whatsapp">WhatsApp Number</label>
-                <input type="text" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
+                <input type="tel" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
 
                 <label for="name">Name</label>
                 <input type="text" id="name" name="name" placeholder="Enter your name" required>
@@ -42,6 +45,8 @@
         <p>&copy; 2025 Associates. All rights reserved.</p>
     </footer>
 
+    <!-- intl-tel-input JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/intlTelInput.min.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>
