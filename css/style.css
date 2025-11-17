@@ -67,7 +67,8 @@ body {
 
 /* WhatsApp input adjustments for intl-tel-input */
 #whatsapp {
-    padding-left: 55px; /* space for flag inside input */
+    width: 100%;
+    padding-left: 50px; /* space for flag inside input */
 }
 
 .iti {
