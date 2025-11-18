@@ -27,7 +27,22 @@
         <div class="right-side">
             <div class="description">Increase WhatsApp views, get customers, meet local friends</div>
             <div class="logo">ASSOCIATES</div>
-            <button>Get Contacts</button>
+            <button id="getContactsBtn">Get Contacts</button>
+
+<script>
+    // Simulated user authentication check
+    document.getElementById('getContactsBtn').addEventListener('click', function() {
+        const user = localStorage.getItem('registeredUser');
+
+        if (user) {
+            // User exists, redirect to dashboard
+            window.location.href = 'dashboard.html';
+        } else {
+            // User not registered, redirect to signup page
+            window.location.href = 'signup.html';
+        }
+    });
+</script>
         </div>
     </div>
 </body>
