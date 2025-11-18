@@ -198,16 +198,17 @@
     });
 
     // --- Form Submission ---
+    <script>
     const form = document.getElementById('signupForm');
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        // Store minimal registration info for demo
-        localStorage.setItem('registeredUser', 'true');
-        alert('Signup successful!');
-        window.location.href = 'dashboard.html';
+        // Store minimal registration info temporarily
+        localStorage.setItem('registeredUserTemp', 'true');
+        // Redirect to email/password page
+        window.location.href = 'signup_credentials.html';
     });
-
 </script>
+ 
 
 </body>
 </html>
