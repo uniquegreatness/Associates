@@ -6,7 +6,7 @@ body {
 }
 
 .landing-container {
-    max-width: 500px;
+    max-width: 600px;
     margin: 50px auto;
     padding: 30px;
     background-color: #fff;
@@ -17,9 +17,10 @@ body {
 h1 {
     text-align: center;
     margin-bottom: 10px;
+    color: #007BFF;
 }
 
-.subtitle {
+.intro-text {
     text-align: center;
     margin-bottom: 25px;
     color: #555;
@@ -43,7 +44,7 @@ input[type="password"] {
 }
 
 .nickname-desc {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: #555;
     margin-top: 5px;
 }
