@@ -11,18 +11,29 @@
 
 <form id="signupForm">
 
-    <!-- WhatsApp Number with Country Picker -->
-    <label for="countryCode">Country:</label><br>
-    <select id="countryCode" name="countryCode" required>
-        <option value="">Select Country</option>
-        <option value="+234">Nigeria (+234)</option>
-        <option value="+1">United States (+1)</option>
-        <option value="+44">United Kingdom (+44)</option>
-        <!-- Add more countries as needed -->
-    </select><br><br>
+    <!-- WhatsApp Number with Country Flags and Codes -->
+<label for="whatsappNumber">WhatsApp Number:</label><br>
+<input type="tel" id="whatsappNumber" name="whatsappNumber" required><br><br>
 
-    <label for="whatsappNumber">WhatsApp Number:</label><br>
-    <input type="tel" id="whatsappNumber" name="whatsappNumber" placeholder="Enter your WhatsApp number" required><br><br>
+<!-- Include intl-tel-input CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/css/intlTelInput.min.css"/>
+
+<!-- Include intl-tel-input JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/intlTelInput.min.js"></script>
+
+<script>
+    const input = document.querySelector("#whatsappNumber");
+    const iti = window.intlTelInput(input, {
+        initialCountry: "auto",
+        geoIpLookup: function(success, failure) {
+            fetch('https://ipinfo.io/json?token=904952d10edf9e')
+            .then(resp => resp.json())
+            .then(resp => success(resp.country))
+            .catch(() => success("us"));
+        },
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/utils.js"
+    });
+                  </script>
 
     <!-- Nickname -->
     <label for="nickname">Nickname:</label><br>
