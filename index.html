@@ -3,39 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Landing Page</title>
+    <title>The Quality Life - Landing Page</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <div class="landing-container">
-    <h1>Welcome to Associates Platform</h1>
-    <p class="intro-text">Sign up and connect with like-minded people in your area.</p>
 
-    <form id="landingForm">
+    <header>
+        <h1>Welcome to The Quality Life</h1>
+        <p>Your journey to productivity, personal growth, and meaningful connections starts here.</p>
+    </header>
 
-        <!-- WhatsApp Number -->
-        <label for="whatsapp">WhatsApp Number:</label>
-        <input type="text" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
+    <main>
+        <form id="signupForm">
 
-        <!-- Nickname -->
-        <label for="nickname">Nickname:</label>
-        <input type="text" id="nickname" name="nickname" placeholder="Enter your nickname" required>
-        <p class="nickname-desc">This is how other users will see you on the platform.</p>
+            <!-- WhatsApp Number -->
+            <label for="whatsapp">WhatsApp Number:</label>
+            <input type="text" id="whatsapp" name="whatsapp" placeholder="Enter your WhatsApp number" required>
 
-        <!-- Email -->
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+            <!-- Nickname -->
+            <label for="nickname">Nickname:</label>
+            <input type="text" id="nickname" name="nickname" placeholder="Enter your nickname" required>
+            <p class="nickname-desc">
+                This nickname will be visible to other users on the platform. Choose something unique that represents you!
+            </p>
 
-        <!-- Password -->
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            <!-- Email -->
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" placeholder="Enter your email" required>
 
-        <button type="submit" class="submit-btn">Next</button>
+            <!-- Password -->
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" placeholder="Enter your password" required>
 
-    </form>
+            <button type="submit" class="submit-btn">Next</button>
+
+        </form>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 The Quality Life. All rights reserved.</p>
+    </footer>
+
 </div>
 
-<script src="js/script.js"></script>
 </body>
 </html>
