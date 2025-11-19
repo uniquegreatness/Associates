@@ -38,7 +38,8 @@ let buttons = [
     { name: "Public Opinion", category: "bottom" },
     { name: "Mentors", category: "bottom" },
     { name: "RS AI", category: "bottom" },
-    { name: "Resellable", category: "bottom" }
+    { name: "Resellable", category: "bottom" },
+    { name: "Public", category: "bottom" } // <-- added
 ];
 
 // Function to render buttons
