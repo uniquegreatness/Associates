@@ -2,6 +2,28 @@ const sideMenu = document.getElementById('sideMenu');
 const openBtn = document.getElementById('openSideMenu');
 const closeBtn = document.getElementById('closeSideMenu');
 const bottomButtonsContainer = document.getElementById('bottomButtons');
+const circleBtn = document.getElementById('circleBtn');
+const bottomButtons = document.getElementById('bottomButtons');
+
+circleBtn.addEventListener('click', () => {
+    const isOpen = !bottomButtons.classList.contains('hidden');
+
+    if (isOpen) {
+        // Hide bottom buttons
+        bottomButtons.classList.add('hidden');
+        // Move circle to left
+        circleBtn.style.left = '20px';
+        circleBtn.style.transform = 'translateX(0)';
+        circleBtn.textContent = '☰'; // optional icon change
+    } else {
+        // Show bottom buttons
+        bottomButtons.classList.remove('hidden');
+        // Move circle back to middle
+        circleBtn.style.left = '50%';
+        circleBtn.style.transform = 'translateX(-50%)';
+        circleBtn.textContent = '+'; // optional icon
+    }
+});
 
 // Define all buttons and their categories
 let buttons = [
