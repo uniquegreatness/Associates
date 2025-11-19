@@ -217,8 +217,32 @@
     const form = document.getElementById('signupForm');
     form.addEventListener('submit', function(e) {
         e.preventDefault();
+        
         // Store minimal registration info temporarily
-        localStorage.setItem('registeredUserTemp', 'true');
+
+document.getElementById("continueBtn").addEventListener("click", () => {
+    const phone = document.getElementById("phone").value.trim();
+    const fullName = document.getElementById("fullName").value.trim();
+    const nickname = document.getElementById("nickname").value.trim();
+    const interests = document.getElementById("interests").value.trim();
+    const recommend = document.getElementById("recommend").value.trim();
+
+    if (!phone || !fullName || !nickname || !interests || !recommend) {
+        alert("Please fill all fields");
+        return;
+    }
+
+    // Save all info for next page
+    localStorage.setItem("signup_phone", phone);
+    localStorage.setItem("signup_fullName", fullName);
+    localStorage.setItem("signup_nickname", nickname);
+    localStorage.setItem("signup_interests", interests);
+    localStorage.setItem("signup_recommend", recommend);
+
+    // Move to final signup step
+    window.location.href = "signup_credentials.html";
+});
+        
         // Redirect to email/password page
         window.location.href = 'signup_credentials.html';
     });
