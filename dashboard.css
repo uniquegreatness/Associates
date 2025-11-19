@@ -91,7 +91,7 @@ body, html {
 /* Circle Button */
 .circle-btn {
     position: fixed;
-    bottom: 20px;
+    bottom: 5px; /* same level as bottom buttons */
     left: 50%;
     transform: translateX(-50%);
     width: 60px;
@@ -106,13 +106,24 @@ body, html {
     transition: all 0.3s ease;
 }
 
-/* Hidden Bottom Buttons - initially hidden */
+/* Hidden Bottom Buttons */
 #bottomButtons {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    padding: 5px;
+    box-sizing: border-box;
+    background-color: #fff;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
 }
-#bottomButtons.show {
+
+#bottomButtons.visible {
     opacity: 1;
     pointer-events: auto;
 }
