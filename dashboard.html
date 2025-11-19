@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<!-- Collapsible Side Menu -->
+<div id="sideMenu" class="side-menu">
+    <button id="closeSideMenu" class="close-btn">&times;</button>
+    <button class="side-btn" data-name="Profile">Profile</button>
+    <button class="side-btn" data-name="Download Contacts">Download Contacts</button>
+    <button class="side-btn" data-name="Undefined1">Undefined</button>
+    <button class="side-btn" data-name="Undefined2">Undefined</button>
+</div>
+
+<!-- Hamburger button to expand side menu -->
+<button id="openSideMenu" class="hamburger-btn">&#9776;</button>
+
+<!-- Main Dashboard Area -->
+<div id="dashboardContent">
+    <h1>Dashboard</h1>
+    <div id="bottomButtons">
+        <button class="bottom-btn" data-name="Public Opinion">Public Opinion</button>
+        <button class="bottom-btn" data-name="Mentors">Mentors</button>
+        <button class="bottom-btn" data-name="RS AI">RS AI</button>
+        <button class="bottom-btn" data-name="Resellable">Resellable</button>
+    </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
