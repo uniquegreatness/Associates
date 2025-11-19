@@ -6,23 +6,19 @@ const circleBtn = document.getElementById('circleBtn');
 const bottomButtons = document.getElementById('bottomButtons');
 
 circleBtn.addEventListener('click', () => {
-    const isOpen = !bottomButtons.classList.contains('hidden');
+    const isShown = bottomButtons.classList.contains('show');
 
-    if (isOpen) {
-        // Hide bottom buttons
-        bottomButtons.classList.add('hidden');
-        // Move circle to left
-        circleBtn.style.left = '20px';
-        circleBtn.style.transform = 'translateX(0)';
-        circleBtn.textContent = '☰'; // optional icon change
-    } else {
-        // Show bottom buttons
-        bottomButtons.classList.remove('hidden');
-        // Move circle back to middle
-        circleBtn.style.left = '50%';
-        circleBtn.style.transform = 'translateX(-50%)';
-        circleBtn.textContent = '+'; // optional icon
-    }
+if (isShown) {
+    bottomButtons.classList.remove('show');
+    circleBtn.style.left = '20px';
+    circleBtn.style.transform = 'translateX(0)';
+    circleBtn.textContent = '☰';
+} else {
+    bottomButtons.classList.add('show');
+    circleBtn.style.left = '50%';
+    circleBtn.style.transform = 'translateX(-50%)';
+    circleBtn.textContent = '+';
+}
 });
 
 // Define all buttons and their categories
