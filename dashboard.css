@@ -66,8 +66,14 @@ body, html {
 
 /* Bottom Buttons */
 #bottomButtons {
-    margin-top: 30px;
+    position: fixed;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    padding-bottom: 10px;
 }
+
 
 .bottom-btn {
     padding: 10px 15px;
