@@ -220,32 +220,45 @@
         
         // Store minimal registration info temporarily
 
-document.getElementById("continueBtn").addEventListener("click", () => {
-    const phone = document.getElementById("phone").value.trim();
-    const fullName = document.getElementById("fullName").value.trim();
-    const nickname = document.getElementById("nickname").value.trim();
-    const interests = document.getElementById("interests").value.trim();
-    const recommend = document.getElementById("recommend").value.trim();
+const form = document.getElementById('signupForm');
+form.addEventListener('submit', function(e) {
+    e.preventDefault();
 
-    if (!phone || !fullName || !nickname || !interests || !recommend) {
-        alert("Please fill all fields");
-        return;
-    }
+    // --- Collect all form values ---
+    const whatsappNumber = document.getElementById('whatsappNumber').value.trim();
+    const fullName = document.getElementById('fullname').value.trim();
+    const nickname = document.getElementById('nickname').value.trim();
+    const age = document.getElementById('age').value;
+    const gender = document.getElementById('gender').value;
+    const country = document.getElementById('country').value;
+    const state = document.getElementById('state').value;
+    const city = document.getElementById('city').value;
 
-    // Save all info for next page
-    localStorage.setItem("signup_phone", phone);
-    localStorage.setItem("signup_fullName", fullName);
-    localStorage.setItem("signup_nickname", nickname);
-    localStorage.setItem("signup_interests", interests);
-    localStorage.setItem("signup_recommend", recommend);
+    // --- Collect selected hobbies ---
+    const selectedHobbiesArray = Array.from(selectedHobbies);
 
-    // Move to final signup step
-    window.location.href = "signup_credentials.html";
+    // --- Collect selected services (Recommend Me To Customers) ---
+    const selectedServicesArray = Array.from(selectedServices);
+
+    // --- Collect selected friends reasons (Recommend Me To Nearby Friends) ---
+    const selectedFriendsArray = Array.from(selectedFriends);
+
+    // --- Save all info temporarily to localStorage ---
+    localStorage.setItem('signup_whatsappNumber', whatsappNumber);
+    localStorage.setItem('signup_fullName', fullName);
+    localStorage.setItem('signup_nickname', nickname);
+    localStorage.setItem('signup_age', age);
+    localStorage.setItem('signup_gender', gender);
+    localStorage.setItem('signup_country', country);
+    localStorage.setItem('signup_state', state);
+    localStorage.setItem('signup_city', city);
+    localStorage.setItem('signup_hobbies', JSON.stringify(selectedHobbiesArray));
+    localStorage.setItem('signup_services', JSON.stringify(selectedServicesArray));
+    localStorage.setItem('signup_friends', JSON.stringify(selectedFriendsArray));
+
+    // --- Redirect to email/password page ---
+    window.location.href = 'signup_credentials.html';
 });
-        
-        // Redirect to email/password page
-        window.location.href = 'signup_credentials.html';
-    });
 </script>
  
 
