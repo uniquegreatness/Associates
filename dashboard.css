@@ -1,0 +1,77 @@
+/* General reset */
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+/* Side Menu */
+.side-menu {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    background-color: #111;
+    overflow-x: hidden;
+    transition: 0.3s;
+    padding-top: 60px;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-menu .side-btn {
+    padding: 15px 25px;
+    text-align: left;
+    border: none;
+    background: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.side-menu .side-btn:hover {
+    background-color: #575757;
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 36px;
+    background: none;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+/* Hamburger Button */
+.hamburger-btn {
+    font-size: 30px;
+    cursor: pointer;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1100;
+    background: none;
+    border: none;
+}
+
+/* Dashboard Content */
+#dashboardContent {
+    padding: 20px;
+    transition: margin-left 0.3s;
+}
+
+/* Bottom Buttons */
+#bottomButtons {
+    margin-top: 30px;
+}
+
+.bottom-btn {
+    padding: 10px 15px;
+    margin-right: 10px;
+    margin-top: 10px;
+    cursor: pointer;
+}
