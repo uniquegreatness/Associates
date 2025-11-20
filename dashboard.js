@@ -4,34 +4,27 @@ const closeBtn = document.getElementById('closeSideMenu');
 const bottomButtonsContainer = document.getElementById('bottomButtons');
 const circleBtn = document.getElementById('circleBtn');
 
-// Circle button click behavior
-// Correct toggle logic for showing/hiding bottom buttons
+// FIXED circle button + bottom buttons logic
 circleBtn.addEventListener('click', () => {
     const container = document.getElementById('bottomButtons');
 
-    const isVisible = container.classList.contains('visible');
-
-    if (!isVisible) {
-        // Slide circle left and shrink it
+    if (!container.classList.contains('visible')) {
         circleBtn.style.left = '20px';
-        circleBtn.style.transform = 'translateX(0) scale(0.8)';
+        circleBtn.style.transform = 'scale(0.8)';
         container.classList.add('visible');
     } else {
-        // Return circle to center
-        circleBtn.style.left = '50%';
-        circleBtn.style.transform = 'translateX(-50%) scale(1)';
+        circleBtn.style.left = '20px'; // stays on the left
+        circleBtn.style.transform = 'scale(1)';
         container.classList.remove('visible');
     }
 });
 
-// Hide the bottom buttons after clicking any of them
+// hide bottom buttons when a bottom button is clicked
 document.getElementById('bottomButtons').addEventListener('click', (e) => {
     if (e.target.classList.contains('bottom-btn')) {
         const container = document.getElementById('bottomButtons');
         container.classList.remove('visible');
-
-        circleBtn.style.left = '50%';
-        circleBtn.style.transform = 'translateX(-50%) scale(1)';
+        circleBtn.style.transform = 'scale(1)';
     }
 });
 
