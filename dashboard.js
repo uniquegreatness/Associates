@@ -3,32 +3,21 @@ const openBtn = document.getElementById('openSideMenu');
 const closeBtn = document.getElementById('closeSideMenu');
 const bottomButtonsContainer = document.getElementById('bottomButtons');
 const circleBtn = document.getElementById('circleBtn');
+
+// Circle button click behavior
+circleBtn.addEventListener('click', () => {
+    // Shrink circle
+    circleBtn.style.transform = 'scale(0.5)';
+
+    // Hide bottom bar and bottom buttons
+    document.getElementById('bottomBar').style.display = 'none';
+    bottomButtons.classList.add('visible');
+    bottomButtons.style.opacity = '1';
+});
+
 const bottomButtons = document.getElementById('bottomButtons');
 
-circleBtn.addEventListener('click', () => {
-    const isVisible = bottomButtons.classList.contains('visible');
 
-    if (!isVisible) {
-        // Move circle left and shrink
-        circleBtn.style.left = '20px';
-        circleBtn.style.transform = 'translateX(0) scale(0.8)';
-        bottomButtons.classList.add('visible');
-    } else {
-        // Move circle back to center and reset size
-        circleBtn.style.left = '50%';
-        circleBtn.style.transform = 'translateX(-50%) scale(1)';
-        bottomButtons.classList.remove('visible');
-    }
-});
-
-// Hide bottom buttons and return circle to center on any bottom button click
-bottomButtons.addEventListener('click', (e) => {
-    if (e.target.classList.contains('bottom-btn')) {
-        bottomButtons.classList.remove('visible');
-        circleBtn.style.left = '50%';
-        circleBtn.style.transform = 'translateX(-50%) scale(1)';
-    }
-});
 // Define all buttons and their categories
 let buttons = [
     { name: "Profile", category: "side" },
