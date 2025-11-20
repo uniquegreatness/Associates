@@ -15,8 +15,6 @@ circleBtn.addEventListener('click', () => {
     bottomButtons.style.opacity = '1';
 });
 
-const bottomButtons = document.getElementById('bottomButtons');
-
 
 // Define all buttons and their categories
 let buttons = [
