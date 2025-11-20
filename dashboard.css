@@ -106,21 +106,44 @@ body, html {
     transition: all 0.3s ease;
 }
 
-/* Hidden Bottom Buttons */
+/* Bottom Buttons Wrapper (optional if you want them centered vertically) */
 #bottomButtons {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    justify-content: space-evenly;
-    align-items: center;
+    gap: 10px;
     padding: 5px;
-    box-sizing: border-box;
-    background-color: #fff;
+    background-color: #fff; /* optional for visibility */
+    border-radius: 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
+    z-index: 1100;
+}
+
+#bottomButtons.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.bottom-btn {
+    padding: 10px 15px;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    background-color: #007bff;
+    color: white;
+    transition: background-color 0.2s;
+}
+
+.bottom-btn:hover {
+    background-color: #0056b3;
 }
 
 #bottomButtons.visible {
