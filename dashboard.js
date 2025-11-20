@@ -84,8 +84,33 @@ function loadStreetsPage(){
         });
 }
 
-// Load Streets page by default
-loadStreetsPage();
+// Function to load any page dynamically into the dashboard
+function loadPage(pageName) {
+    let url = '';
+    if(pageName === 'Public Opinion') url = 'streets.html';
+    // Add more pages here later if needed
+
+    if(!url) return;
+
+    fetch(url)
+        .then(res => res.text())
+        .then(html => {
+            contentContainer.innerHTML = html;
+
+            // Load the page-specific JS if needed
+            const script = document.createElement('script');
+            script.src = pageName === 'Public Opinion' ? 'streets.js' : '';
+            document.body.appendChild(script);
+
+            // Hide the button of the currently loaded page
+            bottomButtons.querySelectorAll('.bottom-btn').forEach(btn => {
+                btn.style.display = btn.dataset.name === pageName ? 'none' : 'inline-block';
+            });
+        });
+}
+
+// Load Streets page by default on dashboard
+loadPage('Public Opinion');
 
 // Optional: if you want bottom buttons later to load other content inside this same container,
 // you can add event listeners like this:
