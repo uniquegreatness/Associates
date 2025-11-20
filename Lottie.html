@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emoji Story Prototype</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.10.1/lottie.min.js"></script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        background: #f0f0f0;
+    }
+    h1 { margin-bottom: 10px; }
+    #inputSection { margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    input, select, button { padding: 10px; font-size: 16px; }
+    #animationContainer {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    .emojiAnimation { width: 100px; height: 100px; }
+</style>
+</head>
+<body>
+
+<h1>Emoji Story Prototype</h1>
+
+<div id="inputSection">
+    <input type="text" id="userText" placeholder="Type your text here" />
+    <select id="bgMusicSelect">
+        <option value="">Select background sound</option>
+        <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Sound 1</option>
+        <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3">Sound 2</option>
+        <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3">Sound 3</option>
+    </select>
+    <button id="playBtn">Play Emoji Story</button>
+</div>
+
+<div id="animationContainer"></div>
+
+<audio id="bgAudio" controls style="margin-top: 20px;"></audio>
+
+<script>
+    // Map keywords to Lottie animation URLs (free examples)
+    const emojiMap = {
+        "strong": "https://assets7.lottiefiles.com/packages/lf20_2xq7K8.json",
+        "happy": "https://assets7.lottiefiles.com/packages/lf20_9q4hF5.json",
+        "love": "https://assets7.lottiefiles.com/packages/lf20_c4xGZ6.json",
+        "laugh": "https://assets7.lottiefiles.com/packages/lf20_HxVJoS.json",
+        "sad": "https://assets7.lottiefiles.com/packages/lf20_6ftN5T.json"
+    };
+
+    const playBtn = document.getElementById('playBtn');
+    const animationContainer = document.getElementById('animationContainer');
+    const bgAudio = document.getElementById('bgAudio');
+    const bgMusicSelect = document.getElementById('bgMusicSelect');
+
+    playBtn.addEventListener('click', () => {
+        const text = document.getElementById('userText').value.trim();
+        if (!text) return alert('Please type some text!');
+
+        animationContainer.innerHTML = ''; // Clear previous animations
+        const words = text.split(' ');
+
+        // Play background music
+        if (bgMusicSelect.value) {
+            bgAudio.src = bgMusicSelect.value;
+            bgAudio.play();
+        }
+
+        // Render animations sequentially
+        words.forEach((word, index) => {
+            const key = word.toLowerCase();
+            const animURL = emojiMap[key] || "https://assets7.lottiefiles.com/packages/lf20_2xq7K8.json"; // default strong emoji
+            const div = document.createElement('div');
+            div.className = 'emojiAnimation';
+            animationContainer.appendChild(div);
+            lottie.loadAnimation({
+                container: div,
+                renderer: 'svg',
+                loop: true,
+                autoplay: true,
+                path: animURL
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
