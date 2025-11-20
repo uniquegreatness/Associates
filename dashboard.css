@@ -91,9 +91,8 @@ body, html {
 /* Circle Button */
 .circle-btn {
     position: fixed;
-    bottom: 5px; /* same level as bottom buttons */
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 20px;
+    left: 20px; /* left by default */
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -106,29 +105,31 @@ body, html {
     transition: all 0.3s ease;
 }
 
-/* Bottom Buttons Wrapper (optional if you want them centered vertically) */
-#bottomButtons {
+/* Bottom Buttons Wrapper */
+#bottomButtonsWrapper {
     position: fixed;
     bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 100px; /* leave space for circle button */
+    right: 20px;
     display: flex;
-    gap: 10px;
-    padding: 5px;
-    background-color: #fff; /* optional for visibility */
-    border-radius: 30px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    justify-content: center;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
     z-index: 1100;
 }
 
-#bottomButtons.visible {
+#bottomButtonsWrapper.visible {
     opacity: 1;
     pointer-events: auto;
 }
 
+#bottomButtons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Bottom buttons */
 .bottom-btn {
     padding: 10px 15px;
     cursor: pointer;
@@ -144,6 +145,20 @@ body, html {
 
 .bottom-btn:hover {
     background-color: #0056b3;
+}
+
+/* Bottom bar for words of affirmation */
+#bottomBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px 20px;
+    background-color: #f5f5f5;
+    font-size: 16px;
+    text-align: center;
+    box-sizing: border-box;
+    z-index: 1000;
 }
 
 #bottomButtons.visible {
