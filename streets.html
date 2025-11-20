@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Public Feed</title>
+<link rel="stylesheet" href="public.css">
+</head>
+<body>
+
+<main id="app">
+  <header class="topbar">
+    <h1>Public</h1>
+    <div id="viewerInfo">You: <span id="viewerName">You</span> <small id="viewerCountryLabel"></small></div>
+  </header>
+
+  <section id="feed"></section>
+
+  <!-- comment modal -->
+  <div id="commentModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Comments</h3>
+      <div id="commentsList"></div>
+      <textarea id="commentInput" placeholder="Write a comment"></textarea>
+      <div class="modal-actions">
+        <button id="postCommentBtn">Post</button>
+        <button id="closeCommentBtn">Close</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="public.js"></script>
+</body>
+</html>￼Enter
