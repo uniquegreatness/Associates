@@ -80,3 +80,33 @@ closeBtn.addEventListener('click', () => sideMenu.style.width = '0');
 //     buttons.find(b => b.name === "Profile").category = "bottom";
 //     renderButtons();
 // }, 3000);
+
+// SPA container
+const contentContainer = document.getElementById('streetsPageContainer');
+
+// Function to load Streets page content dynamically
+function loadStreetsPage(){
+    fetch('streets.html') // your Streets page HTML file
+        .then(res => res.text())
+        .then(html => {
+            contentContainer.innerHTML = html;
+            // load the Streets JS after inserting HTML
+            const script = document.createElement('script');
+            script.src = 'streets.js';
+            document.body.appendChild(script);
+        });
+}
+
+// Load Streets page by default
+loadStreetsPage();
+
+// Optional: if you want bottom buttons later to load other content inside this same container,
+// you can add event listeners like this:
+const bottomBtns = document.querySelectorAll('.bottom-btn');
+bottomBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        if(name === 'Public Opinion'){ loadStreetsPage(); }
+        // add other conditional renders for other buttons here
+    });
+});
