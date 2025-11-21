@@ -169,16 +169,17 @@ body, html {
     position: fixed;
     bottom: 0;
     left: 0;
-    width: 100%;
-    background: #111;
+    right: 80px; /* leaves space for circle button */
+    height: 60px;
+    background-color: #111;
     color: white;
-    padding: 12px 15px;
+    padding: 0 15px;
     font-size: 15px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
     z-index: 1100;
-    display: block;
-    min-height: 40px; /* ensures it always shows */
-    line-height: 40px; /* vertically center text */
+    box-sizing: border-box;
 }
 
 /* --- CLEAN WORKING BOTTOM BUTTONS WRAPPER --- */
@@ -209,8 +210,8 @@ body, html {
 /* --- FIXED CIRCLE BUTTON --- */
 .circle-btn {
     position: fixed;
-    bottom: 70px; /* Move above bottom bar */
-    left: 20px; 
+    bottom: 0; /* same baseline as bottom bar */
+    right: 10px; /* float to the right */
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -219,6 +220,6 @@ body, html {
     font-size: 30px;
     border: none;
     cursor: pointer;
-    z-index: 1300;
+    z-index: 1200;
     transition: all 0.3s ease;
 }
