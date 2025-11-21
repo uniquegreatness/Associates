@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>Dynamic Dashboard</title>
     <style>
+        /* --- PART 1: CSS STYLING --- */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -13,110 +14,117 @@
         }
 
         :root {
-            --circle-size: 60px;
-            --bar-height: 60px;
-            --primary: #333;
+            --trigger-alignment: 10px; 
+            /* Reduced circle and bar size by 15% (60 * 0.85 = 51) */
+            --circle-size: 51px; 
+            --bar-height: 51px;
             --accent: #007bff;
-            --sidebar-collapsed-width: 60px;
-            --sidebar-expanded-width: 220px;
+            --text-dark: #333;
+            --bg-color: #f4f4f4;
+            --spacing-bottom: 10px; 
+            --spacing-right: 10px;
+            
+            /* Calculated button height for 30% visual increase (51px * 1.3 ≈ 66px) */
+            --new-button-visual-height: 66px; 
         }
 
         body {
-            overflow: hidden; /* We scroll the dashboard-content, not the body */
-            background: #f4f4f4;
+            overflow: hidden;
+            background: var(--bg-color);
+            color: var(--text-dark);
         }
 
-        /* --- SIDEBAR (OVERLAY) --- */
+        /* --- 1. TOP HAMBURGER BUTTON (Sidebar Trigger) --- */
+        .toggle-sidebar-btn {
+            position: fixed;
+            top: 20px; 
+            left: var(--trigger-alignment);
+            background: none;
+            border: none;
+            color: var(--text-dark);
+            font-size: 28px;
+            cursor: pointer;
+            z-index: 2000;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .toggle-sidebar-btn::after { content: "☰"; display: block; }
+        .toggle-sidebar-btn.is-open::after { content: "✕"; color: #ff4444; }
+
+        /* --- 2. SIDEBAR --- */
         .sidebar {
             position: fixed;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: var(--sidebar-collapsed-width);
-            background: #222;
-            color: white;
+            top: 70px; 
+            left: var(--trigger-alignment);
+            width: auto;
+            height: auto;
+            z-index: 1000;
+            pointer-events: none;
             display: flex;
             flex-direction: column;
-            transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            z-index: 1000; /* Sits on top of content */
-            overflow: hidden;
-            white-space: nowrap;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            align-items: flex-start;
+            gap: 8px;
         }
 
-        .sidebar.expanded {
-            width: var(--sidebar-expanded-width);
-        }
-
-        .toggle-sidebar-btn {
-            background: none;
+        .sidebar button {
+            background: #333;
             border: none;
             color: white;
-            font-size: 24px;
-            padding: 15px;
-            cursor: pointer;
-            text-align: center;
-            width: var(--sidebar-collapsed-width);
-            border-bottom: 1px solid #444;
-        }
-
-        .sidebar nav {
-            opacity: 0;
-            transition: opacity 0.2s ease-in;
-            pointer-events: none; /* Can't click when hidden */
-            display: flex;
-            flex-direction: column;
-        }
-
-        .sidebar.expanded nav {
-            opacity: 1;
-            pointer-events: auto;
-            transition-delay: 0.1s; /* Wait for width to expand slightly */
-        }
-
-        .sidebar nav button {
-            background: none;
-            border: none;
-            color: #ccc;
-            padding: 15px 20px;
+            padding: 8px 12px;
             text-align: left;
             cursor: pointer;
-            transition: 0.2s;
-            font-size: 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 13px;
+            width: fit-content;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
         }
 
-        .sidebar nav button:hover {
-            background: #333;
-            color: white;
-        }
+        .sidebar button:hover { background: var(--accent); transform: translateX(5px); }
+        .sidebar.expanded button { opacity: 1; transform: translateX(0); pointer-events: auto; }
+        .sidebar.expanded button:nth-child(1) { transition-delay: 0.05s; }
+        .sidebar.expanded button:nth-child(2) { transition-delay: 0.10s; }
+        .sidebar.expanded button:nth-child(3) { transition-delay: 0.15s; }
+        .sidebar.expanded button:nth-child(4) { transition-delay: 0.20s; }
 
-        /* --- MAIN CONTENT --- */
+        /* --- 3. MAIN CONTENT --- */
         .dashboard-content {
-            height: 100vh;
+            position: fixed;
+            top: 70px;
+            left: 0;
             width: 100%;
-            overflow-y: auto; /* Scroll happens here */
-            padding: 40px;
-            /* Push content slightly so it's not behind the collapsed sidebar */
-            padding-left: calc(var(--sidebar-collapsed-width) + 20px);
-            padding-bottom: 120px; /* Space for bottom UI */
-            transition: none; /* Content never moves */
+            height: calc(100vh - 70px - var(--bar-height) - var(--spacing-bottom));
+            overflow-y: auto;
+            padding: 0 20px;
         }
 
-        /* --- BOTTOM UI CONTAINER --- */
+        /* --- 4. BOTTOM UI CONTAINER (Floating) --- */
         .bottom-ui-container {
             position: fixed;
-            bottom: 20px;
-            /* Fixed left position based on collapsed sidebar */
-            left: calc(var(--sidebar-collapsed-width) + 20px); 
-            right: 20px;
-            height: var(--bar-height);
+            bottom: var(--spacing-bottom); 
+            left: var(--trigger-alignment);
+            right: var(--spacing-right); 
+            
+            /* Setting container height to accommodate the larger active buttons */
+            height: var(--new-button-visual-height); 
+            
             display: flex;
-            align-items: flex-end; /* Aligns bottom of circle and bar */
-            pointer-events: none; /* Let clicks pass through empty space */
+            align-items: flex-end; /* Aligning circle and bar to the same baseline */
+            pointer-events: none;
             z-index: 900;
         }
 
-        /* 1. The Circle */
+        /* Circle Button */
         .circle-trigger {
             width: var(--circle-size);
             height: var(--circle-size);
@@ -124,196 +132,278 @@
             border-radius: 50%;
             cursor: pointer;
             pointer-events: auto;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: background-color 0.3s, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-size: 24px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            margin-right: 10px;
+            z-index: 902;
         }
 
-        /* Active State: Shrink Circle */
-        .bottom-ui-container.active .circle-trigger {
-            transform: scale(0.5);
+        .circle-trigger::after { content: "☰"; display: block; }
+        .bottom-ui-container.active .circle-trigger::after { content: "✕"; }
+        
+        /* CIRCLE SHRINK */
+        .bottom-ui-container.active .circle-trigger { 
+            background-color: #333;
+            transform: scale(0.5); /* Shrinks to half size */
         }
 
-        /* 2. The Bar */
+        /* Bar */
         .bottom-bar {
-            flex-grow: 1;
-            height: var(--bar-height);
-            background-color: white;
-            margin-left: 15px; /* Gap between circle and bar */
-            border-radius: 30px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            padding: 0 25px;
-            transform-origin: left center;
-            transition: opacity 0.2s ease, transform 0.2s ease;
-            pointer-events: auto;
-        }
-
-        .bottom-bar span {
-            font-weight: 500;
-            color: #555;
-        }
-
-        /* Active State: Hide Bar */
-        .bottom-ui-container.active .bottom-bar {
-            opacity: 0;
-            transform: translateX(-20px);
-            pointer-events: none;
-        }
-
-        /* 3. The Pop-out Buttons */
-        .bottom-menu {
-            position: absolute;
-            left: calc(var(--circle-size) + 15px); /* Starts where bar starts */
+            position: absolute; 
+            left: calc(var(--circle-size) + 10px); 
+            right: 0;
             bottom: 0;
             height: var(--bar-height);
+            background-color: white;
+            border-radius: 20px 0 0 20px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             display: flex;
             align-items: center;
-            gap: 10px;
+            padding: 0 20px;
+            transition: opacity 0.2s ease;
+            pointer-events: auto;
+            z-index: 901;
+        }
+
+        .bottom-ui-container.active .bottom-bar {
+            opacity: 0;
             pointer-events: none;
         }
 
+        /* --- 5. BOTTOM MENU GRID CONTAINER --- */
+        .bottom-menu {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            /* Height matches the container height for the larger buttons */
+            height: var(--new-button-visual-height); 
+            
+            /* FIX: Shift left to prevent overlap with the SHRINKING circle */
+            left: calc(var(--circle-size) * 0.5 + 10px); 
+            transition: left 0.3s ease; 
+            
+            /* FIX: 6 visible buttons distributed evenly */
+            display: grid;
+            grid-template-columns: repeat(6, 1fr); 
+            gap: 2px;
+            
+            overflow: hidden;
+            pointer-events: none;
+            padding-right: 5px;
+        }
+
+        /* Transparent Button Styling */
         .float-btn {
-            padding: 10px 25px;
-            border-radius: 25px;
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center;
+            
+            background: transparent; 
+            color: var(--text-dark); 
+            
+            /* Padding adjusted to fill new container height */
+            padding: 10px 1px; 
+            font-size: 10px; 
+            border-radius: 15px;
             border: none;
-            background: #333;
-            color: white;
-            font-weight: bold;
+            font-weight: 600;
             cursor: pointer;
             opacity: 0;
-            transform: translateX(-40px) scale(0.8);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translateY(20px); 
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            line-height: 1.1;
         }
         
-        .float-btn:hover {
-            background: #444;
-        }
+        .float-btn:hover { background: rgba(0, 0, 0, 0.1); }
 
-        /* Active State: Show Buttons */
+        /* --- 30% BIGGER BUTTONS WHEN ACTIVE --- */
         .bottom-ui-container.active .bottom-menu .float-btn {
+            font-size: 11px; 
+            /* Ensure sufficient padding for the larger visual size */
+            padding: 12px 1px; 
             opacity: 1;
-            transform: translateX(0) scale(1);
-            pointer-events: auto;
+            transform: translateY(0);
         }
+        
+        .float-btn svg {
+            width: 14px; 
+            height: 14px; 
+            fill: var(--text-dark); 
+            margin: 0 0 2px 0; 
+            flex-shrink: 0;
+        }
+        
+        .bottom-ui-container.active .bottom-menu { pointer-events: auto; }
 
-        /* Stagger animations */
-        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(1) { transition-delay: 0.05s; }
-        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(2) { transition-delay: 0.1s; }
-        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(3) { transition-delay: 0.15s; }
-        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(4) { transition-delay: 0.2s; }
-
-        /* Logic: Hide the button that corresponds to the active page */
-        .float-btn.active-page-btn {
-            display: none;
+        /* Stagger Transitions */
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(1) { transition-delay: 0.03s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(2) { transition-delay: 0.06s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(3) { transition-delay: 0.09s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(4) { transition-delay: 0.12s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(5) { transition-delay: 0.15s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(6) { transition-delay: 0.18s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(7) { transition-delay: 0.21s; }
+        
+        /* ACTIVE BUTTON HIDE RULE */
+        .float-btn.active-page-btn { 
+            display: none; 
         }
     </style>
 </head>
 <body>
 
+    <button class="toggle-sidebar-btn" id="topBtn"></button>
+
     <aside class="sidebar" id="sidebar">
-        <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
-        <nav>
-            <button>Dashboard</button>
-            <button>Analytics</button>
-            <button>Settings</button>
-            <button>Profile</button>
-        </nav>
+        <button id="sidebar-btn-1" onclick="toggleSidebar() && console.log('Side 1')">Overview</button>
+        <button id="sidebar-btn-2" onclick="toggleSidebar() && console.log('Side 2')">Settings</button>
+        <button id="sidebar-btn-3" onclick="toggleSidebar() && console.log('Side 3')">Profile</button>
+        <button id="sidebar-btn-4" onclick="toggleSidebar() && console.log('Side 4')">Log</button>
     </aside>
 
     <main class="dashboard-content" id="mainContent">
         <div id="pageContainer">
-            <h1>Welcome to the Dashboard</h1>
-            <p>Click the blue circle at the bottom left to navigate.</p>
-            <div style="margin-top: 50px; height: 150vh; background: linear-gradient(#fff, #eee); border-radius: 10px; padding: 20px; border: 1px dashed #ccc;">
-                <p>Scroll down to see the menu reset automatically...</p>
             </div>
-        </div>
     </main>
 
     <div class="bottom-ui-container" id="bottomUI">
         
-        <div class="circle-trigger" id="circleTrigger">
-            <span>+</span>
-        </div>
+        <div class="circle-trigger" id="circleTrigger"></div>
 
         <div class="bottom-bar" id="bottomBar">
-            <span>Ready</span>
+            <span>Select...</span>
         </div>
 
         <div class="bottom-menu" id="bottomMenu">
-            <button class="float-btn" data-target="home">Home</button>
-            <button class="float-btn" data-target="projects">Projects</button>
-            <button class="float-btn" data-target="team">Team</button>
-            <button class="float-btn" data-target="reports">Reports</button>
+            
+            <button class="float-btn" data-target="streets">
+                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 7 12 7s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                Streets
+            </button>
+            
+            <button class="float-btn" data-target="opinions">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+                Opinions
+            </button>
+            
+            <button class="float-btn" data-target="mentors">
+                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                Mentors
+            </button>
+            
+            <button class="float-btn" data-target="give">
+                <svg viewBox="0 0 24 24"><path d="M20 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-5 11h-2v-3h-2v3H9v-3H7v3H5v-7h14v7h-2v-3z"/></svg>
+                Give
+            </button>
+            
+            <button class="float-btn" data-target="business">
+                <svg viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+                Business
+            </button>
+            
+            <button class="float-btn" data-target="resellable">
+                <svg viewBox="0 0 24 24"><path d="M20.49 5.51L17 2l-2.49 2.49-1.42 1.42-3.88 3.88c-.63.63-1.12 1.25-1.12 2.12v2.36h2.36c.88 0 1.49-.49 2.12-1.12l3.88-3.88 1.42-1.42L20.49 5.51zM6 14v-2h2v2H6zm0 4h2v-2H6v2zm0-8h2V6H6v2z"/></svg>
+                Resellable
+            </button>
+            
+            <button class="float-btn" data-target="rsai">
+                <svg viewBox="0 0 24 24"><path d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM6 12h4v-2H6v2zm0 4h4v-2H6v2zm12 0h-4v-2h4v2zm0-4h-4v-2h4v2zm-6-4h-4V6h4v2zm6 0h-4V6h4v2z"/></svg>
+                RS AI
+            </button>
+
         </div>
 
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        // Define your page content here
+        /* --- PART 3: JAVASCRIPT LOGIC --- */
         const pages = {
-            home: `<h1>Home</h1><p>Welcome back.</p><div style='height:150vh; background:#fdfdfd'>Scrollable content...</div>`,
-            projects: `<h1>Projects</h1><p>Active projects list.</p><div style='height:150vh; background:#eef'>Scrollable content...</div>`,
-            team: `<h1>Team Page</h1><p>Manage your members.</p><div style='height:150vh; background:#efe'>Scrollable content...</div>`,
-            reports: `<h1>Reports</h1><p>Download statistics.</p><div style='height:150vh; background:#fef'>Scrollable content...</div>`
+            streets: `<h1>Streets</h1><p>Market trends and street level data.</p>`,
+            opinions: `<h1>Opinions</h1><p>User feedback and editorials.</p>`,
+            mentors: `<h1>Mentors</h1><p>Connect with industry leaders.</p>`,
+            give: `<h1>Give</h1><p>Donation and community projects.</p>`,
+            business: `<h1>Business</h1><p>Revenue and operations.</p>`,
+            resellable: `<h1>Resellable</h1><p>Inventory and assets.</p>`,
+            rsai: `<h1>RS AI</h1><p>Artificial Intelligence controls.</p>`
         };
 
-        // --- ELEMENTS ---
         const bottomUI = document.getElementById('bottomUI');
         const circleTrigger = document.getElementById('circleTrigger');
         const bottomButtons = document.querySelectorAll('.float-btn');
         const pageContainer = document.getElementById('pageContainer');
         const mainContent = document.getElementById('mainContent');
         const sidebar = document.getElementById('sidebar');
+        const topBtn = document.getElementById('topBtn');
 
-        // --- 1. SIDEBAR LOGIC ---
+        let resetTimer;
+
+        // --- NEW MUTUAL EXCLUSIVITY LOGIC ---
         function toggleSidebar() {
-            // Simply adds/removes class. CSS handles the transition overlay.
+            // If side buttons are expanding, ensure bottom menu collapses
+            if (!sidebar.classList.contains('expanded')) {
+                bottomUI.classList.remove('active');
+            }
             sidebar.classList.toggle('expanded');
+            topBtn.classList.toggle('is-open');
         }
 
-        // --- 2. BOTTOM CIRCLE LOGIC ---
+        topBtn.addEventListener('click', toggleSidebar);
+
         circleTrigger.addEventListener('click', () => {
+            // If circle button is expanding, ensure side buttons collapse
+            if (!bottomUI.classList.contains('active')) {
+                sidebar.classList.remove('expanded');
+                topBtn.classList.remove('is-open');
+            }
+            
             bottomUI.classList.toggle('active');
+            
+            if (!document.querySelector('.float-btn.active-page-btn')) {
+                document.querySelector('.float-btn[data-target="streets"]').classList.add('active-page-btn');
+                pageContainer.innerHTML = pages.streets;
+            }
         });
 
-        // --- 3. PAGE NAVIGATION LOGIC ---
         bottomButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const target = btn.getAttribute('data-target');
                 
-                // 1. Render Content
-                if(pages[target]) {
-                    pageContainer.innerHTML = pages[target];
-                }
+                if(pages[target]) pageContainer.innerHTML = pages[target];
 
-                // 2. Manage Button Visibility (Hide current, rearrange others)
+                // Set active page and trigger the hidden button rule
                 bottomButtons.forEach(b => b.classList.remove('active-page-btn'));
                 btn.classList.add('active-page-btn');
 
-                // 3. Scroll back to top
                 mainContent.scrollTop = 0;
             });
         });
 
-        // --- 4. SCROLL RESET LOGIC ---
+        // --- SCROLL LOGIC: Collapse Sidebar + Delay Bottom Menu Hide ---
         mainContent.addEventListener('scroll', () => {
-            // If user scrolls down more than 20px AND the menu is open
-            if (mainContent.scrollTop > 20 && bottomUI.classList.contains('active')) {
-                // Reset the UI (Bar comes back, Circle grows)
-                bottomUI.classList.remove('active');
+            // 1. Immediate Side Menu Collapse
+            if (sidebar.classList.contains('expanded')) {
+                toggleSidebar();
+            }
+
+            // Clear previous timeout on every scroll event (Debouncing)
+            clearTimeout(resetTimer);
+
+            // 2. Set 5-second delayed reset for bottom bar
+            if (bottomUI.classList.contains('active')) {
+                resetTimer = setTimeout(() => {
+                    bottomUI.classList.remove('active');
+                }, 5000); // 5000 milliseconds = 5 seconds
             }
         });
-
+        
+        // Initial setup: Load default page and hide its button on startup
+        document.querySelector('.float-btn[data-target="streets"]').click();
     </script>
 </body>
 </html>
