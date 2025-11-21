@@ -144,11 +144,14 @@ body, html {
 /* --- BOTTOM BUTTONS WRAPPER FIX --- */
 #bottomButtonsWrapper {
     position: fixed;
-    bottom: 60px; /* above bottomBar */
+    bottom: 140px; /* sits above circle button */
     left: 0;
     width: 100%;
     display: flex;
     justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
     z-index: 1200;
 }
 
