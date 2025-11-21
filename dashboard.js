@@ -1,3 +1,4 @@
+document.addEventListener('DOMContentLoaded', function(){ console.log('dashboard.js ready');
 const sideMenu = document.getElementById('sideMenu');
 const openBtn = document.getElementById('openSideMenu');
 const closeBtn = document.getElementById('closeSideMenu');
@@ -135,3 +136,22 @@ bottomBtns.forEach(btn => {
         // add other conditional renders for other buttons here
     });
 });
+// initial states when DOM ready
+try {
+  const bottomBar = document.getElementById('bottomBar');
+  const bottomButtons = document.getElementById('bottomButtons');
+  const bottomButtonsWrapper = document.getElementById('bottomButtonsWrapper');
+  const circleBtn = document.getElementById('circleBtn');
+
+  if(bottomBar) bottomBar.style.display = 'block';
+  if(bottomButtons) bottomButtons.classList.remove('visible');
+  if(bottomButtons) bottomButtons.style.opacity = '0';
+  if(bottomButtonsWrapper) bottomButtonsWrapper.style.opacity = '0';
+  if(circleBtn) { circleBtn.style.left = '20px'; circleBtn.style.transform = 'scale(1)'; }
+
+  console.log('dashboard initial state set', {
+    bottomBar: !!bottomBar, bottomButtons: !!bottomButtons, circleBtn: !!circleBtn
+  });
+} catch(e){ console.error('init error', e); }
+
+}); // end DOMContentLoaded
