@@ -105,19 +105,6 @@ body, html {
     transition: all 0.3s ease;
 }
 
-/* Bottom Buttons Wrapper */
-#bottomButtonsWrapper {
-    position: fixed;
-    bottom: 20px;
-    left: 100px; /* leave space for circle button */
-    right: 20px;
-    display: flex;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-    z-index: 1100;
-}
 
 #bottomButtonsWrapper.visible {
     opacity: 1;
@@ -147,39 +134,12 @@ body, html {
     background-color: #0056b3;
 }
 
-/* Bottom bar for words of affirmation */
-#bottomBar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    padding: 10px 20px;
-    background-color: #f5f5f5;
-    font-size: 16px;
-    text-align: center;
-    box-sizing: border-box;
-    z-index: 1000;
-}
 
 #bottomButtons.visible {
     opacity: 1;
     pointer-events: auto;
 }
 
-/* --- BOTTOM BAR --- */
-#bottomBar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: #111;
-    color: white;
-    padding: 12px 15px;
-    font-size: 15px;
-    text-align: center;
-    z-index: 1050;
-    display: none; /* hidden until activated */
-}
 
 /* --- BOTTOM BUTTONS WRAPPER FIX --- */
 #bottomButtonsWrapper {
@@ -201,7 +161,59 @@ body, html {
     transition: opacity 0.25s ease;
 }
 
+/* --- CLEAN WORKING BOTTOM BAR --- */
+#bottomBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #111;
+    color: white;
+    padding: 12px 15px;
+    font-size: 15px;
+    text-align: center;
+    z-index: 1100;
+    display: block;
+}
+
+/* --- CLEAN WORKING BOTTOM BUTTONS WRAPPER --- */
+#bottomButtonsWrapper {
+    position: fixed;
+    bottom: 70px; /* 70px above bottom bar */
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 1200;
+}
+
+/* --- CLEAN WORKING BOTTOM BUTTONS --- */
+#bottomButtons {
+    display: flex;
+    gap: 10px;
+}
+
 #bottomButtons.visible {
     opacity: 1;
     pointer-events: auto;
+}
+
+/* --- FIXED CIRCLE BUTTON --- */
+.circle-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 20px; 
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
+    font-size: 30px;
+    border: none;
+    cursor: pointer;
+    z-index: 1300;
+    transition: all 0.3s ease;
 }
