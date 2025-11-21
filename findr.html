@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Dashboard</title>
     <style>
+/* --- START OF CSS (Part 2/6 & 3/6) --- */
+/* (The rest of the CSS is in the next two parts) */
+    
         /* --- DASHBOARD CORE STYLES --- */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         :root {
@@ -42,19 +45,6 @@
         .toggle-sidebar-btn.is-open::after { content: "✕"; color: var(--danger); }
 
         /* 2. FIXED HEADER BAR (New element for Findr Title/Actions) */
-        #fixedHeaderBar {
-            position: fixed; top: 0; left: 0; right: 0; 
-            height: var(--fixed-header-height);
-            background: white;
-            box-shadow: 0 1px 0 rgba(0,0,0,0.04);
-            z-index: 1500; /* Below toggle-sidebar-btn but above content */
-            padding: 12px var(--trigger-alignment) 12px 60px; /* Account for the hamburger button space */
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* 3. SIDEBAR */
         .sidebar {
             /* Positioned below the fixed header */
             position: fixed; top: var(--fixed-header-height); left: var(--trigger-alignment); width: auto; height: auto;
@@ -133,9 +123,21 @@
         .bottom-ui-container.active .bottom-menu .float-btn:nth-child(7) { transition-delay: 0.21s; }
 
 
-        /* --- FINDR SPECIFIC STYLES (now targeting elements inside #fixedHeaderBar) --- */
+        /* 3. FIXED HEADER BAR (New element for Findr Title/Actions) */
+        #fixedHeaderBar {
+            position: fixed; top: 0; left: 0; right: 0; 
+            height: var(--fixed-header-height);
+            background: white;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+            z-index: 1500; 
+            padding: 12px var(--trigger-alignment) 12px 60px; /* Account for the hamburger button space */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+/* --- FINDR SPECIFIC STYLES (now targeting elements inside #fixedHeaderBar) --- */
         #fixedHeaderBar h1{margin:0;font-size:18px}
-        #viewerInfo{font-size: 10px; color: var(--muted);}
+        /* #viewerInfo removed as requested */
 
         /* Container for the 3 icons (Post, Search, Sort) */
         .topbar-actions {
@@ -167,7 +169,7 @@
             fill: var(--text-dark);
         }
 
-        /* Sort Button with Text */
+        /* Sort Button with Text (MODIFIED) */
         .sort-btn-with-text {
             display: flex;
             align-items: center;
@@ -175,7 +177,13 @@
             border-radius: 12px;
             font-size: 14px;
             font-weight: 600;
-            color: var(--text-dark);
+            /* NEW STYLES */
+            background-color: var(--accent);
+            color: white; 
+            transition: background 0.2s;
+        }
+        .sort-btn-with-text:hover {
+            background-color: #085ee5; /* Darker blue on hover */
         }
         .sort-btn-with-text .sort-label {
             margin-right: 4px;
@@ -183,69 +191,104 @@
         .sort-btn-with-text svg {
             width: 16px;
             height: 16px;
-            fill: var(--text-dark);
+            /* NEW STYLES */
+            fill: white; 
         }
         
-        /* Search Bar & Send Button Integration */
-        #searchWrapper {
-            position: relative;
-            display: flex;
+        /* 🔥 NEW FIXED SEARCH WRAPPER 🔥 */
+        #fullScreenSearchWrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--fixed-header-height);
+            background: white;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+            z-index: 1700; /* Higher than the main header (1500) */
+            
+            /* Hidden by default */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            
+            /* --- CRITICAL FIXES FOR ALIGNMENT AND WIDTH --- */
+            /* Internal Padding: 10px right padding, 60px left padding (to clear the Back Button area) */
+            padding: 0 10px 0 60px; 
+            display: flex; /* Crucial for flexible width distribution */
             align-items: center;
-            flex: 1; /* Allows it to take up available space */
-            max-width: 250px;
-            transition: max-width 0.3s ease;
+            gap: 0; /* Remove gap between input and send button */
+            position: relative; /* Relative position to hold absolute children (like the back button) */
         }
         
+        /* Active Search Wrapper State */
+        #fullScreenSearchWrapper.active-search {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Back Button - Positioned to clear the space for the fixed hamburger menu */
+        #searchBackBtn {
+            position: absolute;
+            left: 10px; /* Aligned with the hamburger button's location (10px padding) */
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2; 
+            padding-left: 0; 
+            padding-right: 8px; 
+        }
+
         #searchInput {
-            width: 100%;
-            padding: 8px 35px 8px 15px; /* Padding for text and space for the button */
+            flex-grow: 1; /* Input takes up all available space */
+            padding: 8px 15px; /* Reduced right padding */
             border: 1px solid #e5e7eb;
-            border-radius: 20px;
+            border-right: none; /* Merge with the send button */
+            border-radius: 20px 0 0 20px; /* Rounded left, square right */
             font-size: 14px;
             transition: border-color 0.2s;
         }
         #searchInput:focus {
             outline: none;
             border-color: var(--accent);
+            border-right-color: #e5e7eb; /* Keep border for merge integrity */
         }
 
         #searchSendBtn {
-            position: absolute;
-            right: 2px;
-            top: 50%;
-            transform: translateY(-50%);
+            /* Now positioned inline next to the input */
+            position: static; 
+            transform: none;
+            
+            height: 36px; /* Slightly taller than input padding to cover height */
+            width: 36px; 
+            padding: 0;
+            
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
+            border-radius: 0 20px 20px 0; /* Square left, rounded right */
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: background 0.2s;
-        }
-        #searchSendBtn:hover { background: #085ee5; }
+            flex-shrink: 0; /* Prevents button from shrinking */
 
-        /* Initial hidden state for search components */
-        #searchWrapper.hidden-search {
-            max-width: 0;
-            visibility: hidden;
-            pointer-events: none;
-            margin-right: -16px;
-            /* Hide the input and button inside the wrapper */
-        }
-        #searchWrapper.hidden-search #searchInput,
-        #searchWrapper.hidden-search #searchSendBtn {
-            display: none;
+            /* Overlap the border of the input slightly to remove the gap */
+            margin-left: -1px; 
         }
 
+        
         /* Utility buttons container visibility control */
         #utilityButtonSet.hidden {
             opacity: 0;
             pointer-events: none;
             visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        /* Utility button set wrapper must be in front of the search bar (only needed if search isn't fixed) */
+        .topbar-actions {
+            position: relative;
+            z-index: 1001;
         }
 
         /* Sort Dropdown Positioning */
@@ -281,6 +324,7 @@
             display: flex;
             align-items: center;
             cursor: pointer;
+            color: var(--text-dark); /* Ensure text color is right */
         }
         .sort-option:hover {
             background: var(--bg-color);
@@ -296,14 +340,13 @@
             margin-right: 8px;
             line-height: 1; /* Ensure alignment */
         }
-        
         /* Post Modal (Overlay) Styles */
         #postModal {
             position: fixed; top: var(--fixed-header-height); left: 0; right: 0; bottom: 0;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(2px);
             z-index: 1800;
-            display: none; /* Controlled by JS */
+            display: none; 
             flex-direction: column;
             padding: 20px;
         }
@@ -355,7 +398,7 @@
         #cancelPostBtn { background: #eee; color: var(--text-dark); }
 
 
-        /* Feed Content Styling (Unchanged) */
+        /* Feed Content Styling */
         #feed{padding:12px;max-width:900px;margin:0 auto}
         .user-card{background:var(--card);border-radius:8px;box-shadow:0 6px 14px rgba(8,15,33,0.04);padding:12px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start;}
         .avatar-wrap{position:relative;flex:0 0 64px}
@@ -390,25 +433,23 @@
                  /* Adjust padding on small screens to ensure no overlap with the fixed top-left button */
                 padding: 10px 10px 10px 50px; 
             }
-            #searchWrapper {
-                max-width: 150px; /* Smaller width for mobile when active */
+            /* Adjust search wrapper for smaller screen padding change */
+            #fullScreenSearchWrapper {
+                padding: 0 10px 0 50px; /* Left padding 50px for back button */
+            }
+            #searchBackBtn {
+                left: 10px; 
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- --- PART 2: HTML STRUCTURE --- -->
-    
-    <!-- 1. TOP LEFT HAMBURGER BUTTON (Fixed Position) -->
     <button class="toggle-sidebar-btn" id="topBtn"></button>
     
-    <!-- 2. NEW FIXED HEADER BAR (Holds Title and Right-Side Actions) -->
     <header id="fixedHeaderBar" class="hidden">
-        <!-- Content injected by JS -->
-    </header>
+        </header>
 
-    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
         <button id="sidebar-btn-1" onclick="toggleSidebar() && console.log('Side 1')">Overview</button>
         <button id="sidebar-btn-2" onclick="toggleSidebar() && console.log('Side 2')">Settings</button>
@@ -416,14 +457,21 @@
         <button id="sidebar-btn-4" onclick="toggleSidebar() && console.log('Side 4')">Log</button>
     </aside>
 
-    <!-- MAIN CONTENT (Starts below Fixed Header) -->
     <main class="dashboard-content" id="mainContent">
         <div id="pageContainer">
-            <!-- Content Injects Here (e.g., #feed for Findr) -->
-        </div>
+            </div>
     </main>
-
-    <!-- BOTTOM UI (DO NOT TOUCH) -->
+    
+    <div id="fullScreenSearchWrapper">
+        <button id="searchBackBtn" class="findr-utility-btn" title="Back">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+        </button>
+        
+        <input type="text" id="searchInput" placeholder="Search the database...">
+        <button id="searchSendBtn" title="Search Database">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.58L20 12l-8-8-8 8z"/></svg>
+        </button>
+    </div>
     <div class="bottom-ui-container" id="bottomUI">
         
         <div class="circle-trigger" id="circleTrigger"></div>
@@ -432,10 +480,8 @@
             <span>Select...</span>
         </div>
 
-        <!-- Grid Menu -->
         <div class="bottom-menu" id="bottomMenu">
             
-            <!-- BUTTON 1: Findr -->
             <button class="float-btn" data-target="findr">
                 <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 7 12 7s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                 Findr
@@ -475,7 +521,6 @@
 
     </div>
 
-    <!-- Comment Modal (Existing) -->
     <div id="commentModal" class="modal hidden">
         <div class="modal-content">
             <h3>Comments</h3>
@@ -488,7 +533,6 @@
         </div>
     </div>
 
-    <!-- Post Modal (New, for Findr) -->
     <div id="postModal" class="hidden">
         <div class="post-modal-content">
             <h2>Create New Post</h2>
@@ -511,8 +555,6 @@
             </div>
         </div>
     </div>
-
-
     <script>
         /* --- PART 3: JAVASCRIPT LOGIC (Dashboard + Findr) --- */
         
@@ -520,7 +562,8 @@
         // Note: Findr content now only contains the scrollable feed section
         const pages = {
             findr: `<section id="feed"></section>`,
-            opinions: `<h1>Opinions</h1><p>User feedback and editorials.</p>`,
+            opinions: `<h1>Opinions</h1><p>User feedback and editorials.</p>
+                <div style="height: 500px; background: #eee; border-radius: 8px; margin-top: 20px; display: flex; align-items: center; justify-content: center;">Content Placeholder</div>`,
             mentors: `<h1>Mentors</h1><p>Connect with industry leaders.</p>`,
             give: `<h1>Give</h1><p>Donation and community projects.</p>`,
             business: `<h1>Business</h1><p>Revenue and operations.</p>`,
@@ -653,41 +696,27 @@
                 fixedHeaderBar.innerHTML = `
                     <div class="header-left">
                         <h1>Findr</h1>
-                        <div id="viewerInfo">You: <span id="viewerName">${viewer.name}</span> <small id="viewerCountryLabel">(${viewer.country})</small></div>
-                    </div>
+                        </div>
                     
                     <div class="topbar-actions">
                         
-                        <!-- Search Box (Expands when active) -->
-                        <div id="searchWrapper" class="hidden-search">
-                            <input type="text" id="searchInput" placeholder="Search the database...">
-                            <button id="searchSendBtn" title="Search Database">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.58L20 12l-8-8-8 8z"/></svg>
-                            </button>
-                        </div>
-
-                        <!-- Set of utility buttons that disappear when Search/Post is active -->
-                        <div id="utilityButtonSet" class="flex gap-2 items-center">
+                        <div id="utilityButtonSet" class="topbar-actions">
                             
-                            <!-- Post Icon (Findr page utility button) -->
                             <button class="findr-utility-btn action-icon-btn" id="postIconBtn" title="Create Post">
                                 <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                             </button>
                             
-                            <!-- Search Toggle Button (Findr page utility button) -->
                             <button class="findr-utility-btn action-icon-btn" id="searchToggleBtn" title="Toggle Search">
                                 <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                             </button>
 
-                            <!-- Sort Dropdown Trigger (Findr page utility button) -->
                             <div class="sort-wrap">
                                 <button class="findr-utility-btn sort-btn-with-text" id="sortTrigger" title="Sort/Filter">
                                     <span class="sort-label">Sort</span>
                                     <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                                 </button>
                                 <div id="sortDropdown" class="hidden">
-                                    <!-- Dynamic content injected by JS -->
-                                </div>
+                                    </div>
                             </div>
                         </div>
                     </div>
@@ -698,11 +727,12 @@
             }
         }
         
-        // --- MODAL CONTROLS ---
+        // --- MODAL CONTROLS (Open/Close for Post) ---
         function openPostModal() {
             document.getElementById('postModal').classList.add('visible');
             document.getElementById('postModal').classList.remove('hidden');
-            document.getElementById('utilityButtonSet').classList.add('hidden');
+            // Hide the full utility set when the post modal is open
+            document.getElementById('utilityButtonSet').classList.add('hidden'); 
         }
 
         function closePostModal() {
@@ -711,7 +741,6 @@
             document.getElementById('postContentInput').value = '';
             document.getElementById('utilityButtonSet').classList.remove('hidden');
         }
-
         // --- FINDR VARIABLES & STATE ---
         let currentLocationFilter = 'nearby'; // 'nearby' or 'universal'
         let currentContentType = 'text';   // 'text' or 'media'
@@ -722,7 +751,7 @@
         };
         const users = [
             { id:"u1", name:"David", country:"Nigeria", nickname:"David(Real Estate)", avatar:"https://i.pravatar.cc/80?img=12", interests:["Real Estate","Food"], whatsapp:"+234000000",
-                posts:[{id:"p1", text:"Selling houses near the lagoon. Affordable and secure. Call me to arrange a viewing this weekend.", views:2, type:'text'}]
+                posts:[{id:"p1", text:"Selling houses near the lagoon. Affordable and secure. Call me to arrange a viewing this weekend. This is a long post to test the collapse feature.", views:2, type:'text'}]
             },
             { id:"u2", name:"Moses", country:"Ghana", nickname:"Moses(marketing)", avatar:"https://i.pravatar.cc/80?img=32", interests:["Marketing","Business"],
                 posts:[{id:"p2", text:"I help startups scale fast with performance marketing campaigns. DM for a free audit. This post is a media type.", views:5, type:'media'}]
@@ -730,7 +759,7 @@
             { id:"u3", name:"Pauline", country:"Nigeria", nickname:"Pauline(Nurse)", avatar:"https://i.pravatar.cc/80?img=48", interests:["Health","Wellness","Fitness"],
                 posts:[
                     {id:"p3", text:"Group fitness sessions starting next month. Limited slots.", views:1, type:'text'},
-                    {id:"p4", text:"Healthy recipes that fit busy lifestyles.", views:0, type:'text'}
+                    {id:"p4", text:"Healthy recipes that fit busy lifestyles. Another long text to test collapse functionality.", views:0, type:'text'}
                 ]
             }
         ];
@@ -861,7 +890,6 @@
                 feedEl.appendChild(card);
             });
         }
-
         // --- FINDR INTERACTION FUNCTIONS ---
 
         function togglePostCollapse(postId, post) {
@@ -994,12 +1022,13 @@
             if (isFindrActive || document.getElementById('feed') === null) return;
             isFindrActive = true;
             
-            // Get elements from the *newly rendered* fixedHeaderBar
+            // Get elements 
             const postIconBtn = document.getElementById('postIconBtn');
             const searchToggleBtn = document.getElementById('searchToggleBtn');
-            const searchWrapper = document.getElementById('searchWrapper');
+            const fullScreenSearchWrapper = document.getElementById('fullScreenSearchWrapper');
             const searchInput = document.getElementById('searchInput');
             const searchSendBtn = document.getElementById('searchSendBtn');
+            const searchBackBtn = document.getElementById('searchBackBtn'); 
             const sortTrigger = document.getElementById('sortTrigger');
             const sortDropdown = document.getElementById('sortDropdown');
             const utilityButtonSet = document.getElementById('utilityButtonSet');
@@ -1007,26 +1036,38 @@
             const postModal = document.getElementById('postModal');
             const cancelPostBtn = document.getElementById('cancelPostBtn');
             
-            if (!searchToggleBtn || !sortTrigger) return; 
+            if (!searchToggleBtn || !sortTrigger || !searchBackBtn) return; 
 
             // --- SEARCH BAR LOGIC ---
             function activateSearch() {
-                // Hide Post/Sort buttons
+                // 1. Hide Post/Search/Sort buttons
                 utilityButtonSet.classList.add('hidden');
-                // Show Search Input/Send button
-                searchWrapper.classList.remove('hidden-search');
+                // 2. Show fixed search bar
+                fullScreenSearchWrapper.classList.add('active-search');
                 searchInput.focus();
+                
+                // Hide the main header bar title 
+                fixedHeaderBar.querySelector('h1').style.opacity = 0;
             }
 
             function deactivateSearch() {
-                // Show Post/Sort buttons
+                // 1. Show Post/Search/Sort buttons
                 utilityButtonSet.classList.remove('hidden');
-                // Hide Search Input/Send button
-                searchWrapper.classList.add('hidden-search');
+                // 2. Hide fixed search bar
+                fullScreenSearchWrapper.classList.remove('active-search');
                 searchInput.value = '';
+                
+                // Show the main header bar title
+                fixedHeaderBar.querySelector('h1').style.opacity = 1;
+
+                // Close dropdown if it was open
+                sortDropdown.classList.add('hidden');
             }
 
+            // Listeners for search flow
             searchToggleBtn.addEventListener('click', activateSearch);
+            searchBackBtn.addEventListener('click', deactivateSearch);
+            
             searchSendBtn.addEventListener('click', () => {
                 const query = searchInput.value.trim();
                 if (query) {
@@ -1034,9 +1075,11 @@
                 }
                 deactivateSearch();
             });
+
             // If user types in search and presses Enter
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent form submission if input was in a form
                     searchSendBtn.click();
                 }
             });
@@ -1052,6 +1095,12 @@
                 e.stopPropagation();
                 renderSortDropdown();
                 sortDropdown.classList.toggle('hidden');
+                
+                // Ensure search is deactivated if sort is opened
+                if (!sortDropdown.classList.contains('hidden')) {
+                   // If search was active, deactivate it
+                   if (fullScreenSearchWrapper.classList.contains('active-search')) deactivateSearch();
+                }
             });
             
             // Close dropdown when clicking outside
@@ -1072,7 +1121,6 @@
         
         function destroyFindrListeners() {
             isFindrActive = false;
-            // Clean up global listeners attached only for Findr (relying on re-attachment next time)
             // No explicit cleanup needed here as listeners are on newly rendered elements.
         }
 
@@ -1097,4 +1145,3 @@
     </script>
 </body>
 </html>
-
