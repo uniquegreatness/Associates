@@ -1,225 +1,161 @@
-/* General reset */
-body, html {
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: Arial, sans-serif;
+    font-family: sans-serif;
 }
 
-/* Side Menu */
-.side-menu {
-    height: 100%;
-    width: 0;
-    position: fixed;
-    z-index: 1000;
-    top: 0;
-    left: 0;
-    background-color: #111;
-    overflow-x: hidden;
-    transition: 0.3s;
-    padding-top: 60px;
+:root {
+    --circle-size: 60px;
+    --bar-height: 60px; /* Same as circle for baseline alignment */
+    --primary: #333;
+    --accent: #007bff;
+}
+
+body {
+    overflow: hidden; /* Prevent body scroll, we scroll the main div */
+}
+
+/* Layout */
+.app-container {
+    display: grid;
+    grid-template-columns: 200px 1fr; /* Sidebar | Content */
+    height: 100vh;
+    transition: grid-template-columns 0.3s ease;
+}
+
+.app-container.sidebar-collapsed {
+    grid-template-columns: 60px 1fr;
+}
+
+/* Sidebar */
+.sidebar {
+    background: #222;
+    color: white;
     display: flex;
     flex-direction: column;
+    padding: 10px;
 }
 
-.side-menu .side-btn {
-    padding: 15px 25px;
+.sidebar button {
+    background: none;
+    border: none;
+    color: white;
+    padding: 15px;
     text-align: left;
-    border: none;
-    background: none;
-    color: white;
-    font-size: 18px;
     cursor: pointer;
-}
-
-.side-menu .side-btn:hover {
-    background-color: #575757;
-}
-
-.close-btn {
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    font-size: 36px;
-    background: none;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-
-/* Hamburger Button */
-.hamburger-btn {
-    font-size: 30px;
-    cursor: pointer;
-    position: fixed;
-    top: 15px;
-    left: 15px;
-    z-index: 1100;
-    background: none;
-    border: none;
-}
-
-/* Dashboard Content */
-#dashboardContent {
-    padding: 20px;
-    transition: margin-left 0.3s;
-}
-
-/* Bottom Buttons */
-#bottomButtons {
-    position: fixed;
-    bottom: 0;
-    left: 0;
     width: 100%;
-    display: flex;
-    justify-content: space-evenly;
-    align-items: center;
-    padding: 5px;
-    box-sizing: border-box;
-    background-color: #fff; /* optional for visibility */
+    border-bottom: 1px solid #444;
 }
 
-.bottom-btn {
-    flex: 1 1 auto;
-    padding: 10px 5px;
-    margin: 0 2px;
-    cursor: pointer;
-    text-align: center;
-    white-space: nowrap;
-    font-size: 14px;
+.sidebar button:hover { background: #444; }
+
+/* Main Content */
+.dashboard-content {
+    background: #f4f4f4;
+    overflow-y: auto; /* This allows scrolling inside the dashboard */
+    padding: 40px;
+    padding-bottom: 100px; /* Space for bottom UI */
+    position: relative;
 }
 
-/* Circle Button */
-.circle-btn {
+/* --- BOTTOM UI --- */
+.bottom-ui-container {
     position: fixed;
     bottom: 20px;
-    left: 20px; /* left by default */
-    width: 60px;
-    height: 60px;
+    left: 220px; /* Offset for sidebar */
+    right: 20px;
+    height: var(--bar-height);
+    display: flex;
+    align-items: flex-end; /* Align baselines */
+    pointer-events: none; /* Let clicks pass through empty areas */
+    transition: left 0.3s ease;
+}
+
+.app-container.sidebar-collapsed ~ .bottom-ui-container {
+    left: 80px; /* Adjust when sidebar collapses */
+}
+
+/* 1. The Circle */
+.circle-trigger {
+    width: var(--circle-size);
+    height: var(--circle-size);
+    background-color: var(--accent);
     border-radius: 50%;
-    background-color: #007bff;
-    color: white;
-    font-size: 30px;
-    border: none;
     cursor: pointer;
-    z-index: 1200;
-    transition: all 0.3s ease;
-}
-
-
-#bottomButtonsWrapper.visible {
-    opacity: 1;
     pointer-events: auto;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
+    flex-shrink: 0;
 }
 
-#bottomButtons {
-    display: flex;
-    gap: 10px;
+/* State: UI Active (Circle Clicked) */
+.bottom-ui-container.active .circle-trigger {
+    transform: scale(0.5); /* Shrink to half */
 }
 
-/* Bottom buttons */
-.bottom-btn {
-    padding: 10px 15px;
-    cursor: pointer;
-    text-align: center;
-    white-space: nowrap;
-    font-size: 14px;
-    border: none;
-    border-radius: 6px;
-    background-color: #007bff;
-    color: white;
-    transition: background-color 0.2s;
-}
-
-.bottom-btn:hover {
-    background-color: #0056b3;
-}
-
-
-#bottomButtons.visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-
-/* --- BOTTOM BUTTONS WRAPPER FIX --- */
-#bottomButtonsWrapper {
-    position: fixed;
-    bottom: 140px; /* sits above circle button */
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-    z-index: 1200;
-}
-
-/* --- BOTTOM BUTTONS --- */
-#bottomButtons {
-    display: flex;
-    gap: 10px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-}
-
-/* --- CLEAN WORKING BOTTOM BAR --- */
-#bottomBar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 80px; /* leaves space for circle button */
-    height: 60px;
-    background-color: #111;
-    color: white;
-    padding: 0 15px;
-    font-size: 15px;
+/* 2. The Bar */
+.bottom-bar {
+    flex-grow: 1;
+    height: var(--bar-height);
+    background-color: white;
+    margin-left: 15px;
+    border-radius: 30px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    z-index: 1100;
-    box-sizing: border-box;
-}
-
-/* --- CLEAN WORKING BOTTOM BUTTONS WRAPPER --- */
-#bottomButtonsWrapper {
-    position: fixed;
-    bottom: 70px; /* 70px above bottom bar */
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-    z-index: 1200;
-}
-
-/* --- CLEAN WORKING BOTTOM BUTTONS --- */
-#bottomButtons {
-    display: flex;
-    gap: 10px;
-}
-
-#bottomButtons.visible {
-    opacity: 1;
+    padding: 0 20px;
+    transform-origin: left;
+    transition: opacity 0.2s, transform 0.2s;
     pointer-events: auto;
 }
 
-/* --- FIXED CIRCLE BUTTON --- */
-.circle-btn {
-    position: fixed;
-    bottom: 0; /* same baseline as bottom bar */
-    right: 10px; /* float to the right */
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background-color: #007bff;
-    color: white;
-    font-size: 30px;
+/* State: UI Active (Bar Disappears) */
+.bottom-ui-container.active .bottom-bar {
+    opacity: 0;
+    transform: translateX(-20px);
+    pointer-events: none;
+}
+
+/* 3. The Popping Buttons */
+.bottom-menu {
+    position: absolute;
+    left: calc(var(--circle-size) + 15px);
+    bottom: 0;
+    height: var(--bar-height);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    pointer-events: none;
+}
+
+.float-btn {
+    padding: 10px 20px;
+    border-radius: 20px;
     border: none;
+    background: var(--primary);
+    color: white;
+    font-weight: bold;
     cursor: pointer;
-    z-index: 1200;
-    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateX(-50px) scale(0.5); /* Start hidden behind/near circle */
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* State: UI Active (Buttons appear) */
+.bottom-ui-container.active .bottom-menu .float-btn {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: auto;
+}
+
+/* Stagger effect for buttons */
+.bottom-ui-container.active .bottom-menu .float-btn:nth-child(1) { transition-delay: 0.05s; }
+.bottom-ui-container.active .bottom-menu .float-btn:nth-child(2) { transition-delay: 0.1s; }
+.bottom-ui-container.active .bottom-menu .float-btn:nth-child(3) { transition-delay: 0.15s; }
+.bottom-ui-container.active .bottom-menu .float-btn:nth-child(4) { transition-delay: 0.2s; }
+
+/* State: Button currently rendered on page (Hidden) */
+.float-btn.active-page-btn {
+    display: none;
 }
