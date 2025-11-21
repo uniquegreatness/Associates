@@ -1,40 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard</title>
-<link rel="stylesheet" href="dashboard.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Dashboard</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Collapsible Side Menu -->
-<div id="sideMenu" class="side-menu">
-    <button id="closeSideMenu" class="close-btn">&times;</button>
-</div>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
+            <nav>
+                <button>Side 1</button>
+                <button>Side 2</button>
+                <button>Side 3</button>
+                <button>Side 4</button>
+            </nav>
+        </aside>
 
-<!-- Hamburger button -->
-<button id="openSideMenu" class="hamburger-btn">&#9776;</button>
-
-<!-- MAIN DASHBOARD CONTAINER -->
-<div id="dashboardContent">
-
-    <!-- SPA Page Container -->
-    <div id="streetsPageContainer"></div>
-
-<!-- Bottom buttons wrapper -->
-    <div id="bottomButtonsWrapper">
-        <div id="bottomButtons"></div>
+        <main class="dashboard-content" id="mainContent">
+            <div id="pageContainer">
+                <h1>Welcome</h1>
+                <p>Select an option from the bottom menu.</p>
+                <div style="height: 150vh; background: linear-gradient(to bottom, #f0f0f0, #e0e0e0);">
+                    <p style="padding: 20px;">Scroll down to trigger reset...</p>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <!-- Circle toggle button -->
-    <button id="circleBtn" class="circle-btn">+</button>
+    <div class="bottom-ui-container" id="bottomUI">
+        
+        <div class="circle-trigger" id="circleTrigger"></div>
 
-    <!-- Bottom bar (always last) -->
-    <div id="bottomBar">bottom bar visible</div>
+        <div class="bottom-bar" id="bottomBar">
+            <span>Dashboard Status OK</span>
+        </div>
 
-</div>
+        <div class="bottom-menu" id="bottomMenu">
+            <button class="float-btn" data-target="page1">Page 1</button>
+            <button class="float-btn" data-target="page2">Page 2</button>
+            <button class="float-btn" data-target="page3">Page 3</button>
+            <button class="float-btn" data-target="page4">Page 4</button>
+        </div>
 
-<script src="dashboard.js"></script>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
