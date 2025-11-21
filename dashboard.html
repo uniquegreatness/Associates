@@ -320,9 +320,8 @@
         </div>
 
     </div>
-
-    <script>
-        /* --- PART 3: JAVASCRIPT LOGIC --- */
+        <script>
+        /* --- PART 3: JAVASCRIPT LOGIC (Updated for Bottom Bar Phrases) --- */
         const pages = {
             streets: `<h1>Streets</h1><p>Market trends and street level data.</p>`,
             opinions: `<h1>Opinions</h1><p>User feedback and editorials.</p>`,
@@ -340,12 +339,72 @@
         const mainContent = document.getElementById('mainContent');
         const sidebar = document.getElementById('sidebar');
         const topBtn = document.getElementById('topBtn');
+        const bottomBar = document.getElementById('bottomBar').querySelector('span'); // Target the span inside the bottom bar
 
         let resetTimer;
+        let phraseInterval;
+        let userName = "Traveler"; // Placeholder name until database is connected
 
-        // --- NEW MUTUAL EXCLUSIVITY LOGIC ---
+        // --- PHASE 1: User Name Retrieval Logic ---
+        function getUserName() {
+            // **TO BE IMPLEMENTED LATER:**
+            // This function would normally check your user database/session.
+            
+            /* Example structure when database is ready:
+            if (database.isConnected) {
+                const user = database.getUserDetails(currentUserId);
+                if (user && user.firstName) {
+                    userName = user.firstName;
+                }
+            }
+            */
+            return userName;
+        }
+
+        // --- PHASE 2: Phrase Display Logic ---
+        // Note: The actual phrases will eventually come from your external file.
+        const defaultPhrases = [
+            "everything you need is NEARR",
+            "your joy is NEARR",
+            "favor is NEARR than you think",
+            "great success is NEARR",
+            "your answer is NEARR"
+        ];
+        
+        // This array will be overwritten by the fetch operation later.
+        let activePhrases = defaultPhrases; 
+
+        // Placeholder for future fetch operation:
+        // fetch('https://raw.githubusercontent.com/.../btmbartxt.json')
+        //     .then(response => response.json())
+        //     .then(data => { activePhrases = data.phrases; startPhraseRotation(); })
+        //     .catch(err => { console.error("Could not fetch phrases, using defaults.", err); startPhraseRotation(); });
+
+
+        function displayRandomPhrase() {
+            const name = getUserName(); // Get the current user's name
+            const randomIndex = Math.floor(Math.random() * activePhrases.length);
+            const phrase = activePhrases[randomIndex];
+            
+            // Format: Name, [space] phrase
+            bottomBar.textContent = `${name}, ${phrase}`;
+        }
+
+        function startPhraseRotation() {
+            // Display initial phrase immediately
+            displayRandomPhrase();
+
+            // Set up the interval for 10 seconds
+            phraseInterval = setInterval(displayRandomPhrase, 10000); 
+        }
+
+        function stopPhraseRotation() {
+            clearInterval(phraseInterval);
+        }
+
+        // --- PHASE 3: Menu Toggle & Scroll Logic (Existing, but linked to new functions) ---
+        
         function toggleSidebar() {
-            // If side buttons are expanding, ensure bottom menu collapses
             if (!sidebar.classList.contains('expanded')) {
                 bottomUI.classList.remove('active');
             }
@@ -356,7 +415,6 @@
         topBtn.addEventListener('click', toggleSidebar);
 
         circleTrigger.addEventListener('click', () => {
-            // If circle button is expanding, ensure side buttons collapse
             if (!bottomUI.classList.contains('active')) {
                 sidebar.classList.remove('expanded');
                 topBtn.classList.remove('is-open');
@@ -364,6 +422,14 @@
             
             bottomUI.classList.toggle('active');
             
+            // Manage bottom bar content
+            if (bottomUI.classList.contains('active')) {
+                stopPhraseRotation();
+                bottomBar.textContent = "Select..."; // Show default menu text
+            } else {
+                startPhraseRotation(); // Restart when returning to default state
+            }
+
             if (!document.querySelector('.float-btn.active-page-btn')) {
                 document.querySelector('.float-btn[data-target="streets"]').classList.add('active-page-btn');
                 pageContainer.innerHTML = pages.streets;
@@ -376,7 +442,6 @@
                 
                 if(pages[target]) pageContainer.innerHTML = pages[target];
 
-                // Set active page and trigger the hidden button rule
                 bottomButtons.forEach(b => b.classList.remove('active-page-btn'));
                 btn.classList.add('active-page-btn');
 
@@ -384,26 +449,27 @@
             });
         });
 
-        // --- SCROLL LOGIC: Collapse Sidebar + Delay Bottom Menu Hide ---
+        // Scroll Logic: Collapses side menu immediately, resets bottom bar state after 5s delay
         mainContent.addEventListener('scroll', () => {
-            // 1. Immediate Side Menu Collapse
             if (sidebar.classList.contains('expanded')) {
                 toggleSidebar();
             }
 
-            // Clear previous timeout on every scroll event (Debouncing)
             clearTimeout(resetTimer);
 
-            // 2. Set 5-second delayed reset for bottom bar
             if (bottomUI.classList.contains('active')) {
                 resetTimer = setTimeout(() => {
                     bottomUI.classList.remove('active');
-                }, 5000); // 5000 milliseconds = 5 seconds
+                    // Restart phrases when returning to default state after timeout
+                    startPhraseRotation(); 
+                }, 5000);
             }
         });
         
-        // Initial setup: Load default page and hide its button on startup
+        // Initial setup: Load default page and START phrase rotation
         document.querySelector('.float-btn[data-target="streets"]').click();
+        startPhraseRotation(); 
     </script>
+
 </body>
 </html>
