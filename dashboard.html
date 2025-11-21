@@ -3,50 +3,317 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Dashboard</title>
-    <link rel="stylesheet" href="dashboard.css">
+    <title>Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --circle-size: 60px;
+            --bar-height: 60px;
+            --primary: #333;
+            --accent: #007bff;
+            --sidebar-collapsed-width: 60px;
+            --sidebar-expanded-width: 220px;
+        }
+
+        body {
+            overflow: hidden; /* We scroll the dashboard-content, not the body */
+            background: #f4f4f4;
+        }
+
+        /* --- SIDEBAR (OVERLAY) --- */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: var(--sidebar-collapsed-width);
+            background: #222;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 1000; /* Sits on top of content */
+            overflow: hidden;
+            white-space: nowrap;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+        }
+
+        .sidebar.expanded {
+            width: var(--sidebar-expanded-width);
+        }
+
+        .toggle-sidebar-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            padding: 15px;
+            cursor: pointer;
+            text-align: center;
+            width: var(--sidebar-collapsed-width);
+            border-bottom: 1px solid #444;
+        }
+
+        .sidebar nav {
+            opacity: 0;
+            transition: opacity 0.2s ease-in;
+            pointer-events: none; /* Can't click when hidden */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar.expanded nav {
+            opacity: 1;
+            pointer-events: auto;
+            transition-delay: 0.1s; /* Wait for width to expand slightly */
+        }
+
+        .sidebar nav button {
+            background: none;
+            border: none;
+            color: #ccc;
+            padding: 15px 20px;
+            text-align: left;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 16px;
+        }
+
+        .sidebar nav button:hover {
+            background: #333;
+            color: white;
+        }
+
+        /* --- MAIN CONTENT --- */
+        .dashboard-content {
+            height: 100vh;
+            width: 100%;
+            overflow-y: auto; /* Scroll happens here */
+            padding: 40px;
+            /* Push content slightly so it's not behind the collapsed sidebar */
+            padding-left: calc(var(--sidebar-collapsed-width) + 20px);
+            padding-bottom: 120px; /* Space for bottom UI */
+            transition: none; /* Content never moves */
+        }
+
+        /* --- BOTTOM UI CONTAINER --- */
+        .bottom-ui-container {
+            position: fixed;
+            bottom: 20px;
+            /* Fixed left position based on collapsed sidebar */
+            left: calc(var(--sidebar-collapsed-width) + 20px); 
+            right: 20px;
+            height: var(--bar-height);
+            display: flex;
+            align-items: flex-end; /* Aligns bottom of circle and bar */
+            pointer-events: none; /* Let clicks pass through empty space */
+            z-index: 900;
+        }
+
+        /* 1. The Circle */
+        .circle-trigger {
+            width: var(--circle-size);
+            height: var(--circle-size);
+            background-color: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Active State: Shrink Circle */
+        .bottom-ui-container.active .circle-trigger {
+            transform: scale(0.5);
+        }
+
+        /* 2. The Bar */
+        .bottom-bar {
+            flex-grow: 1;
+            height: var(--bar-height);
+            background-color: white;
+            margin-left: 15px; /* Gap between circle and bar */
+            border-radius: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            transform-origin: left center;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            pointer-events: auto;
+        }
+
+        .bottom-bar span {
+            font-weight: 500;
+            color: #555;
+        }
+
+        /* Active State: Hide Bar */
+        .bottom-ui-container.active .bottom-bar {
+            opacity: 0;
+            transform: translateX(-20px);
+            pointer-events: none;
+        }
+
+        /* 3. The Pop-out Buttons */
+        .bottom-menu {
+            position: absolute;
+            left: calc(var(--circle-size) + 15px); /* Starts where bar starts */
+            bottom: 0;
+            height: var(--bar-height);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .float-btn {
+            padding: 10px 25px;
+            border-radius: 25px;
+            border: none;
+            background: #333;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateX(-40px) scale(0.8);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .float-btn:hover {
+            background: #444;
+        }
+
+        /* Active State: Show Buttons */
+        .bottom-ui-container.active .bottom-menu .float-btn {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+            pointer-events: auto;
+        }
+
+        /* Stagger animations */
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(1) { transition-delay: 0.05s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(2) { transition-delay: 0.1s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(3) { transition-delay: 0.15s; }
+        .bottom-ui-container.active .bottom-menu .float-btn:nth-child(4) { transition-delay: 0.2s; }
+
+        /* Logic: Hide the button that corresponds to the active page */
+        .float-btn.active-page-btn {
+            display: none;
+        }
+    </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <aside class="sidebar" id="sidebar">
-            <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
-            <nav>
-                <button>Side 1</button>
-                <button>Side 2</button>
-                <button>Side 3</button>
-                <button>Side 4</button>
-            </nav>
-        </aside>
+    <aside class="sidebar" id="sidebar">
+        <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
+        <nav>
+            <button>Dashboard</button>
+            <button>Analytics</button>
+            <button>Settings</button>
+            <button>Profile</button>
+        </nav>
+    </aside>
 
-        <main class="dashboard-content" id="mainContent">
-            <div id="pageContainer">
-                <h1>Welcome</h1>
-                <p>Select an option from the bottom menu.</p>
-                <div style="height: 150vh; background: linear-gradient(to bottom, #f0f0f0, #e0e0e0);">
-                    <p style="padding: 20px;">Scroll down to trigger reset...</p>
-                </div>
+    <main class="dashboard-content" id="mainContent">
+        <div id="pageContainer">
+            <h1>Welcome to the Dashboard</h1>
+            <p>Click the blue circle at the bottom left to navigate.</p>
+            <div style="margin-top: 50px; height: 150vh; background: linear-gradient(#fff, #eee); border-radius: 10px; padding: 20px; border: 1px dashed #ccc;">
+                <p>Scroll down to see the menu reset automatically...</p>
             </div>
-        </main>
-    </div>
+        </div>
+    </main>
 
     <div class="bottom-ui-container" id="bottomUI">
         
-        <div class="circle-trigger" id="circleTrigger"></div>
+        <div class="circle-trigger" id="circleTrigger">
+            <span>+</span>
+        </div>
 
         <div class="bottom-bar" id="bottomBar">
-            <span>Dashboard Status OK</span>
+            <span>Ready</span>
         </div>
 
         <div class="bottom-menu" id="bottomMenu">
-            <button class="float-btn" data-target="page1">Page 1</button>
-            <button class="float-btn" data-target="page2">Page 2</button>
-            <button class="float-btn" data-target="page3">Page 3</button>
-            <button class="float-btn" data-target="page4">Page 4</button>
+            <button class="float-btn" data-target="home">Home</button>
+            <button class="float-btn" data-target="projects">Projects</button>
+            <button class="float-btn" data-target="team">Team</button>
+            <button class="float-btn" data-target="reports">Reports</button>
         </div>
 
     </div>
 
-    <script src="dashboard.js"></script>
+    <script>
+        // --- CONFIGURATION ---
+        // Define your page content here
+        const pages = {
+            home: `<h1>Home</h1><p>Welcome back.</p><div style='height:150vh; background:#fdfdfd'>Scrollable content...</div>`,
+            projects: `<h1>Projects</h1><p>Active projects list.</p><div style='height:150vh; background:#eef'>Scrollable content...</div>`,
+            team: `<h1>Team Page</h1><p>Manage your members.</p><div style='height:150vh; background:#efe'>Scrollable content...</div>`,
+            reports: `<h1>Reports</h1><p>Download statistics.</p><div style='height:150vh; background:#fef'>Scrollable content...</div>`
+        };
+
+        // --- ELEMENTS ---
+        const bottomUI = document.getElementById('bottomUI');
+        const circleTrigger = document.getElementById('circleTrigger');
+        const bottomButtons = document.querySelectorAll('.float-btn');
+        const pageContainer = document.getElementById('pageContainer');
+        const mainContent = document.getElementById('mainContent');
+        const sidebar = document.getElementById('sidebar');
+
+        // --- 1. SIDEBAR LOGIC ---
+        function toggleSidebar() {
+            // Simply adds/removes class. CSS handles the transition overlay.
+            sidebar.classList.toggle('expanded');
+        }
+
+        // --- 2. BOTTOM CIRCLE LOGIC ---
+        circleTrigger.addEventListener('click', () => {
+            bottomUI.classList.toggle('active');
+        });
+
+        // --- 3. PAGE NAVIGATION LOGIC ---
+        bottomButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.getAttribute('data-target');
+                
+                // 1. Render Content
+                if(pages[target]) {
+                    pageContainer.innerHTML = pages[target];
+                }
+
+                // 2. Manage Button Visibility (Hide current, rearrange others)
+                bottomButtons.forEach(b => b.classList.remove('active-page-btn'));
+                btn.classList.add('active-page-btn');
+
+                // 3. Scroll back to top
+                mainContent.scrollTop = 0;
+            });
+        });
+
+        // --- 4. SCROLL RESET LOGIC ---
+        mainContent.addEventListener('scroll', () => {
+            // If user scrolls down more than 20px AND the menu is open
+            if (mainContent.scrollTop > 20 && bottomUI.classList.contains('active')) {
+                // Reset the UI (Bar comes back, Circle grows)
+                bottomUI.classList.remove('active');
+            }
+        });
+
+    </script>
 </body>
 </html>
