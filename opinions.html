@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Opinions - Findr</title>
-    <!-- Load Tailwind CSS for modern styling of the page content -->
+    <title>Findr Opinions | Gather Public Feedback</title>
+    <!-- Load Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Configure Tailwind to use the Inter font */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        /* Configure Tailwind to use Inter font */
+        html { font-family: 'Inter', sans-serif; }
         
+        /* --- PART 1: BASE DASHBOARD CSS (Copied from shell) --- */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
             font-family: 'Inter', sans-serif;
         }
-        
-        /* --- CUSTOM SHELL STYLES --- */
+
         :root {
             --trigger-alignment: 10px; 
             --circle-size: 51px; 
@@ -34,10 +34,9 @@
             overflow: hidden;
             background: var(--bg-color);
             color: var(--text-dark);
-            -webkit-tap-highlight-color: transparent; /* Improve touch feel */
         }
 
-        /* --- 1. TOP HAMBURGER BUTTON (Sidebar Trigger) --- */
+        /* 1. TOP HAMBURGER BUTTON (Sidebar Trigger) */
         .toggle-sidebar-btn {
             position: fixed;
             top: 20px; 
@@ -59,7 +58,7 @@
         .toggle-sidebar-btn::after { content: "☰"; display: block; }
         .toggle-sidebar-btn.is-open::after { content: "✕"; color: #ff4444; }
 
-        /* --- NEW ACTION BUTTON (Made visible on this page via JS) --- */
+        /* DYNAMIC ACTION BUTTON (Now used for adding a new opinion) */
         .dynamic-action-btn {
             position: fixed;
             top: 20px; 
@@ -73,19 +72,15 @@
             padding: 8px 12px;
             border-radius: 6px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: background-color 0.3s, transform 0.3s;
+            transition: background-color 0.3s;
             line-height: 1; 
-            font-weight: 600;
-            display: none; /* Hidden by default, shown by JS on opinions page */
+            display: flex; /* Ensure it's visible */
+            align-items: center;
+            gap: 5px;
         }
-        .dynamic-action-btn:active {
-            transform: scale(0.98);
-        }
-        .dynamic-action-btn:hover {
-            background-color: #0056b3;
-        }
+        .dynamic-action-btn:hover { background-color: #0056b3; }
 
-        /* --- 2. SIDEBAR --- */
+        /* 2. SIDEBAR */
         .sidebar {
             position: fixed;
             top: 70px; 
@@ -126,19 +121,25 @@
         .sidebar.expanded button:nth-child(3) { transition-delay: 0.15s; }
         .sidebar.expanded button:nth-child(4) { transition-delay: 0.20s; }
 
-        /* --- 3. MAIN CONTENT SHELL --- */
+        /* 3. MAIN CONTENT SHELL */
         .dashboard-content {
             position: fixed;
             top: 70px;
             left: 0;
             width: 100%;
-            /* Calculate height: 100vh - (Top Bar Space) - (Bottom UI Height) - (Bottom Margin) */
             height: calc(100vh - 70px - var(--bar-height) - var(--spacing-bottom));
             overflow-y: auto;
-            padding: 0 20px;
+            padding: 0 10px; /* Reduced padding for mobile */
+            z-index: 500;
         }
-
-        /* --- 4. BOTTOM UI CONTAINER (Floating) --- */
+        
+        #pageContainer {
+            padding: 20px 10px 100px 10px; /* Added bottom padding to clear floating bar */
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        /* 4. BOTTOM UI CONTAINER (Floating) */
         .bottom-ui-container {
             position: fixed;
             bottom: var(--spacing-bottom); 
@@ -196,13 +197,12 @@
             pointer-events: auto;
             z-index: 901;
         }
-
         .bottom-ui-container.active .bottom-bar {
             opacity: 0;
             pointer-events: none;
         }
 
-        /* --- 5. BOTTOM MENU GRID CONTAINER --- */
+        /* 5. BOTTOM MENU GRID CONTAINER */
         .bottom-menu {
             position: absolute;
             right: 0;
@@ -240,6 +240,16 @@
         }
         
         .bottom-menu a.float-btn:hover { background: rgba(0, 0, 0, 0.1); }
+        
+        /* ACTIVE LINK STYLE */
+        .bottom-menu a.float-btn.active-link {
+            background: #ffecb3; /* Light yellow background to denote active page */
+            color: #cc9900;
+        }
+        .bottom-menu a.float-btn.active-link svg {
+             fill: #cc9900;
+        }
+
 
         /* --- BIGGER LINKS WHEN ACTIVE --- */
         .bottom-ui-container.active .bottom-menu a.float-btn {
@@ -248,6 +258,7 @@
             opacity: 1;
             transform: translateY(0);
         }
+        
         .bottom-menu a.float-btn svg {
             width: 14px; 
             height: 14px; 
@@ -266,124 +277,104 @@
         .bottom-ui-container.active .bottom-menu a.float-btn:nth-child(5) { transition-delay: 0.15s; }
         .bottom-ui-container.active .bottom-menu a.float-btn:nth-child(6) { transition-delay: 0.18s; }
         .bottom-ui-container.active .bottom-menu a.float-btn:nth-child(7) { transition-delay: 0.21s; }
-        
-        /* --- MODAL STYLES --- */
-        .modal {
-            position: fixed;
-            z-index: 3000; 
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.7);
+
+        /* Custom styles for Opinion cards */
+        .poll-option-bar {
+            height: 24px;
+            background-color: var(--accent);
+            border-radius: 4px;
+            transition: width 0.5s ease-out;
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 10px;
+            justify-content: space-between;
+            color: white;
+            padding: 0 10px;
+            font-weight: 500;
+            font-size: 14px;
         }
-
-        .modal-content {
-            background-color: white;
-            padding: 20px;
-            border-radius: 12px;
-            max-width: 95%;
-            width: 400px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.3s ease-out;
-        }
-
-        @keyframes slideUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
+        
     </style>
 </head>
-<body class="bg-gray-100">
+<body>
 
-    <!-- TOP SHELL CONTROLS -->
     <button class="toggle-sidebar-btn" id="topBtn"></button>
     
-    <!-- DYNAMIC ACTION BUTTON (VISIBLE ON OPINIONS PAGE) -->
-    <button class="dynamic-action-btn" id="dynamic-action-btn" title="Ask for Advice or Post a Survey">
-        &#x270E; + ?
+    <!-- DYNAMIC ACTION BUTTON: Opens the Add Opinion Modal -->
+    <button class="dynamic-action-btn" id="dynamic-action-btn" title="Ask a new Opinion or Survey">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        Ask Opinion
     </button>
 
-    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-        <!-- These sidebar buttons are links back to the shell or simple triggers -->
-        <button onclick="window.location.href='findr.html'">Findr Overview</button>
-        <button onclick="window.location.href='settings.html'">Settings</button>
-        <button onclick="window.location.href='profile.html'">Profile</button>
-        <button onclick="window.location.href='log.html'">Log</button>
+        <button id="sidebar-btn-1" onclick="toggleSidebar()">Findr Overview</button>
+        <button id="sidebar-btn-2" onclick="toggleSidebar()">Settings</button>
+        <button id="sidebar-btn-3" onclick="toggleSidebar()">Profile</button>
+        <button id="sidebar-btn-4" onclick="toggleSidebar()">Log</button>
     </aside>
 
-    <!-- MAIN CONTENT AREA FOR OPINIONS -->
     <main class="dashboard-content" id="mainContent">
-        <div id="pageContainer" class="max-w-xl mx-auto py-4">
-            <h1 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Community Opinions</h1>
-            
-            <p class="text-sm text-gray-600 mb-6">Tap the '&#x270E; + ?' button at the top right to start a new discussion or poll.</p>
-
-            <!-- Example Opinions Feed (using Tailwind CSS for layout) -->
-
-            <!-- Poll Card Example -->
-            <div class="bg-white p-4 mb-4 rounded-xl shadow-lg border border-gray-200">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Poll</span>
-                    <span class="text-xs text-gray-500">2 hours ago</span>
-                </div>
-                <h2 class="text-lg font-bold text-gray-800 mb-3">Should Findr implement a feature for peer-to-peer bartering?</h2>
-                <div class="space-y-2">
-                    <button class="w-full text-left p-3 bg-gray-50 hover:bg-gray-200 rounded-lg transition duration-150 border">Yes, absolutely (45%)</button>
-                    <button class="w-full text-left p-3 bg-gray-50 hover:bg-gray-200 rounded-lg transition duration-150 border">Maybe, depends on the items (30%)</button>
-                    <button class="w-full text-left p-3 bg-gray-50 hover:bg-gray-200 rounded-lg transition duration-150 border">No, focus on current features (25%)</button>
-                </div>
-                <div class="mt-4 text-xs text-gray-500">
-                    <span class="mr-3">&#x1F4AC; 14 Comments</span>
-                    <span>&#x1F4C8; 200 Votes</span>
-                </div>
-            </div>
-
-            <!-- Advice Request Card Example -->
-            <div class="bg-white p-4 mb-4 rounded-xl shadow-lg border-l-4 border-yellow-500">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold uppercase text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">Advice</span>
-                    <span class="text-xs text-gray-500">1 day ago</span>
-                </div>
-                <h2 class="text-lg font-bold text-gray-800 mb-2">How should I approach scaling my side hustle into a full-time business?</h2>
-                <p class="text-sm text-gray-700 line-clamp-3 mb-3">I've been running a small custom t-shirt printing service from home, and demand is starting to outpace my current setup. I'm worried about inventory management and hiring my first employee...</p>
-                <div class="mt-4 text-xs text-gray-500">
-                    <span class="mr-3">&#x1F4AC; 28 Comments</span>
-                    <button class="text-blue-500 font-medium hover:text-blue-700">Read More</button>
-                </div>
+        <div id="pageContainer">
+            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Public Opinions & Surveys</h1>
+            <p id="userIdDisplay" class="text-sm text-gray-500 mb-4 text-center">User ID: Loading...</p>
+            <div id="opinionsList" class="space-y-6">
+                <!-- Opinion cards will be loaded here -->
+                <p id="loadingMessage" class="text-center text-gray-500">Loading opinions...</p>
             </div>
             
-            <!-- Survey Card Example -->
-            <div class="bg-white p-4 mb-4 rounded-xl shadow-lg border border-gray-200">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold uppercase text-green-600 bg-green-50 px-2 py-1 rounded-full">Survey</span>
-                    <span class="text-xs text-gray-500">3 days ago</span>
-                </div>
-                <h2 class="text-lg font-bold text-gray-800 mb-3">Rate your satisfaction with the current mentor matching system (1-5 stars)</h2>
-                <div class="text-xl text-center text-yellow-500 space-x-2 p-3 bg-gray-50 rounded-lg">
-                    <span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9734;</span><span>&#9734;</span>
-                </div>
-                <p class="text-sm text-gray-600 mt-2 text-center">Average Rating: 3.2 (65 responses)</p>
-                <div class="mt-4 text-xs text-gray-500">
-                    <span class="mr-3">&#x1F4AC; 5 Comments</span>
+            <!-- Modal for adding new opinions -->
+            <div id="addOpinionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[1100] hidden">
+                <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6 transform transition-all overflow-y-auto max-h-[90vh]">
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-800">Ask a New Opinion</h2>
+                    <form id="opinionForm" class="space-y-4">
+                        
+                        <div id="authMessage" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4" role="alert">
+                            You must be authenticated to post. Please wait for sign-in...
+                        </div>
+                        
+                        <div>
+                            <label for="question" class="block text-sm font-medium text-gray-700">Your Anonymous Question/Topic:</label>
+                            <textarea id="question" rows="3" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"></textarea>
+                        </div>
+
+                        <div>
+                            <label for="type" class="block text-sm font-medium text-gray-700">Response Type:</label>
+                            <select id="type" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                                <option value="poll">Poll (Multiple Choice)</option>
+                                <option value="text">Open Answer (Text)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Poll Options (Visible when type is 'poll') -->
+                        <div id="pollOptionsContainer" class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Poll Options (Min 2, Max 4):</label>
+                            <input type="text" class="option-input mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border" placeholder="Option 1 (e.g., Yes, I agree)" required>
+                            <input type="text" class="option-input mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border" placeholder="Option 2 (e.g., No, I disagree)" required>
+                            <input type="text" class="option-input mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border" placeholder="Option 3 (Optional)">
+                            <input type="text" class="option-input mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border" placeholder="Option 4 (Optional)">
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 pt-2">
+                            <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors shadow">
+                                Cancel
+                            </button>
+                            <button type="submit" id="submitBtn" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow">
+                                Post Opinion Anonymously
+                            </button>
+                        </div>
+                        
+                        <div id="formError" class="text-red-500 text-sm hidden"></div>
+                    </form>
                 </div>
             </div>
-
-            <div class="h-20"></div> <!-- Spacer for bottom bar -->
-
+            <!-- End Modal -->
+            
         </div>
     </main>
 
-    <!-- BOTTOM UI CONTAINER -->
     <div class="bottom-ui-container" id="bottomUI">
+        
         <div class="circle-trigger" id="circleTrigger"></div>
+
         <div class="bottom-bar" id="bottomBar">
             <span>Select...</span>
         </div>
@@ -396,7 +387,7 @@
                 Findr
             </a>
             
-            <a class="float-btn" href="opinions.html">
+            <a class="float-btn active-link" href="opinions.html">
                 <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
                 Opinions
             </a>
@@ -430,37 +421,15 @@
 
     </div>
     
-    <!-- ADVICE MODAL -->
-    <div id="adviceModal" class="modal hidden">
-        <div class="modal-content">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800">Ask for Advice / Post a Poll</h2>
-            <form id="adviceForm">
-                <div class="mb-4">
-                    <label for="postType" class="block text-sm font-medium text-gray-700 mb-1">Type of Post</label>
-                    <select id="postType" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                        <option value="advice">Advice Request (Q&A)</option>
-                        <option value="poll">Community Poll (A/B)</option>
-                        <option value="survey">Short Survey</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label for="postTitle" class="block text-sm font-medium text-gray-700 mb-1">Title/Question</label>
-                    <input type="text" id="postTitle" placeholder="e.g., Best way to save for a house?" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div class="mb-6">
-                    <label for="postDetails" class="block text-sm font-medium text-gray-700 mb-1">Details (Optional)</label>
-                    <textarea id="postDetails" rows="4" placeholder="Give context or specific details..." class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">Post Opinion</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <script>
-        /* --- GLOBAL REFERENCES --- */
+    <script type="module">
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, arrayUnion, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('debug'); // Enable Firestore logging
+
+        /* --- GLOBAL REFERENCES (UI) --- */
         const bottomUI = document.getElementById('bottomUI');
         const circleTrigger = document.getElementById('circleTrigger');
         const mainContent = document.getElementById('mainContent');
@@ -468,17 +437,30 @@
         const topBtn = document.getElementById('topBtn');
         const bottomBar = document.getElementById('bottomBar').querySelector('span');
         const dynamicActionBtn = document.getElementById('dynamic-action-btn');
-        const adviceModal = document.getElementById('adviceModal');
+        const opinionsList = document.getElementById('opinionsList');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const authMessage = document.getElementById('authMessage');
+
+        /* --- FIREBASE VARIABLES --- */
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const OPINIONS_COLLECTION = `artifacts/${appId}/public/data/opinions`;
         
         let resetTimer;
         let phraseInterval;
         let userName = "Traveler";
         let activePhrases = [
-            "everything you need is NEARR",
             "your joy is NEARR",
             "favor is NEARR than you think",
             "great success is NEARR",
-            "your answer is NEARR"
+            "your answer is NEARR",
+            "everything you need is NEARR"
         ];
         
         /* --- CORE DASHBOARD UI FUNCTIONS --- */
@@ -497,6 +479,7 @@
             displayRandomPhrase();
             phraseInterval = setInterval(displayRandomPhrase, 10000); 
         }
+
         function stopPhraseRotation() {
              if (phraseInterval) clearInterval(phraseInterval);
         }
@@ -509,17 +492,7 @@
             topBtn.classList.toggle('is-open');
         }
 
-        function openModal() {
-            adviceModal.classList.remove('hidden');
-        }
-
-        function closeModal() {
-            adviceModal.classList.add('hidden');
-        }
-
-        // --- EVENT LISTENERS ---
         topBtn.addEventListener('click', toggleSidebar);
-        dynamicActionBtn.addEventListener('click', openModal);
 
         circleTrigger.addEventListener('click', () => {
             if (!bottomUI.classList.contains('active')) {
@@ -553,49 +526,395 @@
                 }, 5000);
             }
         });
+        
+        // --- MODAL / FORM LOGIC ---
+        function openModal() {
+            if (!userId) {
+                 authMessage.classList.remove('hidden');
+            }
+            document.getElementById('addOpinionModal').classList.remove('hidden');
+        }
 
-        // Close modal when clicking outside
-        adviceModal.addEventListener('click', (e) => {
-            if (e.target === adviceModal) {
+        function closeModal() {
+            document.getElementById('addOpinionModal').classList.add('hidden');
+            document.getElementById('opinionForm').reset();
+            document.getElementById('formError').classList.add('hidden');
+            document.getElementById('formError').textContent = '';
+            authMessage.classList.add('hidden');
+            // Reset poll options display (in case it was hidden)
+            updatePollOptionsVisibility();
+        }
+
+        dynamicActionBtn.addEventListener('click', openModal);
+
+        const typeSelect = document.getElementById('type');
+        const pollOptionsContainer = document.getElementById('pollOptionsContainer');
+        const optionInputs = pollOptionsContainer.querySelectorAll('.option-input');
+        
+        function updatePollOptionsVisibility() {
+            pollOptionsContainer.classList.toggle('hidden', typeSelect.value !== 'poll');
+            // Only require the first two options if it's a poll
+            optionInputs[0].required = typeSelect.value === 'poll';
+            optionInputs[1].required = typeSelect.value === 'poll';
+        }
+
+        typeSelect.addEventListener('change', updatePollOptionsVisibility);
+
+        // --- FIREBASE INITIALIZATION & AUTH ---
+        async function initializeFirebase() {
+            try {
+                if (!app && Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            userIdDisplay.textContent = `User ID: ${userId}`;
+                            authMessage.classList.add('hidden');
+                            startRealtimeListener();
+                        } else {
+                            // Should not happen if signInAnonymously succeeds
+                            userId = null;
+                            userIdDisplay.textContent = 'User ID: Not Signed In';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Firebase Initialization or Auth Error:", error);
+                userIdDisplay.textContent = 'User ID: Error';
+                authMessage.classList.remove('hidden');
+                authMessage.textContent = `Authentication failed: ${error.code}`;
+            }
+        }
+
+        // --- DATA SUBMISSION LOGIC ---
+        document.getElementById('opinionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const questionText = document.getElementById('question').value.trim();
+            const type = typeSelect.value;
+            const errorElement = document.getElementById('formError');
+            errorElement.classList.add('hidden');
+
+            if (!userId) {
+                errorElement.textContent = "Authentication in progress. Please wait a moment and try again.";
+                errorElement.classList.remove('hidden');
+                return;
+            }
+            
+            if (!questionText) {
+                errorElement.textContent = "Please enter your question.";
+                errorElement.classList.remove('hidden');
+                return;
+            }
+
+            const newOpinion = {
+                question: questionText,
+                type: type,
+                userId: userId,
+                createdAt: new Date(),
+                responders: [], // Array to track who has responded (for text or poll)
+            };
+
+            if (type === 'poll') {
+                const options = [];
+                let validOptionsCount = 0;
+                optionInputs.forEach(input => {
+                    const text = input.value.trim();
+                    if (text) {
+                        options.push({ text: text, votes: 0 });
+                        validOptionsCount++;
+                    }
+                });
+
+                if (validOptionsCount < 2) {
+                    errorElement.textContent = "Please provide at least two poll options.";
+                    errorElement.classList.remove('hidden');
+                    return;
+                }
+                newOpinion.options = options;
+            }
+
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').textContent = 'Posting...';
+
+            try {
+                await addDoc(collection(db, OPINIONS_COLLECTION), newOpinion);
                 closeModal();
+            } catch (error) {
+                console.error("Error adding opinion:", error);
+                errorElement.textContent = `Failed to post: ${error.message}`;
+                errorElement.classList.remove('hidden');
+            } finally {
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').textContent = 'Post Opinion Anonymously';
             }
         });
         
+        // --- DATA FETCHING & RENDERING ---
+        function startRealtimeListener() {
+            if (!db) return;
+
+            const q = query(collection(db, OPINIONS_COLLECTION));
+
+            onSnapshot(q, (snapshot) => {
+                loadingMessage.classList.add('hidden');
+                opinionsList.innerHTML = '';
+                
+                snapshot.forEach(docSnapshot => {
+                    const data = docSnapshot.data();
+                    const id = docSnapshot.id;
+                    renderOpinionCard(id, data);
+                });
+
+                if (snapshot.empty) {
+                     loadingMessage.classList.remove('hidden');
+                     loadingMessage.textContent = 'No public opinions posted yet. Be the first!';
+                }
+            }, (error) => {
+                console.error("Error listening to opinions:", error);
+                loadingMessage.textContent = `Error loading data: ${error.message}`;
+                loadingMessage.classList.remove('hidden');
+            });
+        }
+
+        function renderOpinionCard(id, data) {
+            const card = document.createElement('div');
+            card.className = 'bg-white p-5 rounded-xl shadow-lg border-t-4 border-blue-500';
+            
+            // Calculate total responses
+            const totalResponses = data.type === 'poll' 
+                ? (data.options?.reduce((sum, opt) => sum + opt.votes, 0) || 0) 
+                : (data.responders?.length || 0);
+
+            let contentHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <p class="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">${data.type === 'poll' ? 'POLL' : 'TEXT RESPONSE'}</p>
+                    <p class="text-sm text-gray-500">Total Votes/Responses: <span class="font-bold">${totalResponses}</span></p>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">${data.question}</h3>
+            `;
+            
+            const hasResponded = data.responders?.includes(userId) || false;
+            const isOwner = data.userId === userId;
+
+            if (data.type === 'poll') {
+                contentHTML += renderPollOptions(id, data.options, totalResponses, hasResponded, isOwner);
+            } else if (data.type === 'text') {
+                contentHTML += renderTextResponseSection(id, hasResponded, isOwner);
+            }
+            
+            card.innerHTML = contentHTML;
+            opinionsList.prepend(card);
+
+            // Attach event listeners for polls (since the element is now in DOM)
+            if (data.type === 'poll') {
+                card.querySelectorAll('.poll-vote-btn').forEach(btn => {
+                    btn.addEventListener('click', () => voteOnPoll(id, parseInt(btn.dataset.index)));
+                });
+            } else if (data.type === 'text' && !hasResponded) {
+                 card.querySelector('.submit-text-btn')?.addEventListener('click', () => submitTextResponse(id, card.querySelector('.text-response-input').value));
+            }
+             // Attach event listener for viewing text responses (only for the owner)
+            if (data.type === 'text' && isOwner) {
+                card.querySelector('.view-responses-btn').addEventListener('click', () => viewTextResponses(id));
+            }
+        }
+        
+        function renderPollOptions(id, options, totalResponses, hasResponded, isOwner) {
+            let html = '<div class="space-y-3 mt-4">';
+            
+            options.forEach((option, index) => {
+                const percentage = totalResponses > 0 ? ((option.votes / totalResponses) * 100).toFixed(1) : 0;
+                const buttonDisabled = hasResponded && !isOwner; // Only disabled if user has voted and is not the owner
+                
+                if (hasResponded || totalResponses > 0) {
+                    // Show results view
+                    html += `
+                        <div class="relative bg-gray-100 p-1 rounded-lg">
+                            <div class="poll-option-bar" style="width: ${percentage}%; background-color: ${hasResponded ? '#10B981' : '#007bff'};">
+                                <span class="truncate">${option.text}</span>
+                                <span class="flex-shrink-0 ml-2">${option.votes} (${percentage}%)</span>
+                            </div>
+                            <button class="poll-vote-btn absolute inset-0 w-full h-full bg-transparent hover:bg-black hover:bg-opacity-5 transition-colors rounded-lg flex items-center justify-start text-sm font-medium px-2 ${buttonDisabled ? 'cursor-not-allowed opacity-50' : ''}" 
+                                data-index="${index}" 
+                                ${buttonDisabled ? 'disabled' : ''}>
+                                <span class="text-gray-800 absolute z-10 p-2">${option.text}</span>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // Simple voting view if no one has voted yet
+                     html += `
+                        <button class="poll-vote-btn w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-blue-50 transition-colors text-gray-800 font-medium ${buttonDisabled ? 'cursor-not-allowed opacity-50 bg-gray-50' : ''}" 
+                            data-index="${index}" 
+                            ${buttonDisabled ? 'disabled' : ''}>
+                            ${option.text}
+                        </button>
+                    `;
+                }
+            });
+            
+            html += hasResponded ? '<p class="text-xs text-center text-green-600 mt-2 font-semibold">Thank you for voting!</p>' : '';
+            
+            html += '</div>';
+            return html;
+        }
+
+        function renderTextResponseSection(id, hasResponded, isOwner) {
+            if (isOwner) {
+                return `
+                    <div class="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p class="text-sm font-medium text-yellow-800 mb-2">You own this question.</p>
+                        <button class="view-responses-btn w-full py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-semibold">
+                            View All Responses
+                        </button>
+                         <div id="responses-${id}" class="mt-3 space-y-2 text-sm text-gray-700 hidden"></div>
+                    </div>
+                `;
+            }
+
+            if (hasResponded) {
+                return `
+                    <div class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200 text-center">
+                        <p class="font-semibold text-green-700">Thank you for submitting your anonymous opinion!</p>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="mt-4 space-y-3">
+                    <textarea class="text-response-input w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500" rows="3" placeholder="Enter your anonymous opinion here..." required></textarea>
+                    <button class="submit-text-btn w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">
+                        Submit Opinion Anonymously
+                    </button>
+                </div>
+            `;
+        }
+        
+        // --- DATA INTERACTION LOGIC ---
+        async function voteOnPoll(opinionId, optionIndex) {
+            if (!userId) { console.error("User not authenticated."); return; }
+            
+            const opinionRef = doc(db, OPINIONS_COLLECTION, opinionId);
+
+            try {
+                // Transaction to ensure atomicity
+                const opinionDoc = await getDocs(opinionRef); // Need to use getDoc for transaction/atomic update
+
+                // Update the array of options (increment vote count)
+                // And update the array of responders (add current userId)
+                await updateDoc(opinionRef, {
+                    [`options.${optionIndex}.votes`]: arrayUnion(1), // Simple arrayUnion(1) to simulate increment
+                    responders: arrayUnion(userId)
+                });
+
+                // Since Firestore doesn't support array element increment directly with arrayUnion,
+                // we must use a workaround or fetch/modify/set (which is better handled by an external function/cloud function).
+                // For this front-end only implementation, we will fetch and modify within a simple try/catch.
+                // NOTE: This is NOT atomic. For true atomic poll voting, a Transaction is required.
+                
+                const currentDoc = await getDoc(opinionRef);
+                const data = currentDoc.data();
+                
+                if (data.responders.includes(userId)) {
+                    // Implement a custom modal for this message
+                    console.warn("You have already voted on this poll.");
+                    return; 
+                }
+
+                // Deep clone options
+                let newOptions = data.options.map(opt => ({...opt}));
+                newOptions[optionIndex].votes += 1;
+
+                await updateDoc(opinionRef, {
+                    options: newOptions,
+                    responders: arrayUnion(userId)
+                });
+
+
+            } catch (error) {
+                 console.error("Error voting on poll (non-atomic):", error);
+            }
+        }
+        
+        async function submitTextResponse(opinionId, responseText) {
+             if (!userId) { console.error("User not authenticated."); return; }
+             const trimmedResponse = responseText.trim();
+             if (!trimmedResponse) {
+                console.warn("Response cannot be empty."); 
+                return;
+             }
+             
+             const opinionRef = doc(db, OPINIONS_COLLECTION, opinionId);
+             const responsesCollection = collection(db, OPINIONS_COLLECTION, opinionId, 'responses');
+
+             try {
+                 // 1. Add the response to the subcollection
+                 await addDoc(responsesCollection, {
+                     responderId: userId,
+                     response: trimmedResponse,
+                     createdAt: new Date()
+                 });
+
+                 // 2. Mark the user as a responder on the main opinion document
+                 await updateDoc(opinionRef, {
+                     responders: arrayUnion(userId)
+                 });
+
+             } catch (error) {
+                 console.error("Error submitting text response:", error);
+             }
+        }
+
+        async function viewTextResponses(opinionId) {
+            const responsesDiv = document.getElementById(`responses-${opinionId}`);
+            if (responsesDiv.classList.contains('hidden')) {
+                // Fetch and display responses
+                const responsesCollection = collection(db, OPINIONS_COLLECTION, opinionId, 'responses');
+                try {
+                    const snapshot = await getDocs(responsesCollection);
+                    responsesDiv.innerHTML = '';
+                    if (snapshot.empty) {
+                        responsesDiv.innerHTML = '<p class="text-gray-500 italic">No text responses yet.</p>';
+                    } else {
+                         snapshot.forEach(docSnap => {
+                            const data = docSnap.data();
+                            responsesDiv.innerHTML += `
+                                <div class="p-2 border border-gray-100 bg-white rounded-md shadow-sm">
+                                    <p class="text-xs text-gray-400">Responder ID: ${data.responderId.substring(0, 8)}...</p>
+                                    <p class="mt-1">${data.response}</p>
+                                </div>
+                            `;
+                        });
+                    }
+                    responsesDiv.classList.remove('hidden');
+                } catch (error) {
+                     console.error("Error viewing text responses:", error);
+                     responsesDiv.innerHTML = '<p class="text-red-500">Failed to load responses.</p>';
+                     responsesDiv.classList.remove('hidden');
+                }
+            } else {
+                // Hide responses
+                responsesDiv.classList.add('hidden');
+            }
+        }
+
         // --- INITIALIZATION ---
         window.onload = function() {
-            // 1. Start dynamic elements
-            startPhraseRotation(); 
-            
-            // 2. Make the specific button for this page visible
-            dynamicActionBtn.style.display = 'block';
-
-            // 3. Prevent form submission for the mock modal
-            document.getElementById('adviceForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                console.log('Form Submitted (Mock)! Type:', document.getElementById('postType').value);
-                closeModal();
-                // Replace with actual data posting logic later
-                alertPlaceholder('Post Submitted Successfully!');
-            });
+            startPhraseRotation();
+            initializeFirebase(); 
+            updatePollOptionsVisibility();
         };
-
-        // Custom alert placeholder since alert() is forbidden
-        function alertPlaceholder(message) {
-            const tempDiv = document.createElement('div');
-            tempDiv.textContent = message;
-            tempDiv.className = 'fixed bottom-20 right-1/2 translate-x-1/2 p-3 bg-green-500 text-white rounded-lg shadow-xl z-50 transition-all duration-300';
-            document.body.appendChild(tempDiv);
-            
-            setTimeout(() => {
-                tempDiv.style.opacity = '0';
-                tempDiv.style.transform = 'translateY(10px) translateX(-50%)';
-            }, 2500);
-
-            setTimeout(() => {
-                tempDiv.remove();
-            }, 3000);
-        }
 
     </script>
 </body>
 </html>
+
