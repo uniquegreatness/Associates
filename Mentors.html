@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentors Learning Platform - Event Fixes</title>
+    <!-- Load Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fce4ec; /* Lightest pink background */
+        }
+        /* Custom styles for mobile responsiveness on main elements */
+        .max-w-4xl {
+            max-width: 90%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .max-w-2xl {
+            max-width: 95%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        @media (min-width: 640px) {
+            .max-w-4xl { max-width: 48rem; }
+            .max-w-2xl { max-width: 42rem; }
+        }
+    </style>
+</head>
+<body class="bg-pink-50">
+
+    <div id="app" class="min-h-screen">
+        <!-- Application content will be injected here -->
+    </div>
+
+    <script>
+        // Set Firebase logging level to help debug if Firestore were used (good practice)
+        // import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // setLogLevel('Debug'); 
+        
+        // --- GLOBAL STATE & CONFIGURATION (IN-MEMORY ONLY) ---
+
+        // In a real application, this user ID would come from your Supabase auth service.
+        const MOCK_USER_ID = 'mock-user-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        let posts = []; // The main source of truth for posts
+        let userViewedPosts = new Set(); // Tracks posts viewed by MOCK_USER_ID
+        let currentViewMode = 'feed'; // 'feed', 'view_post', 'take_exam', 'show_results', 'create_post'
+        let activePost = null;
+        let quizAnswers = {};
+        let quizResults = null;
+        let isLoading = true;
+
+        const appContainer = document.getElementById('app');
+
+        // --- MOCK DATA GENERATION ---
+
+        const generateMockPosts = () => {
+            const topics = [
+                "Advanced CSS Grid Layouts", "Introduction to Quantum Computing", "The History of the Byzantine Empire",
+                "React Hooks Best Practices", "Financial Modeling with Python", "Neuroplasticity Explained",
+                "Basics of Cryptography", "Writing Effective SQL Queries", "Modern Data Visualization Techniques",
+                "Principles of Game Theory", "Sustainable Urban Planning", "Mastering Public Speaking",
+                "Key Differentiators of Rust vs C++", "Understanding Microservices Architecture", "How to Brew the Perfect Espresso",
+                "The Art of Debugging JavaScript", "Time Management for Engineers", "Global Supply Chain Optimization",
+                "Linear Algebra for Machine Learning", "Design Thinking Fundamentals"
+            ];
+
+            return topics.map((topic, index) => {
+                const rating = (Math.random() * 2) + 3; // Random rating between 3.0 and 5.0
+                const ratingCount = Math.floor(Math.random() * 50) + 10; // 10 to 60 ratings
+
+                const quizLength = index % 3 === 0 ? 3 : (index % 3 === 1 ? 2 : 1);
+                const quiz = [];
+
+                for (let i = 0; i < quizLength; i++) {
+                    quiz.push({
+                        question: `What is the key takeaway from the lesson on ${topic} - Subtopic ${i + 1}?`,
+                        options: [
+                            `Option A: The correct answer for subtopic ${i + 1}.`,
+                            "Option B: A plausible but incorrect answer.",
+                            "Option C: A confusing technical term.",
+                            ...(quizLength > 1 && i === 1 ? ["Option D: A completely irrelevant fact."] : []),
+                        ].slice(0, 2 + (i % 2)),
+                        correctIndex: 0,
+                    });
+                }
+
+                return {
+                    id: `post-${index + 1}`,
+                    mentorId: `mentor_${(index % 5) + 1}`,
+                    mentorUserIdDisplay: `USER-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+                    profileContent: `This exclusive 'View Once' post covers ${topic} in depth, providing three crucial insights. Be sure to pay attention to the concepts of ${topic.split(' ').slice(-1)} and ${topic.split(' ').slice(0, 1)}. Mastery requires concentration! This is the core knowledge content.`,
+                    quiz: quiz,
+                    ratings: rating * ratingCount,
+                    ratingCount: ratingCount,
+                    averageRating: rating, 
+                    individualRatings: {}, 
+                    viewedBy: new Set(), 
+                    timestamp: new Date(Date.now() - index * 600000),
+                };
+            });
+        };
+
+        // Initialize mock data
+        posts = generateMockPosts();
+        isLoading = false; // Mock data is instantly available
+
+        // --- HELPER COMPONENTS (HTML Strings) ---
+
+        /**
+         * Generates HTML for the star rating display.
+         */
+        const StarRatingHTML = (rating, count) => {
+            const safeRating = rating > 0 ? rating : 0;
+            const fullStars = Math.floor(safeRating);
+            const hasHalfStar = safeRating % 1 >= 0.5;
+            const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+            let stars = [];
+            for (let i = 0; i < fullStars; i++) {
+                stars.push(`<span class="text-fuchsia-500">★</span>`); // Fuchsia stars
+            }
+            if (hasHalfStar) {
+                stars.push(`<span class="text-fuchsia-500">½</span>`);
+            }
+            for (let i = 0; i < emptyStars; i++) {
+                stars.push(`<span class="text-gray-300">★</span>`);
+            }
+
+            return `
+                <div class="flex items-center text-sm whitespace-nowrap">
+                    ${stars.join('')}
+                    <span class="ml-2 text-xs font-semibold text-gray-600">
+                        ${safeRating.toFixed(1)} (${count} ratings)
+                    </span>
+                </div>
+            `;
+        };
+
+        // --- STATE MANAGEMENT AND RENDERING ---
+
+        /**
+         * Updates the global application state and re-renders the UI.
+         */
+        window.updateState = (newState) => {
+            Object.keys(newState).forEach(key => {
+                window[key] = newState[key];
+            });
+            renderApp();
+        };
+
+        // --- ACTION HANDLERS (Simulate API calls with immediate state updates) ---
+
+        window.handleViewPost = (postId) => {
+            const post = posts.find(p => p.id === postId);
+            if (post) {
+                window.updateState({ activePost: post, currentViewMode: 'view_post' });
+            }
+        };
+
+        window.handleTakeExam = () => {
+            if (!activePost) return;
+
+            // 1. Mark post as viewed (in-memory only)
+            const postIndex = posts.findIndex(p => p.id === activePost.id);
+            if (postIndex !== -1) {
+                posts[postIndex].viewedBy.add(MOCK_USER_ID);
+            }
+            userViewedPosts.add(activePost.id); 
+
+            // 2. Move to exam mode
+            window.updateState({ quizAnswers: {}, quizResults: null, currentViewMode: 'take_exam' });
+        };
+
+        window.handleAnswerChange = (questionIndex, optionIndex) => {
+            quizAnswers[questionIndex] = optionIndex;
+            window.quizAnswers = { ...quizAnswers };
+        };
+
+        window.handleSubmitExam = () => {
+            if (!activePost || !activePost.quiz) return;
+
+            let correctCount = 0;
+            const results = activePost.quiz.map((q, index) => {
+                const selectedAnswerIndex = quizAnswers[index];
+                const isCorrect = selectedAnswerIndex === q.correctIndex;
+                if (isCorrect) {
+                    correctCount++;
+                }
+                return {
+                    question: q.question,
+                    isCorrect,
+                    selectedAnswerIndex,
+                    correctIndex: q.correctIndex,
+                    options: q.options
+                };
+            });
+
+            window.updateState({
+                quizResults: {
+                    score: correctCount,
+                    total: activePost.quiz.length,
+                    details: results,
+                },
+                currentViewMode: 'show_results'
+            });
+        };
+
+        window.handleRateMentor = (rating) => {
+            if (!activePost) return;
+
+            const postIndex = posts.findIndex(p => p.id === activePost.id);
+            if (postIndex === -1) return;
+
+            const post = posts[postIndex];
+
+            if (post.individualRatings[MOCK_USER_ID]) {
+                console.warn("You have already rated this post.");
+                window.updateState({ currentViewMode: 'show_results' });
+                return;
+            }
+
+            // Update ratings
+            post.ratings += rating;
+            post.ratingCount += 1;
+            post.individualRatings[MOCK_USER_ID] = rating;
+            post.averageRating = post.ratings / post.ratingCount;
+
+            activePost = { ...post };
+
+            console.log("Thank you for rating the mentor!");
+            // Rerender to update the displayed rating/disable buttons
+            window.updateState({ posts: posts, activePost: activePost, currentViewMode: 'show_results' }); 
+        };
+
+        window.handlePostCreation = (content, quizQuestions) => {
+            const newPost = {
+                id: 'post-' + Date.now(),
+                mentorId: MOCK_USER_ID,
+                mentorUserIdDisplay: MOCK_USER_ID,
+                profileContent: content,
+                quiz: quizQuestions,
+                ratings: 0,
+                ratingCount: 0,
+                averageRating: 0,
+                individualRatings: {},
+                viewedBy: new Set(),
+                timestamp: new Date(),
+            };
+
+            posts.unshift(newPost); 
+            window.updateState({ posts: posts, currentViewMode: 'feed' });
+            console.log('Post created successfully! Returning to feed.');
+        };
+
+
+        // --- RENDERING FUNCTIONS (DOM Manipulation) ---
+
+        const renderHeader = () => {
+            return `
+                <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
+                    <div class="max-w-4xl mx-auto flex justify-between items-center">
+                        <div>
+                            <h1 class="text-3xl font-extrabold text-rose-800">
+                                Mentors
+                            </h1>
+                            <p class="text-sm italic text-gray-500 font-medium">
+                                stay NEARR to knowledge
+                            </p>
+                        </div>
+                        <div class="text-sm text-right">
+                            <!-- Button for creating a new post, removed ID display -->
+                            <button
+                                data-action="create-post" 
+                                class="px-4 py-2 bg-rose-600 text-white text-md font-bold rounded-lg shadow-xl hover:bg-rose-700 transition duration-150 border-2 border-rose-800"
+                            >
+                                + NEW Mentor Post
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            `;
+        };
+
+        const renderPostCard = (post) => {
+            const isSelf = post.mentorId === MOCK_USER_ID;
+            const postColor = isSelf ? 'bg-pink-50 border-rose-200' : 'bg-white border-gray-200';
+            const avgRating = post.averageRating || 0;
+            const ratingCount = post.ratingCount || 0;
+
+            const hasViewed = userViewedPosts.has(post.id) || post.viewedBy.has(MOCK_USER_ID);
+
+            // Hide posts that have been viewed (simulates 'view once' behavior)
+            if (hasViewed) {
+                return '';
+            }
+
+            return `
+                <div class="p-5 rounded-xl shadow-lg border-t-4 transition duration-300 hover:shadow-xl ${postColor}">
+                    <div class="flex justify-between items-start mb-3">
+                        <h3 class="text-xl font-bold text-gray-800">
+                            Knowledge Drop by <span class="text-rose-600 font-mono text-sm">${String(post.mentorUserIdDisplay).substring(0, 8)}...</span>
+                        </h3>
+                        <div class="text-right">
+                            ${StarRatingHTML(avgRating, ratingCount)}
+                        </div>
+                    </div>
+                    <p class="text-gray-500 mb-4 text-sm italic">
+                        ${isSelf ? " (Your Post)" : "View Once - Start your learning journey."}
+                    </p>
+
+                    <button
+                        data-action="view-post"
+                        data-id="${post.id}"
+                        class="w-full py-3 bg-fuchsia-500 text-white font-bold rounded-lg shadow-md hover:bg-fuchsia-600 transition duration-150 transform hover:scale-[1.01]"
+                    >
+                        View Post & Take Exam
+                    </button>
+                </div>
+            `;
+        };
+
+        const renderPostFeed = () => {
+            const feedPosts = posts.filter(post => !(userViewedPosts.has(post.id) || post.viewedBy.has(MOCK_USER_ID)));
+
+            let postsHTML = '';
+            if (feedPosts.length === 0) {
+                postsHTML = `
+                    <div class="text-center p-10 bg-pink-100 rounded-xl text-rose-700 border-2 border-dashed border-rose-300">
+                        <p class="text-lg font-semibold">Feed Empty!</p>
+                        <p>You have viewed all available posts, or no one has posted yet.</p>
+                    </div>
+                `;
+            } else {
+                postsHTML = `<div class="space-y-6">${feedPosts.map(renderPostCard).join('')}</div>`;
+            }
+
+            return `
+                <main class="pb-10 pt-4">
+                    <div class="p-4 max-w-4xl mx-auto">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Unviewed Knowledge Feed (${feedPosts.length})</h2>
+                        ${postsHTML}
+                        <h3 class="text-lg font-bold text-gray-500 mt-10">
+                            Viewed Posts (${posts.length - feedPosts.length})
+                        </h3>
+                        <p class="text-sm text-gray-400 italic">
+                            (Posts you have already viewed and taken the exam for are permanently removed from the main feed.)
+                        </p>
+                    </div>
+                </main>
+            `;
+        };
+
+        // Renders the full application content based on the current view mode
+        const renderApp = () => {
+            if (isLoading) {
+                 appContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center min-h-screen text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600"></div>
+                        <p class="ml-4 text-rose-600 mt-4 text-lg">Loading Application...</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let mainContent = '';
+            switch (currentViewMode) {
+                case 'view_post':
+                    mainContent = renderViewPost();
+                    break;
+                case 'take_exam':
+                    mainContent = renderTakeExam();
+                    break;
+                case 'show_results':
+                    mainContent = renderShowResults();
+                    break;
+                case 'create_post':
+                    mainContent = renderCreatePost();
+                    break;
+                case 'feed':
+                default:
+                    mainContent = renderPostFeed();
+                    break;
+            }
+
+            appContainer.innerHTML = renderHeader() + mainContent;
+
+            // Post-render setup for dynamic forms/listeners
+            if (currentViewMode === 'create_post') {
+                setupCreatePostListeners();
+            }
+        };
+
+
+        // --- VIEW MODE RENDERERS ---
+
+        const renderViewPost = () => {
+            if (!activePost) return `<div class="p-6 text-center">Post not found.</div>`;
+
+            const avgRating = activePost.averageRating || 0;
+            const ratingCount = activePost.ratingCount || 0;
+
+            return `
+                <main class="pb-10 pt-4">
+                    <div class="p-6 max-w-2xl mx-auto bg-white rounded-xl shadow-2xl border-t-8 border-rose-500 space-y-6">
+                        <button data-action="back-to-feed" class="text-rose-600 hover:text-rose-800 text-sm font-semibold flex items-center mb-4">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                            Back to Feed
+                        </button>
+                        <h2 class="text-3xl font-extrabold text-gray-900 border-b pb-2">
+                            Knowledge Post
+                        </h2>
+                        <div class="flex justify-between items-center text-sm text-gray-600">
+                            <p>Mentor: <span class="font-mono text-rose-600">${String(activePost.mentorUserIdDisplay).substring(0, 8)}...</span></p>
+                            ${StarRatingHTML(avgRating, ratingCount)}
+                        </div>
+
+                        <div class="bg-gray-50 p-6 rounded-lg border-l-4 border-rose-300">
+                            <h3 class="text-2xl font-bold mb-3 text-rose-800">The Lesson:</h3>
+                            <p class="text-gray-700 whitespace-pre-wrap">${activePost.profileContent}</p>
+                            <p class="mt-4 text-xs italic text-gray-400">
+                                (In a full app, this content area would render media like video/audio based on the post type.)
+                            </p>
+                        </div>
+
+                        <div class="p-4 bg-fuchsia-100 rounded-lg border border-fuchsia-300 text-fuchsia-700 font-semibold text-center">
+                            <p>⚠️ <strong>VIEW ONCE WARNING</strong> ⚠️</p>
+                            <p>Once you click "Take Exam," this post's content will be hidden forever. Make sure you've learned it!</p>
+                        </div>
+
+                        <button
+                            data-action="take-exam"
+                            class="w-full py-4 bg-fuchsia-600 text-white text-xl font-bold rounded-lg shadow-xl hover:bg-fuchsia-700 transition duration-150 transform hover:scale-[1.02]"
+                        >
+                            Take Exam (${activePost.quiz.length} Questions)
+                        </button>
+                    </div>
+                </main>
+            `;
+        };
+
+        const renderTakeExam = () => {
+            if (!activePost) return `<div class="p-6 text-center">Post not found.</div>`;
+
+            // Using onchange in the HTML string for radio buttons, as it requires dynamic index arguments
+            // This is a controlled input pattern and is safe when using updateState() on change.
+            const quizFormContent = activePost.quiz.map((q, qIndex) => {
+                const optionsHTML = q.options.map((option, oIndex) => {
+                    const checked = quizAnswers[qIndex] === oIndex ? 'checked' : '';
+                    return `
+                        <label class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 hover:bg-pink-100">
+                            <input
+                                type="radio"
+                                name="q-${qIndex}"
+                                ${checked}
+                                onchange="window.handleAnswerChange(${qIndex}, ${oIndex})"
+                                required
+                                class="form-radio h-5 w-5 text-rose-600 transition duration-150 ease-in-out"
+                            />
+                            <span class="ml-3 text-gray-700">${option}</span>
+                        </label>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p class="font-bold text-gray-800 mb-3">
+                            ${qIndex + 1}. ${q.question}
+                        </p>
+                        <div class="space-y-2">${optionsHTML}</div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <main class="pb-10 pt-4">
+                    <div class="p-6 max-w-2xl mx-auto bg-white rounded-xl shadow-2xl border-t-8 border-rose-500 space-y-6">
+                        <h2 class="text-3xl font-extrabold text-gray-900 border-b pb-2">
+                            Knowledge Exam
+                        </h2>
+                        <p class="text-lg text-gray-600">
+                            Test your knowledge from the post by <span class="font-mono text-rose-600">${String(activePost.mentorUserIdDisplay).substring(0, 8)}...</span>
+                        </p>
+
+                        <form data-action="submit-exam" id="examForm" class="space-y-6">
+                            ${quizFormContent}
+                            <button
+                                type="submit"
+                                class="w-full py-4 bg-rose-600 text-white text-xl font-bold rounded-lg shadow-xl hover:bg-rose-700 transition duration-150 transform hover:scale-[1.02]"
+                            >
+                                Submit Exam
+                            </button>
+                        </form>
+                    </div>
+                </main>
+            `;
+        };
+
+        const renderShowResults = () => {
+            if (!quizResults || !activePost) return `<div class="p-6 text-center">Results not found.</div>`;
+
+            const scorePercentage = (quizResults.score / quizResults.total) * 100;
+            const resultColor = scorePercentage >= 70 ? 'bg-green-100 border-green-500 text-green-700' : 'bg-red-100 border-red-500 text-red-700';
+
+            const feedbackHTML = quizResults.details.map((result, index) => {
+                const resultClass = result.isCorrect ? 'bg-green-50' : 'bg-red-50';
+                const resultTextClass = result.isCorrect ? 'text-green-600' : 'text-red-600';
+                const resultIcon = result.isCorrect ? '✅' : '❌';
+                const incorrectFeedback = !result.isCorrect ? `
+                    <div class="mt-2 text-sm">
+                        <p class="text-red-700">Your Answer: ${result.selectedAnswerIndex !== undefined ? result.options[result.selectedAnswerIndex] : 'No Answer'}</p>
+                        <p class="text-green-700 font-bold">Correct Answer: ${result.options[result.correctIndex]}</p>
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="p-4 rounded-lg ${resultClass} border">
+                        <p class="font-semibold text-lg">${index + 1}. ${result.question}</p>
+                        <p class="font-bold mt-1 ${resultTextClass}">
+                            ${resultIcon} ${result.isCorrect ? 'Correct' : 'Incorrect'}
+                        </p>
+                        ${incorrectFeedback}
+                    </div>
+                `;
+            }).join('');
+
+            const ratingButtonsHTML = [1, 2, 3, 4, 5].map(star => {
+                const hasRated = activePost.individualRatings[MOCK_USER_ID];
+                const disabledClass = hasRated ? 'opacity-50 cursor-not-allowed' : 'hover:bg-fuchsia-500 transform hover:scale-110';
+
+                return `
+                    <button
+                        data-action="rate-mentor"
+                        data-rating="${star}"
+                        ${hasRated ? 'disabled' : ''}
+                        class="text-4xl p-2 rounded-full bg-fuchsia-400 text-white shadow-lg transition duration-150 ${disabledClass} focus:outline-none"
+                        title="${star} Star Rating"
+                    >
+                        ★
+                    </button>
+                `;
+            }).join('');
+
+
+            return `
+                <main class="pb-10 pt-4">
+                    <div class="p-6 max-w-3xl mx-auto bg-white rounded-xl shadow-2xl border-t-8 border-rose-500 space-y-6">
+                        <h2 class="text-4xl font-extrabold text-gray-900 border-b pb-3">
+                            Exam Results
+                        </h2>
+
+                        <div class="p-6 rounded-lg border-2 ${resultColor} text-center">
+                            <p class="text-2xl font-semibold">Your Score:</p>
+                            <p class="text-5xl font-extrabold mt-1">
+                                ${quizResults.score} / ${quizResults.total}
+                            </p>
+                            <p class="text-xl font-medium mt-1">
+                                (${scorePercentage.toFixed(0)}%)
+                            </p>
+                        </div>
+
+                        <h3 class="text-2xl font-bold text-gray-800 mt-8">Detailed Feedback</h3>
+                        <div class="space-y-4">
+                            ${feedbackHTML}
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-200">
+                            <p class="text-xl font-bold text-gray-800 mb-3">Rate the Mentor:</p>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Help the community determine the credibility of this post.
+                                ${activePost.individualRatings[MOCK_USER_ID] ? '<span class="text-green-600 font-bold">(You have already rated this post.)</span>' : ''}
+                            </p>
+                            <div class="flex justify-center space-x-3">
+                                ${ratingButtonsHTML}
+                            </div>
+                        </div>
+
+                        <button
+                            data-action="back-to-feed"
+                            class="w-full mt-6 py-3 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition duration-150"
+                        >
+                            Back to Knowledge Feed
+                        </button>
+                    </div>
+                </main>
+            `;
+        };
+
+        const renderCreatePost = () => {
+            return `
+                <main class="pb-10 pt-4">
+                    <div class="p-6 max-w-3xl mx-auto bg-white rounded-xl shadow-2xl border-t-8 border-rose-500 space-y-6">
+                        <button data-action="back-to-feed" class="text-rose-600 hover:text-rose-800 text-sm font-semibold flex items-center mb-4">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                            Back to Feed
+                        </button>
+                        <h2 class="text-3xl font-extrabold text-gray-900 border-b pb-2">
+                            Create New Mentor Post
+                        </h2>
+                        <p class="text-gray-600">Share knowledge that viewers can learn and test themselves on. Maximum 3 questions.</p>
+
+                        <form data-action="submit-post" id="createPostForm" class="space-y-8">
+                            <div id="form-error" class="hidden p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg font-semibold"></div>
+
+                            <!-- Post Content -->
+                            <div>
+                                <label for="postContent" class="block text-xl font-semibold text-rose-800 mb-2">1. Your Knowledge/Lesson (Text Placeholder)</label>
+                                <textarea
+                                    id="postContent"
+                                    rows="5"
+                                    placeholder="Type your new knowledge, lesson, or profile content here. This is the 'view once' material."
+                                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 resize-none"
+                                    required
+                                ></textarea>
+                                <p class="text-sm text-gray-500 mt-1">For future updates, this could be a link to audio/video/image.</p>
+                            </div>
+
+                            <!-- Quiz Section -->
+                            <div>
+                                <h3 class="text-xl font-semibold text-rose-800 mb-4 border-b pb-2">2. Examination Questions (1-3 Max)</h3>
+                                <div id="quizQuestionsContainer" class="space-y-6">
+                                    <!-- Questions will be injected here -->
+                                </div>
+                                <button
+                                    type="button"
+                                    data-action="add-question"
+                                    id="addQuestionBtn"
+                                    class="mt-4 w-full py-2 border border-rose-300 text-rose-700 font-semibold rounded-lg hover:bg-pink-50 transition duration-150"
+                                >
+                                    + Add Another Question (Max 3)
+                                </button>
+                            </div>
+
+                            <button
+                                type="submit"
+                                id="submit-post-btn"
+                                class="w-full py-4 bg-rose-600 text-white text-xl font-bold rounded-lg shadow-xl hover:bg-rose-700 transition duration-150"
+                            >
+                                Publish Mentor Post
+                            </button>
+                        </form>
+                    </div>
+                </main>
+            `;
+        };
+
+        // --- DYNAMIC FORM LOGIC FOR CREATE POST ---
+
+        let postFormState = [{ question: '', options: ['', ''], correctIndex: 0 }];
+
+        window.renderQuizQuestions = () => {
+            const container = document.getElementById('quizQuestionsContainer');
+            if (!container) return;
+
+            const questionsHTML = postFormState.map((q, qIndex) => {
+                const removeBtn = postFormState.length > 1 ? `<button type="button" data-action="remove-question" data-index="${qIndex}" class="text-fuchsia-500 hover:text-fuchsia-700 text-sm">Remove</button>` : '';
+
+                const optionsHTML = q.options.map((option, oIndex) => `
+                    <div class="flex items-center">
+                        <input
+                            type="radio"
+                            name="correct-${qIndex}"
+                            value="${oIndex}"
+                            ${q.correctIndex === oIndex ? 'checked' : ''}
+                            data-action="set-correct"
+                            data-q-index="${qIndex}"
+                            data-o-index="${oIndex}"
+                            class="form-radio h-4 w-4 text-green-600"
+                            required
+                        />
+                        <input
+                            type="text"
+                            value="${option}"
+                            data-action="handle-option-input"
+                            data-q-index="${qIndex}"
+                            data-o-index="${oIndex}"
+                            placeholder="Option ${oIndex + 1}"
+                            class="ml-2 w-full p-2 border rounded-lg"
+                            required
+                        />
+                    </div>
+                `).join('');
+
+                const addOptionBtn = q.options.length < 4 ? `
+                    <button type="button" data-action="add-option" data-index="${qIndex}" class="text-sm text-rose-600 hover:text-rose-800 mt-2">
+                        + Add Option
+                    </button>
+                ` : '';
+
+                return `
+                    <div class="bg-gray-50 p-4 rounded-lg border border-rose-200">
+                        <div class="flex justify-between items-center mb-3">
+                            <label for="q-${qIndex}" class="block font-bold text-gray-800">Question ${qIndex + 1}</label>
+                            ${removeBtn}
+                        </div>
+                        <input
+                            type="text"
+                            id="q-${qIndex}"
+                            value="${q.question}"
+                            data-action="handle-question-input"
+                            data-index="${qIndex}"
+                            placeholder="Enter question text"
+                            class="w-full p-2 border rounded-lg focus:ring-rose-500 focus:border-rose-500"
+                            required
+                        />
+                        <div class="mt-4 space-y-2">
+                            <p class="font-semibold text-gray-700">Options (Select the correct one):</p>
+                            ${optionsHTML}
+                        </div>
+                        ${addOptionBtn}
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = questionsHTML;
+            
+            const addBtn = document.getElementById('addQuestionBtn');
+            if (addBtn) {
+                addBtn.disabled = postFormState.length >= 3;
+                addBtn.classList.toggle('opacity-50', postFormState.length >= 3);
+            }
+        };
+
+        window.handleQuestionTextInput = (qIndex, value) => {
+            postFormState[qIndex].question = value;
+            // Rerender is not needed here, input handles its own state
+        };
+
+        window.handleOptionInput = (qIndex, oIndex, value) => {
+            postFormState[qIndex].options[oIndex] = value;
+            // Rerender is not needed here
+        };
+
+        window.setCorrectAnswer = (qIndex, oIndex) => {
+            postFormState[qIndex].correctIndex = oIndex;
+            // Rerender is not strictly needed for this, but if we add complex validation, it might be.
+        };
+
+        window.addQuestionToForm = () => {
+            if (postFormState.length < 3) {
+                postFormState.push({ question: '', options: ['', ''], correctIndex: 0 });
+                window.renderQuizQuestions(); // Rerender required
+            }
+        };
+
+        window.removeQuestionFromForm = (qIndex) => {
+            if (postFormState.length > 1) {
+                postFormState.splice(qIndex, 1);
+                window.renderQuizQuestions(); // Rerender required
+            }
+        };
+
+        window.addOptionToQuestion = (qIndex) => {
+             if (postFormState[qIndex].options.length < 4) {
+                postFormState[qIndex].options.push('');
+                window.renderQuizQuestions(); // Rerender required
+            }
+        };
+
+        window.handlePostSubmission = (e) => {
+            e.preventDefault();
+            const content = document.getElementById('postContent').value.trim();
+            const errorDiv = document.getElementById('form-error');
+            const submitButton = document.getElementById('submit-post-btn');
+
+            submitButton.disabled = true;
+            errorDiv.classList.add('hidden');
+            errorDiv.innerHTML = '';
+
+            // Validation
+            if (content === '') {
+                errorDiv.innerHTML = 'Please provide the post content.';
+                errorDiv.classList.remove('hidden');
+                submitButton.disabled = false;
+                return;
+            }
+
+            const invalidQuestion = postFormState.find(q =>
+                q.question.trim() === '' ||
+                q.options.length < 2 ||
+                q.options.some(o => o.trim() === '')
+            );
+
+            if (invalidQuestion || postFormState.length === 0) {
+                errorDiv.innerHTML = 'All questions must have text and at least two non-empty options.';
+                errorDiv.classList.remove('hidden');
+                submitButton.disabled = false;
+                return;
+            }
+
+            // Submission
+            // Map the simple form state to the required quiz structure
+            const quizQuestions = postFormState.map(q => ({
+                question: q.question.trim(),
+                options: q.options.map(o => o.trim()),
+                correctIndex: q.correctIndex
+            }));
+
+            window.handlePostCreation(content, quizQuestions);
+            postFormState = [{ question: '', options: ['', ''], correctIndex: 0 }]; // Reset form state
+        };
+
+        window.setupCreatePostListeners = () => {
+            window.renderQuizQuestions();
+            // The form submission is now handled by the main event listener
+        };
+        
+        // --- EVENT DELEGATION (ROBUST CLICK HANDLING) ---
+        // Attaching a single listener to the parent container to handle all clicks and form submissions.
+        appContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+
+            const action = target.getAttribute('data-action');
+            const postId = target.getAttribute('data-id');
+            const qIndex = parseInt(target.getAttribute('data-q-index'));
+            const oIndex = parseInt(target.getAttribute('data-o-index'));
+            const index = parseInt(target.getAttribute('data-index'));
+            const rating = parseInt(target.getAttribute('data-rating'));
+
+            switch (action) {
+                case 'create-post':
+                    e.preventDefault(); // FIX 1: Ensure click handler runs without side effects
+                    console.log("ACTION FIRED: Switching to Create Post View."); 
+                    window.updateState({ currentViewMode: 'create_post' });
+                    break;
+                case 'back-to-feed':
+                    e.preventDefault();
+                    window.updateState({ currentViewMode: 'feed' });
+                    break;
+                case 'view-post':
+                    e.preventDefault(); // FIX 2: Ensure post view loads without side effects
+                    window.handleViewPost(postId);
+                    break;
+                case 'take-exam':
+                    e.preventDefault(); // FIX 3: Ensure exam view loads without side effects
+                    window.handleTakeExam();
+                    break;
+                case 'rate-mentor':
+                    e.preventDefault();
+                    window.handleRateMentor(rating);
+                    break;
+                
+                // Form creation handlers (These are type="button", preventDefault is still good practice)
+                case 'add-question':
+                    e.preventDefault();
+                    window.addQuestionToForm();
+                    break;
+                case 'remove-question':
+                    e.preventDefault();
+                    window.removeQuestionFromForm(index);
+                    break;
+                case 'add-option':
+                    e.preventDefault();
+                    window.addOptionToQuestion(index);
+                    break;
+                case 'set-correct':
+                    // This handles the radio button click in the create post form
+                    // We prevent default so the custom input logic can handle state update properly
+                    e.preventDefault();
+                    window.setCorrectAnswer(qIndex, oIndex);
+                    break;
+            }
+        });
+
+        // --- FORM SUBMISSION DELEGATION ---
+        appContainer.addEventListener('submit', (e) => {
+            const form = e.target.closest('form');
+            if (!form) return;
+
+            const action = form.getAttribute('data-action');
+            
+            if (action === 'submit-post') {
+                console.log("FORM SUBMITTED: Processing new post.");
+                // e.preventDefault is handled inside handlePostSubmission
+                window.handlePostSubmission(e);
+            } else if (action === 'submit-exam') {
+                e.preventDefault(); // CRITICAL FIX: Stops the page refresh on exam submission!
+                console.log("FORM SUBMITTED: Processing exam results.");
+                window.handleSubmitExam();
+            }
+        });
+
+        // --- INPUT DELEGATION FOR CREATE POST FORM ---
+        appContainer.addEventListener('input', (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+
+            const action = target.getAttribute('data-action');
+            const index = parseInt(target.getAttribute('data-index'));
+            const qIndex = parseInt(target.getAttribute('data-q-index'));
+            const oIndex = parseInt(target.getAttribute('data-o-index'));
+
+            // Check if we are interacting with the dynamically rendered quiz form inputs
+            if (action === 'handle-question-input') {
+                window.handleQuestionTextInput(index, e.target.value);
+            } else if (action === 'handle-option-input') {
+                window.handleOptionInput(qIndex, oIndex, e.target.value);
+            }
+        });
+
+
+        // --- INITIALIZATION ---
+        window.onload = renderApp;
+    </script>
+</body>
+</html>
