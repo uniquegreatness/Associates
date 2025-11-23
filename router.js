@@ -1,7 +1,7 @@
 function navigate(page) {
     const container = document.getElementById("app");
 
-    fetch(`${page}.html`)
+    fetch(`./${page}.html`)
         .then(res => res.text())
         .then(html => {
             container.innerHTML = html;
