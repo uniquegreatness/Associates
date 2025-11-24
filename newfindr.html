@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Findr - Connect Feed</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+        :root {
+            --primary-color: #6366f1; /* Indigo 500 */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
+            overflow: hidden; /* Hide scrollbars for the full-screen feed experience */
+        }
+
+        #app {
+            height: 100dvh; /* Use dynamic viewport height for better mobile compatibility */
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Feed Container Styling */
+        #feed-container {
+            flex-grow: 1;
+            overflow: hidden; 
+            position: relative;
+            padding: 0 0.5rem; /* Small horizontal padding */
+        }
+
+        .post-card {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: transform 0.4s ease-in-out, opacity 0.2s; /* Added opacity transition */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; 
+            padding-bottom: 0; 
+            opacity: 0; 
+            z-index: 10;
+        }
+
+        .post-card.active {
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 20;
+        }
+
+        .post-card.swipe-out {
+            /* Swiping left to remove post */
+            transform: translateX(-100%); 
+            z-index: 30;
+        }
+
+        /* Mock content area to simulate media - Background removed */
+        .content-mock {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Ensure the SVG circle strokes start from the top */
+        .svg-timer {
+            transform: rotate(-90deg);
+        }
+
+        /* --- STYLES FOR AVATAR POP-IN AND USERNAME SLIDE --- */
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .avatar-pop-in {
+            animation: popIn 0.5s ease-out both;
+            animation-delay: 0.2s;
+        }
+        
+        .username-slide-container {
+            overflow: hidden; 
+            transition: width 0.4s ease-out, opacity 0.4s ease-out;
+            width: 0; 
+            opacity: 0;
+            display: flex; 
+            align-items: center;
+        }
+        .post-card.active .username-slide-container {
+            width: 110px; 
+            opacity: 1;
+            transition-delay: 0.5s; 
+        }
+
+        /* --- LOW TIME BLINK FADE WARNING (INTENSE) --- */
+        @keyframes blinkFade {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; } /* Reduced opacity for dramatic flash */
+        }
+        .low-time-warning {
+            /* Faster duration (0.5s) and stepped timing function for a hard ON/OFF effect */
+            animation: blinkFade 0.5s steps(1) infinite; 
+        }
+
+        /* Post Modal specific styling for media button inside textarea */
+        .textarea-wrapper {
+            position: relative;
+        }
+
+        .media-upload-inside {
+            position: absolute;
+            bottom: 8px; /* Offset from bottom */
+            right: 8px; /* Offset from right */
+        }
+        
+        /* Comment Modal Specific Style for smooth slide up */
+        .comment-modal-content {
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+        }
+
+        .comment-modal-content.open {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="max-w-md mx-auto">
+        <!-- Header -->
+        <header class="p-4 border-b border-indigo-700 sticky top-0 bg-slate-900 z-40">
+            <div class="flex justify-between items-center">
+                
+                <!-- 1. Findr Text -->
+                <h1 class="text-2xl font-extrabold text-white">Findr</h1>
+                
+                <!-- Header Right Icons & Inline Search Container -->
+                <div class="flex items-center space-x-2">
+                    
+                    <!-- NEW: Inline Search Input Container (Initially hidden/collapsed) -->
+                    <div id="search-container-inline" class="relative flex items-center transition-all duration-300 ease-out overflow-hidden w-0 mr-0">
+                        <input type="text" placeholder="Search..."
+                               class="w-48 p-2 bg-gray-700 text-white border-0 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-inner text-sm"
+                               id="search-input-inline" onkeyup="if(event.key === 'Enter') showNotification('Search', 'Simulated search for: ' + this.value)">
+                        
+                        <!-- Send/Search Button Inside Input (Absolute position on right) -->
+                        <button class="absolute right-0 top-1/2 transform -translate-y-1/2 mr-1 p-1 text-indigo-300 hover:text-indigo-200 transition" 
+                                onclick="showNotification('Search', 'Simulated search execution.')"
+                                title="Execute Search">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Pencil/Post Icon (NOW HAS ID) -->
+                    <button id="post-icon-button" onclick="openPostModal()" class="text-white hover:text-indigo-400 transition flex-shrink-0" title="Create Post">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                    
+                    <!-- Search/X Icon (Now toggles the inline input) -->
+                    <button id="search-toggle-button" onclick="toggleSearchInput()" class="text-white hover:text-indigo-400 transition flex-shrink-0" title="Search">
+                        <!-- Initial Search SVG -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Feed Container -->
+        <main id="feed-container">
+            <!-- Post cards will be dynamically injected here -->
+        </main>
+        
+        <!-- Modal Container for Notifications & Toasts -->
+        <div id="notification-container" class="fixed inset-0 z-50 pointer-events-none"></div>
+    </div>
+
+    <!-- Post Creation Modal -->
+    <div id="post-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-80 flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="if(event.target.id === 'post-modal') closePostModal()">
+        <div class="bg-gray-800 w-full max-w-lg rounded-xl shadow-2xl p-6 transform transition-all duration-300 scale-95 md:scale-100">
+            <h3 class="text-xl font-bold mb-4 text-indigo-400">New Post</h3>
+
+            <!-- Text Input Area Wrapper (Now relative for the Media button) -->
+            <div class="textarea-wrapper relative mb-4">
+                <textarea id="post-text-input" rows="6" placeholder="you are NEARR to being heard, post something!"
+                    class="w-full p-4 border border-gray-700 bg-gray-900 text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 resize-none text-sm"></textarea>
+                
+                <!-- Media Upload Button (NOW HAS ID) -->
+                <button onclick="uploadMedia()" 
+                        id="media-upload-button"
+                        class="media-upload-inside p-2 flex items-center text-xs text-indigo-300 bg-indigo-800 bg-opacity-60 backdrop-blur-sm rounded-full hover:bg-indigo-700 transition duration-150 shadow-md">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 18h8a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Media
+                </button>
+            </div>
+
+            <!-- Modal Action Buttons (Only Cancel and Publish remaining) -->
+            <div class="flex justify-end items-center space-x-3">
+                
+                <!-- Cancel Button -->
+                <button onclick="closePostModal()" class="px-3 py-1.5 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 text-sm">
+                    Cancel
+                </button>
+                
+                <!-- Publish Button (Changed icon to paper plane) -->
+                <button onclick="showNotification('Publish', 'Post published successfully!')" class="p-2 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 transition duration-150 shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 rotate-45 transform translate-y-[1px] translate-x-[1px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- FIREBASE IMPORTS (MANDATORY FOR PERSISTENCE) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // NOTE: Firestore is initialized but not used for data storage in this mock app yet.
+
+        // --- CONSTANTS AND INITIALIZATION ---
+        const FEED_CONTAINER = document.getElementById('feed-container');
+        const MAX_TIME = 15;
+        const BLINK_TIME = 4; // Start blinking at 4 seconds
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'findr-default';
+        const CIRCLE_RADIUS = 20;
+        const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS; 
+        const INITIAL_CAPTION_HEIGHT = '3.5rem'; // Max height for truncated caption
+
+        let posts = [];
+        let currentPostIndex = 0;
+        let timer = MAX_TIME;
+        let isPaused = false;
+        let intervalId = null;
+
+        // Global Firebase variables (provided by the environment)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Mock Config */ };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let userId = null;
+
+        // --- NEW SEARCH ELEMENTS ---
+        const searchContainerInline = document.getElementById('search-container-inline');
+        const searchInputInline = document.getElementById('search-input-inline');
+        const searchToggleButton = document.getElementById('search-toggle-button');
+        const postIconButton = document.getElementById('post-icon-button');
+
+        // --- NEW POST MODAL ELEMENTS ---
+        const postModal = document.getElementById('post-modal');
+
+
+        // Function to initialize and authenticate Firebase
+        async function setupFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug'); // Enable Firebase logging
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("User authenticated:", userId);
+                    } else {
+                        userId = null;
+                        console.log("No user authenticated.");
+                    }
+                });
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Firebase setup or authentication failed:", error);
+            }
+        }
+
+
+        // Mock data for posts (UPDATED: Added likes property)
+        const mockPosts = [
+            { id: 1, type: 'Image', content: 'A stunning sunset over the ocean. This is a longer caption to test the wrapping of the text content.', tag: '#travel #vibes', likes: 120, liked: false },
+            { id: 2, type: 'Video', content: 'Playing a guitar riff - check it out!', tag: '#music #artist', likes: 85, liked: false },
+            { id: 3, type: 'Text', content: 'Just finished reading a great book on quantum physics. Mind blown! This is another sentence to ensure the caption is long enough to trigger the truncation and expansion feature.', tag: '#science #books', likes: 340, liked: false },
+            { id: 4, type: 'Audio', content: 'A sample of my new podcast episode on productivity.', tag: '#podcast #lifehacks', likes: 55, liked: false },
+            { id: 5, type: 'Image', content: 'My homemade sourdough bread. Best batch yet!', tag: '#baking #foodie', likes: 210, liked: false },
+            { id: 6, type: 'Video', content: 'Quick coding tutorial for beginners.', tag: '#dev #tutorial', likes: 175, liked: false },
+        ];
+        
+        // Mock Comments for the modal
+        const mockComments = [
+            { user: 'CoolDude42', text: 'Totally agree! This post made my day!', time: '2h ago' },
+            { user: 'ArtLover88', text: 'The composition is fantastic, Jane!', time: '1h ago' },
+            { user: 'TravelBug', text: 'Need to visit that place!', time: '30m ago' },
+            { user: 'TechGuru', text: 'Where did you get that awesome recipe?', time: '15m ago' },
+            { user: 'FoodieFan', text: 'Wow, that looks delicious!', time: '5m ago' },
+            { user: 'ScrollTester1', text: 'This comment ensures there is enough content to scroll independently. Scroll, scroll, scroll!', time: '1m ago' },
+            { user: 'ScrollTester2', text: 'Another long comment line to push the scrollbar down and test the fixed height.', time: '1m ago' },
+            { user: 'ScrollTester3', text: 'Third scroll test comment. Keep scrolling even when the timer is paused!', time: '1m ago' },
+            { user: 'ScrollTester4', text: 'Fourth scroll test comment. This scrolling behavior should not be affected by the caption toggle.', time: '1m ago' },
+            { user: 'ScrollTester5', text: 'Fifth scroll test comment. Testing max-height and overflow properties.', time: '1m ago' },
+            { user: 'ScrollTester6', text: 'Sixth scroll test comment. The comment list is the designated scroll area.', time: '1m ago' },
+            { user: 'ScrollTester7', text: 'Seventh scroll test comment. Final check for fluidity and responsiveness.', time: '1m ago' },
+        ];
+
+        // Populate the post list by repeating mock data
+        for (let i = 0; i < 20; i++) {
+            const mockPost = mockPosts[i % mockPosts.length];
+            posts.push({
+                ...mockPost,
+                id: i + 1,
+                content: `${mockPost.content} (Post ${i + 1})`,
+                waLink: `whatsapp://send?phone=1234567890&text=Hi,%20I%20loved%20your%20post%20%23${i + 1}!`,
+                mockImage: `https://picsum.photos/400/600?random=${i + 1}`,
+                // Ensure deep copy of likes/liked status
+                likes: mockPost.likes + Math.floor(Math.random() * 20),
+                liked: false,
+                commentCount: mockComments.length + (i % 5) // Mock comment count variance
+            });
+        }
+        
+        /**
+         * Converts seconds into a formatted time string (XXs).
+         * @param {number} sec - The current time in seconds.
+         * @returns {string}
+         */
+        const formatTime = (sec) => `${sec.toString().padStart(2, '0')}s`;
+
+        /**
+         * Toggles the visibility of the full caption text within the visible caption box.
+         * @param {number} postId - The ID of the current post.
+         */
+        function toggleCaption(postId) {
+            const contentEl = document.getElementById(`caption-content-${postId}`);
+            const toggleEl = document.getElementById(`caption-toggle-${postId}`);
+            
+            if (!contentEl || !toggleEl) return;
+
+            // Check if the content height is currently constrained (collapsed)
+            // Use the presence of the exact initial height string as the indicator of a collapsed state
+            const isCollapsed = contentEl.style.maxHeight === INITIAL_CAPTION_HEIGHT; 
+            
+            if (isCollapsed) {
+                // Expand: set max-height to the actual scroll height to reveal all content smoothly
+                contentEl.style.maxHeight = contentEl.scrollHeight + "px";
+                toggleEl.textContent = '... Less';
+            } else {
+                // Collapse: Set back to initial truncated height
+                contentEl.style.maxHeight = INITIAL_CAPTION_HEIGHT; 
+                toggleEl.textContent = '... More';
+            }
+        }
+        
+        /**
+         * Toggles the visibility of the entire caption box vs. the "See Caption" button.
+         * @param {number} postId - The ID of the current post.
+         * @param {boolean} show - True to show the full caption box (initial truncated state), false to show the "See Caption" button.
+         */
+        function toggleCaptionBoxVisibility(postId, show) {
+            const wrapper = document.getElementById(`caption-wrapper-${postId}`);
+            const seeCaptionWrapper = document.getElementById(`see-caption-wrapper-${postId}`);
+            
+            if (!wrapper || !seeCaptionWrapper) return;
+
+            if (show) {
+                // SHOW caption box (and hide the 'See Caption' button)
+                wrapper.style.display = 'block';
+                setTimeout(() => wrapper.style.opacity = '1', 10); 
+                seeCaptionWrapper.style.opacity = '0';
+                
+                setTimeout(() => seeCaptionWrapper.style.display = 'none', 300);
+
+                const contentEl = document.getElementById(`caption-content-${postId}`);
+                if(contentEl) contentEl.style.maxHeight = INITIAL_CAPTION_HEIGHT;
+                const toggleEl = document.getElementById(`caption-toggle-${postId}`);
+                if(toggleEl) toggleEl.textContent = '... More';
+                
+            } else {
+                // HIDE caption box and show the 'See Caption' button
+                wrapper.style.opacity = '0';
+                
+                setTimeout(() => {
+                    wrapper.style.display = 'none';
+                    seeCaptionWrapper.style.display = 'block';
+                    setTimeout(() => seeCaptionWrapper.style.opacity = '1', 10); 
+                }, 300); // Matches transition duration
+            }
+        }
+
+        /**
+         * --- TIMER CONTROL FUNCTIONS ---
+         */
+
+        /** Pauses the feed countdown externally (e.g., when a modal is open). */
+        function pauseFeed() {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+            isPaused = true;
+            console.log('Feed Paused (External)');
+        }
+
+        /** Resumes the feed countdown externally. */
+        function resumeFeed() {
+            // Check if post modal is open
+            const isPostModalOpen = !document.getElementById('post-modal').classList.contains('hidden');
+            
+            // Check if comment modal exists
+            const isCommentModalOpen = document.getElementById('comment-modal'); 
+
+            // Check if search is still open
+            const isSearchOpen = searchContainerInline && searchContainerInline.classList.contains('w-48');
+            
+            // Check if notification is open
+            const isNotificationOpen = document.getElementById('current-notification');
+
+            if (isPostModalOpen || isCommentModalOpen || isSearchOpen || isNotificationOpen) {
+                console.log('Attempted resume, but a dialog/search is still open.');
+                return;
+            }
+
+            isPaused = false;
+            startTimer(); 
+            console.log('Feed Resumed (External)');
+        }
+
+        /** Toggles the timer state via the internal button. */
+        function handleInternalPauseButton() {
+            const currentPost = posts[currentPostIndex];
+            if (!currentPost) return;
+
+            const currentPostId = currentPost.id;
+            const currentCard = document.getElementById(`post-${currentPostId}`);
+            const timerTextEl = document.getElementById(`timer-countdown-${currentPost.id}`);
+            const pauseButtonEl = document.getElementById(`pause-button-inside-${currentPost.id}`);
+            const timerProgressEl = document.getElementById(`timer-progress-${currentPost.id}`);
+            
+            if (!currentCard || !timerTextEl || !pauseButtonEl || !timerProgressEl) return;
+
+            if (isPaused) {
+                // RESUME
+                isPaused = false;
+                startTimer();
+                
+            } else {
+                // PAUSE
+                pauseFeed(); // This sets isPaused = true and clears intervalId
+                
+                // 1. STOP BLINKING: Remove the low-time-warning class
+                currentCard.classList.remove('low-time-warning');
+
+                // 2. Update visuals for PAUSED state
+                timerTextEl.classList.add('hidden');
+                pauseButtonEl.classList.remove('hidden');
+                
+                // Update button appearance to indicate PAUSED state (red background, PLAY icon)
+                pauseButtonEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>`;
+                pauseButtonEl.classList.remove('bg-gray-800', 'hover:bg-gray-700');
+                pauseButtonEl.classList.add('bg-red-600', 'hover:bg-red-500');
+
+                // Reset timer color when paused
+                timerProgressEl.classList.remove('stroke-red-400');
+                timerProgressEl.classList.add('stroke-indigo-400');
+            }
+        }
+        
+        /**
+         * Swipes the current post out and loads the next one.
+         */
+        function swipeNext() {
+            const currentCard = document.querySelector('.post-card.active');
+            if (!currentCard) return;
+
+            // 1. Clear existing timer and set swipe-out class
+            pauseFeed(); // Ensure interval is cleared, setting isPaused = true
+            currentCard.classList.remove('active', 'low-time-warning');
+            currentCard.classList.add('swipe-out');
+            
+            // 2. Increment index and wrap around if necessary
+            currentPostIndex = (currentPostIndex + 1) % posts.length;
+            
+            // 3. Wait for the CSS transition to finish before cleaning up and loading next post
+            currentCard.addEventListener('transitionend', () => {
+                // Remove the old card from the DOM
+                currentCard.remove();
+                
+                // 4. Reset state and load new post
+                timer = MAX_TIME;
+                isPaused = false; // Reset pause state for the new post
+                renderPost(currentPostIndex);
+                startTimer();
+                
+            }, { once: true });
+        }
+
+
+        /**
+         * Starts or restarts the countdown timer.
+         */
+        function startTimer() {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+
+            const currentPost = posts[currentPostIndex];
+            if (!currentPost) return;
+
+            const currentPostId = currentPost.id;
+            // Find elements once per start
+            const currentCard = document.getElementById(`post-${currentPostId}`);
+            const timerProgressEl = document.getElementById(`timer-progress-${currentPostId}`);
+            const timerTextEl = document.getElementById(`timer-countdown-${currentPostId}`);
+            const pauseButtonEl = document.getElementById(`pause-button-inside-${currentPostId}`);
+
+            // Handle the interval tick
+            const tick = () => {
+                if (isPaused) return;
+
+                timer--;
+                
+                if (timer < 0) {
+                    // Timer elapsed, automatically swipe
+                    swipeNext();
+                    return;
+                }
+
+                // --- Low Time Warning Blink/Fade ---
+                if (currentCard) {
+                    if (timer <= BLINK_TIME) {
+                        currentCard.classList.add('low-time-warning');
+                    } else {
+                        currentCard.classList.remove('low-time-warning');
+                    }
+                }
+
+                // --- Circular Progress Update ---
+                if (timerProgressEl) {
+                    const progress = timer / MAX_TIME; 
+                    const offset = CIRCUMFERENCE * (1 - progress); 
+                    timerProgressEl.style.strokeDashoffset = offset;
+                    
+                    // Color change for low time
+                    if (timer <= BLINK_TIME) {
+                        timerProgressEl.classList.remove('stroke-indigo-400');
+                        timerProgressEl.classList.add('stroke-red-400');
+                    } else {
+                        timerProgressEl.classList.remove('stroke-red-400');
+                        timerProgressEl.classList.add('stroke-indigo-400');
+                    }
+                }
+                
+                // --- Text/Button Toggle Update ---
+                if (timerTextEl && pauseButtonEl) {
+                    // Toggle visibility: Text is visible on odd seconds (15, 13, ..., 1)
+                    // Set the text content before checking visibility
+                    timerTextEl.textContent = formatTime(timer);
+                    
+                    const isTextVisible = timer % 2 === 1; 
+                    
+                    if (isTextVisible) {
+                        // Show text, hide button
+                        timerTextEl.classList.remove('hidden');
+                        pauseButtonEl.classList.add('hidden');
+                        // Ensure the pause button is reset to the default appearance when the timer resumes
+                        pauseButtonEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>`;
+                        pauseButtonEl.classList.remove('bg-red-600', 'hover:bg-red-500');
+                        pauseButtonEl.classList.add('bg-gray-800', 'hover:bg-gray-700'); 
+                    } else {
+                        // Hide text, show button
+                        timerTextEl.classList.add('hidden');
+                        pauseButtonEl.classList.remove('hidden');
+                    }
+                }
+            };
+
+            // Set the interval and run the first tick immediately
+            intervalId = setInterval(tick, 1000);
+            tick(); // Execute immediately to show initial time
+        }
+
+
+        /**
+         * Renders a single post card into the feed container.
+         * @param {number} index - The index of the post to render.
+         */
+        function renderPost(index) {
+            const post = posts[index];
+            if (!post) return;
+
+            // Remove any old card with a swipe-out class before rendering a new one
+            document.querySelectorAll('.post-card.swipe-out').forEach(el => el.remove());
+
+            const card = document.createElement('div');
+            card.classList.add('post-card', 'active', 'relative'); 
+            card.id = `post-${post.id}`;
+            
+            // Check initial liked status to set heart color
+            const likeButtonClasses = post.liked 
+                ? 'p-1.5 bg-pink-400 hover:bg-pink-500 text-white rounded-full shadow-xl transition transform hover:scale-105'
+                : 'p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl transition transform hover:scale-105';
+
+            card.innerHTML = `
+                <!-- Content Mock Area (fills the entire card space) -->
+                <div class="content-mock relative h-full">
+                    <img src="${post.mockImage}" 
+                         alt="${post.type} Placeholder" 
+                         class="w-full h-full object-cover rounded-2xl" 
+                         onerror="this.onerror=null;this.src='https://placehold.co/400x600/1e293b/f8fafc?text=Content%20Unavailable';"
+                    >
+                </div>
+
+                <!-- TOP CONTROLS (AVATAR & INFO) -->
+                <div class="absolute top-0 w-full p-4 flex justify-between items-start z-30 pointer-events-none">
+                    
+                    <!-- Top Left: User Avatar and Info -->
+                    <div class="flex items-center pointer-events-auto">
+                        
+                        <!-- Avatar: relative z-40 -->
+                        <img src="https://placehold.co/48x48/4f46e5/ffffff?text=U" 
+                             class="h-12 w-12 rounded-full border-2 border-white avatar-pop-in flex-shrink-0 relative z-40" 
+                             alt="User Avatar">
+                        
+                        <!-- Username Slide Container: ml-1 anchors to avatar edge -->
+                        <div class="username-slide-container ml-1 relative z-40 flex items-center leading-tight backdrop-blur-sm bg-black bg-opacity-30 shadow-lg rounded-r-full"> 
+                            
+                            <!-- Username Text: pl-2 for padding after the gap, pr-2 for reduced right space -->
+                            <span class="text-xs font-medium text-white whitespace-nowrap pl-2 pr-2 py-1">@JaneDoe_${post.id}</span>
+                        </div>
+                        
+                    </div>
+
+                    <!-- Top Right: Empty space since the pause button is now integrated -->
+                    <div class="w-14 h-14"></div> 
+                </div>
+
+                
+                <!-- POST CAPTION / CONTENT (Bottom left, now collapsable) -->
+                <div class="absolute bottom-16 left-0 right-0 px-4 z-30 pointer-events-none">
+                    
+                    <!-- 1. The main caption box wrapper (Initial State: Visible, Opacity 1) -->
+                    <div id="caption-wrapper-${post.id}" class="transition-opacity duration-300 inline-block max-w-full text-left pointer-events-auto opacity-1" style="display: block;">
+                        <div class="bg-black bg-opacity-40 backdrop-blur-sm rounded-xl p-3 relative">
+                            <!-- Close Button (New) -->
+                            <button class="absolute top-1 right-1 p-1 text-white opacity-70 hover:opacity-100 transition" 
+                                    onclick="toggleCaptionBoxVisibility(${post.id}, false)">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                            
+                            <!-- Content Container (Truncated by default, max-h-[3.5rem] is roughly 2-3 lines) -->
+                            <div id="caption-content-${post.id}" style="max-height: ${INITIAL_CAPTION_HEIGHT};" class="overflow-hidden transition-all duration-300 pr-4">
+                                <p class="text-sm font-medium text-white drop-shadow-md whitespace-pre-wrap">${post.content.split('(')[0].trim()}</p>
+                                <p class="text-xs font-light text-indigo-300 mt-1">${post.tag}</p>
+                            </div>
+                            
+                            <!-- Toggle Button. Hide if content is definitely short (e.g., less than 3 lines) -->
+                            <button id="caption-toggle-${post.id}" class="text-xs font-semibold text-indigo-400 mt-1 cursor-pointer transition-colors duration-150" onclick="toggleCaption(${post.id})">
+                                ... More
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. The "See Caption" button (Initial State: Hidden, Opacity 0) -->
+                    <div id="see-caption-wrapper-${post.id}" class="transition-opacity duration-300 pointer-events-auto opacity-0" style="display: none;">
+                        <button class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-full shadow-lg"
+                                onclick="toggleCaptionBoxVisibility(${post.id}, true)">
+                            See Caption
+                        </button>
+                    </div>
+
+                </div>
+
+
+                <!-- ABSOLUTE BOTTOM INTERACTION BAR (INTERACTIONS & TIMER) -->
+                <div class="absolute bottom-0 w-full p-4 flex justify-between items-end z-30">
+                    
+                    <!-- Bottom Left: Interaction Buttons (Spacing reduced to space-x-2) -->
+                    <div class="flex space-x-2 pointer-events-auto">
+                        
+                        <!-- Like Button and Count Wrapper (Count size reduced to text-xs) -->
+                        <div class="flex items-center space-x-1">
+                            <button class="${likeButtonClasses}" onclick="handleInteraction('Like', ${post.id})">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <!-- Likes Count Display (UPDATED CLASSES) -->
+                            <span id="likes-count-${post.id}" class="text-white text-xs font-semibold drop-shadow-lg min-w-[20px] text-left">${post.likes}</span>
+                        </div>
+                        
+                        <!-- Comment Button and Count Wrapper (NEW WRAPPER AND COUNT) -->
+                        <div class="flex items-center space-x-1">
+                            <!-- Comment Button (Now opens modal) -->
+                            <button class="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl transition transform hover:scale-105" onclick="handleInteraction('Comment', ${post.id})">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                            </button>
+                            <!-- Comments Count Display (NEW) -->
+                            <span class="text-white text-xs font-semibold drop-shadow-lg min-w-[20px] text-left">${post.commentCount}</span>
+                        </div>
+                        
+                        <!-- Connect/WhatsApp Button (Smaller icon and padding) -->
+                        <a href="${post.waLink}" target="_blank" class="p-1.5 bg-transparent border border-green-500 text-green-500 hover:bg-green-500 hover:text-white rounded-full shadow-xl transition transform hover:scale-105 flex items-center" onclick="handleInteraction('Connect', ${post.id})">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="h-4 w-4 fill-current">
+                                <path d="M380.9 97.1C339.4 55.4 283.4 33 224.2 32.8H224c-113.6 0-207.8 84.7-223.1 193.3l-1.3 7.8-19.1 82.6c-1.4 6.2-.9 12.9 1.6 18.9l2.7 6.4 8.7 8.3c4 3.9 9.3 6 14.7 6h.2c6.3 0 12.5-2.2 17.3-6.5l49.3-43.1 7.2-6.3c3.8-3.3 8.3-4.8 12.7-4.8H80.2c5.8 0 11.1 2.3 15.2 6.4l24.4 24.3c31.1-15.4 56.6-37.9 76.9-66.2 3.3-4.6 7.3-8.8 11.5-12.8l10.8-10.4c4-3.8 8.4-5.6 12.8-5.6h.2c4.7 0 9.2 1.8 12.8 5.6l10.8 10.4c4.2 4 8.2 8.2 11.5 12.8 20.3 28.3 45.8 50.8 76.9 66.2l24.4-24.3c4.1-4.1 9.4-6.4 15.2-6.4h.2c5.4 0 10.7 2.1 14.7 6l8.7 8.3 2.7 6.4c2.5 6 3 12.7 1.6 18.9l-19.1 82.6-1.3 7.8c-15.3 108.6-109.5 193.3-223.1 193.3h-.2c-58.8 0-112.5-21.3-153-61.6L5.8 456.2 0 491.5l36.5-11.2c2.2-.7 4.2-1.7 6-3.1 40.5-31 71.9-74.8 92.5-125.7 3.6-8.8 11.3-14.8 20.4-14.8h.2c9.5 0 18.6 6.5 22.8 17.3l12.1 30.7c4.2 10.7 12.1 18.2 22.8 18.2h.2c10.7 0 18.6-7.5 22.8-18.2l12.1-30.7c4.2-10.8 13.3-17.3 22.8-17.3h.2c9.1 0 16.8 6 20.4 14.8 20.6 50.9 52 94.7 92.5 125.7 1.8 1.4 3.8 2.4 6 3.1l36.5 11.2-5.8-35.3-37.1-87.3zM352 144c0 30.9-25.1 56-56 56s-56-25.1-56-56 25.1-56 56-56 56 25.1 56 56z"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <!-- Bottom Right: Countdown Timer (Circular SVG Timer) -->
+                    <div class="text-right pointer-events-auto z-30">
+                        <div id="timer-container-${post.id}" class="relative w-14 h-14 flex items-center justify-center">
+                            <!-- SVG Progress Circle -->
+                            <svg class="absolute w-full h-full svg-timer" viewBox="0 0 44 44">
+                                <!-- Background track -->
+                                <circle cx="22" cy="22" r="${CIRCLE_RADIUS}" class="stroke-gray-700 stroke-[2px]" fill="none" />
+                                <!-- Progress arc -->
+                                <circle id="timer-progress-${post.id}" cx="22" cy="22" r="${CIRCLE_RADIUS}" 
+                                        class="timer-progress stroke-indigo-400 stroke-[2px] transition-all duration-1000 ease-linear" 
+                                        fill="none" 
+                                        stroke-dasharray="${CIRCUMFERENCE}" 
+                                        stroke-dashoffset="0" />
+                            </svg>
+
+                            <!-- Timer Text/Button Overlay -->
+                            <div id="timer-overlay-${post.id}" class="absolute flex items-center justify-center w-full h-full">
+                                <!-- Numeric Countdown Text (default visible) -->
+                                <span id="timer-countdown-${post.id}" class="text-sm font-extrabold text-indigo-400 transition-opacity duration-100">
+                                    ${formatTime(MAX_TIME)}
+                                </span>
+                                <!-- Pause Button (default hidden, appears on alternating seconds) -->
+                                <button id="pause-button-inside-${post.id}" class="pause-button-inside hidden w-full h-full flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full transition text-white shadow-xl" onclick="handleInternalPauseButton()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Append the new card (it will be visible because of the 'active' class)
+            FEED_CONTAINER.appendChild(card);
+        }
+
+        /**
+         * Closes the comment modal and resumes the feed countdown.
+         */
+        function closeCommentBox() {
+            const modal = document.getElementById('comment-modal');
+            const content = document.getElementById('comment-modal-content');
+
+            if (modal && content) {
+                // 1. Slide down the content
+                content.classList.remove('open');
+                
+                // 2. Wait for transition and remove modal
+                setTimeout(() => {
+                    modal.remove();
+                    resumeFeed();
+                }, 300); // Match CSS transition duration
+            }
+        }
+
+        /**
+         * Opens the comment modal, populates it with mock data, and pauses the feed countdown.
+         * @param {number} postId - The ID of the current post.
+         */
+        function openCommentBox(postId) {
+            pauseFeed();
+
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+
+            // Generate comment HTML
+            const commentsHtml = mockComments.map(c => `
+                <div class="flex items-start space-x-3 mb-4 p-2 bg-gray-800 rounded-xl">
+                    <img src="https://placehold.co/32x32/10b981/ffffff?text=C" class="w-8 h-8 rounded-full flex-shrink-0 border-2 border-indigo-400" alt="Commenter Avatar">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold text-indigo-300 text-xs">${c.user}</span>
+                            <span class="text-[10px] text-gray-400">${c.time}</span>
+                        </div>
+                        <p class="text-xs mt-0.5 text-white">${c.text}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            const modalHtml = `
+                <!-- Comment Modal Overlay -->
+                <!-- The modal closes when clicking the overlay (ID: comment-modal) -->
+                <div id="comment-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-end justify-center pointer-events-auto" onclick="if(event.target.id === 'comment-modal') closeCommentBox()">
+                    
+                    <!-- Comment Box Content (Flex column container) -->
+                    <div id="comment-modal-content" class="comment-modal-content bg-gray-900 rounded-t-3xl w-full max-w-md p-5 shadow-2xl flex flex-col"
+                         style="max-height: 80vh; min-height: 40vh;">
+                        
+                        <!-- Header with Close button (Added explicit close button) -->
+                        <div class="flex justify-between items-center pb-3 mb-3 border-b border-gray-800 flex-shrink-0">
+                            <h4 class="text-lg font-bold text-indigo-400">Comments (${post.commentCount})</h4>
+                            <button onclick="closeCommentBox()" class="p-1 text-gray-400 hover:text-white transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Comment List Container: Use flex-1 and overflow-y-auto for independent scrolling -->
+                        <div class="comment-list mb-6 flex-1 overflow-y-auto pr-2">
+                            ${commentsHtml}
+                        </div>
+
+                        <!-- Input Box (Fixed at the bottom, flex-shrink-0 ensures it doesn't shrink when scrolling) -->
+                        <div class="flex space-x-2 pt-2 border-t border-gray-800 flex-shrink-0">
+                            <input type="text" placeholder="Add a comment..." class="flex-grow p-3 bg-gray-800 text-white rounded-full focus:ring-2 focus:ring-indigo-500 border-none outline-none text-sm" />
+                            <!-- Send button is kept as bg-indigo-600 (blue theme) -->
+                            <button class="p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition shadow-lg" onclick="showToast('Comment submitted!')">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Append to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Trigger the slide-up animation after a tiny delay
+            setTimeout(() => {
+                document.getElementById('comment-modal-content').classList.add('open');
+            }, 10);
+        }
+        
+        /**
+         * Shows a simple temporary notification/modal (replaces alert()).
+         * @param {string} title - The primary title for the notification box.
+         * @param {string} [message] - Optional custom message content. If omitted, uses a default placeholder message based on the title.
+         */
+        function showNotification(title, message) {
+            pauseFeed();
+            
+            const notificationContainer = document.getElementById('notification-container');
+            if (!notificationContainer) return;
+
+            const boxTitle = title.includes('Simulation') || title.includes('Publish') ? 'Success' : 'Connection Action';
+            const content = message || `The <strong>${title}</strong> action is currently disabled in this demo version. The feed is paused.`;
+            
+            const notificationHtml = `
+                <div id="current-notification" class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 pointer-events-auto">
+                    <div class="bg-gray-800 p-6 rounded-xl shadow-2xl text-white max-w-sm w-full">
+                        <h3 class="text-xl font-bold mb-3 text-indigo-400">${boxTitle}</h3>
+                        <p class="mb-4 text-sm">${content}</p>
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="dismissNotification()" class="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold text-sm">Resume Feed</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            dismissNotification(false); // Dismiss any existing notification first
+            notificationContainer.insertAdjacentHTML('beforeend', notificationHtml);
+        }
+        
+        /**
+         * Dismisses the current notification and optionally resumes the feed.
+         * @param {boolean} shouldResume - If true (default), resumes the feed timer.
+         */
+        function dismissNotification(shouldResume = true) {
+            const currentNotification = document.getElementById('current-notification');
+            if (currentNotification) {
+                currentNotification.remove();
+            }
+            if (shouldResume) {
+                resumeFeed();
+            }
+        }
+        
+        /**
+         * Shows a small, non-blocking, auto-dismissing toast notification.
+         * @param {string} message - The message to display.
+         */
+        function showToast(message) {
+            const toastContainer = document.getElementById('notification-container');
+            const toastId = 'current-toast';
+            
+            // Remove existing toast if present
+            document.getElementById(toastId)?.remove();
+
+            const toastHtml = `
+                <div id="${toastId}" class="absolute bottom-20 left-1/2 transform -translate-x-1/2 p-3 bg-green-600 bg-opacity-90 rounded-xl shadow-xl text-white text-sm font-semibold transition-opacity duration-300 opacity-0 z-50">
+                    ${message}
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            const toast = document.getElementById(toastId);
+
+            // Fade in
+            setTimeout(() => { toast.style.opacity = 1; }, 10);
+
+            // Fade out and remove
+            setTimeout(() => {
+                toast.style.opacity = 0;
+                setTimeout(() => toast.remove(), 300); // Wait for transition
+            }, 1500);
+        }
+
+
+        /**
+         * Generic function for handling button interactions.
+         * @param {string} action - 'Like', 'Comment', or 'Connect'.
+         * @param {number} postId - The ID of the current post.
+         */
+        function handleInteraction(action, postId) {
+            console.log(`${action} button clicked for Post ID: ${postId}`);
+            
+            if (action === 'Connect') {
+                // Use the custom notification/message box for connection attempt (Pauses feed)
+                showNotification('Connect', 'The Connect action is disabled in this demo version. In a real app, this would open a direct message link.');
+                
+            } else if (action === 'Comment') {
+                openCommentBox(postId); // Correctly open the comment modal
+            
+            } else if (action === 'Like') { 
+                const post = posts.find(p => p.id === postId);
+                if (!post) return;
+                
+                const countElement = document.getElementById(`likes-count-${postId}`);
+                // Use event.currentTarget in the function to find the specific button element that was clicked
+                const heartButton = event.currentTarget; 
+
+                if (post.liked) {
+                    // Unlike logic
+                    post.likes--;
+                    post.liked = false;
+                    heartButton.classList.remove('bg-pink-400', 'hover:bg-pink-500'); // Change color back
+                    heartButton.classList.add('bg-red-600', 'hover:bg-red-700');
+                    showToast('Unliked!');
+                } else {
+                    // Like logic
+                    post.likes++;
+                    post.liked = true;
+                    heartButton.classList.remove('bg-red-600', 'hover:bg-red-700'); // Indicate liked state
+                    heartButton.classList.add('bg-pink-400', 'hover:bg-pink-500');
+                    showToast('Liked!');
+                }
+
+                if (countElement) {
+                    countElement.textContent = post.likes;
+                }
+            }
+        }
+
+        /** * Handler for the Media Upload button in the Post Modal. 
+         * It simulates a media file selection/attachment.
+         * @returns {void}
+         */
+        function uploadMedia() {
+             console.log('Media Upload Clicked - Simulating file attachment.');
+             
+             const mediaButton = document.getElementById('media-upload-button');
+             if (mediaButton) {
+                 // 1. Change visual state to "Selected" (Simulation)
+                 mediaButton.innerHTML = `
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                     Selected
+                 `;
+                 mediaButton.classList.remove('bg-indigo-800', 'hover:bg-indigo-700', 'text-indigo-300');
+                 mediaButton.classList.add('bg-green-600', 'hover:bg-green-500', 'text-white');
+             }
+             
+             // 2. Show confirmation notification (and pause/resume cycle)
+             showNotification('Media Upload Simulation', 'Media file successfully attached to your post draft. Click "Publish" to share!');
+        }
+        
+        // --- NEW FEATURE: SEARCH INPUT LOGIC ---
+        
+        /** Toggles the search input visibility and pauses/resumes the feed. */
+        function toggleSearchInput() {
+            // Toggle classes to manage the transition (w-0 <-> w-48)
+            searchContainerInline.classList.toggle('w-0');
+            searchContainerInline.classList.toggle('w-48');
+            searchContainerInline.classList.toggle('mr-0');
+            searchContainerInline.classList.toggle('mr-2');
+            
+            let isSearchOpen = searchContainerInline.classList.contains('w-48');
+            
+            // 1. Toggle Icon (Search <-> X) and Post Icon visibility
+            if (isSearchOpen) {
+                // Search opened: Change icon to X and HIDE Post button
+                searchToggleButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                `;
+                if (postIconButton) postIconButton.classList.add('hidden'); 
+                
+                // Focus and Pause
+                searchInputInline.focus();
+                pauseFeed(); 
+                console.log('Search opened. Feed paused.');
+            } else {
+                // Search closed: Change icon back to Search and SHOW Post button
+                searchToggleButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                `;
+                if (postIconButton) postIconButton.classList.remove('hidden');
+                
+                // Clear value and Resume
+                searchInputInline.value = ''; 
+                resumeFeed(); 
+                console.log('Search closed. Feed resumed.');
+            }
+        }
+        
+        // --- NEW FEATURE: POST MODAL LOGIC ---
+        
+        /** Opens the Post Creation Modal and pauses the feed. */
+        function openPostModal() {
+            pauseFeed(); // Pause the feed
+            postModal.classList.remove('hidden');
+            // For smooth transition effect:
+            setTimeout(() => {
+                postModal.style.opacity = 1;
+                document.getElementById('post-text-input').focus();
+            }, 10);
+            console.log('Post Modal opened. Feed paused.');
+        }
+
+        /** Closes the Post Creation Modal and resumes the feed. */
+        function closePostModal() {
+            // For smooth transition effect:
+            postModal.style.opacity = 0;
+            setTimeout(() => {
+                postModal.classList.add('hidden');
+                resumeFeed(); // Resume feed (it checks if search, comment, or notification is still open)
+            }, 300); // Matches transition duration
+            console.log('Post Modal closed. Feed resumed.');
+        }
+
+
+        // --- SWIPE GESTURE LOGIC FOR MOBILE ---
+        let touchstartX = 0;
+        let touchendX = 0;
+        const minSwipeDistance = 50; // Pixels needed to register a swipe
+
+        function checkDirection() {
+            // Swiping is allowed even if the timer is paused, as requested by the user's focus on decoupling logic.
+            
+            // Swipe Left (End X is less than Start X)
+            if (touchendX < touchstartX - minSwipeDistance) {
+                console.log('Swipe Left Detected - Skipping Post');
+                swipeNext();
+            }
+            // Swipe Right swipe back is not implemented in this version
+        }
+
+        FEED_CONTAINER.addEventListener('touchstart', e => {
+            // Only start tracking if the target is not an interactive element within the caption box (to allow scroll)
+            // or if we are scrolling the caption/comment box itself
+            const target = e.target;
+            const isInteractive = target.closest('.pointer-events-auto');
+            if (isInteractive && !target.closest('#feed-container')) return;
+
+            touchstartX = e.changedTouches[0].screenX;
+        }, false);
+
+        FEED_CONTAINER.addEventListener('touchend', e => {
+            // Check if the touch event was handled by an interactive element 
+            const target = e.target;
+            const isInteractive = target.closest('.pointer-events-auto');
+            if (isInteractive && !target.closest('#feed-container')) return;
+            
+            touchendX = e.changedTouches[0].screenX;
+            checkDirection();
+        }, false);
+
+        // --- APPLICATION STARTUP ---
+        window.onload = function() {
+            // 1. Setup Firebase for persistence
+            setupFirebase();
+            // 2. Initial render of the first post
+            renderPost(currentPostIndex);
+            // 3. Start the timer
+            startTimer();
+            console.log('Findr App Initialized.');
+        };
+        
+        // Expose functions globally for HTML attributes
+        window.toggleCaption = toggleCaption;
+        window.toggleCaptionBoxVisibility = toggleCaptionBoxVisibility;
+        window.handleInternalPauseButton = handleInternalPauseButton;
+        window.handleInteraction = handleInteraction;
+        window.openCommentBox = openCommentBox; // New exposed function
+        window.closeCommentBox = closeCommentBox; // New exposed function
+        window.dismissNotification = dismissNotification;
+        window.showToast = showToast;
+        window.toggleSearchInput = toggleSearchInput;
+        window.openPostModal = openPostModal;
+        window.closePostModal = closePostModal;
+        window.uploadMedia = uploadMedia; 
+
+    </script>
+
+</body>
+</html>

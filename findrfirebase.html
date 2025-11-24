@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Findr - Connect Feed</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+        :root {
+            --primary-color: #6366f1; /* Indigo 500 */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
+            overflow: hidden; /* Hide scrollbars for the full-screen feed experience */
+        }
+
+        #app {
+            height: 100dvh; /* Use dynamic viewport height for better mobile compatibility */
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Feed Container Styling */
+        #feed-container {
+            flex-grow: 1;
+            overflow: hidden; 
+            position: relative;
+            padding: 0 0.5rem; /* Small horizontal padding */
+        }
+
+        .post-card {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: transform 0.4s ease-in-out, opacity 0.2s; /* Added opacity transition */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; 
+            padding-bottom: 0; 
+            opacity: 0; 
+            z-index: 10;
+        }
+
+        .post-card.active {
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 20;
+        }
+
+        .post-card.swipe-out {
+            /* Swiping left to remove post */
+            transform: translateX(-100%); 
+            z-index: 30;
+        }
+
+        /* Mock content area to simulate media - Background removed */
+        .content-mock {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Ensure the SVG circle strokes start from the top */
+        .svg-timer {
+            transform: rotate(-90deg);
+        }
+
+        /* --- STYLES FOR AVATAR POP-IN AND USERNAME SLIDE --- */
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .avatar-pop-in {
+            animation: popIn 0.5s ease-out both;
+            animation-delay: 0.2s;
+        }
+        
+        .username-slide-container {
+            overflow: hidden; 
+            transition: width 0.4s ease-out, opacity 0.4s ease-out;
+            width: 0; 
+            opacity: 0;
+            display: flex; 
+            align-items: center;
+        }
+        .post-card.active .username-slide-container {
+            width: 110px; 
+            opacity: 1;
+            transition-delay: 0.5s; 
+        }
+
+        /* --- LOW TIME BLINK FADE WARNING (INTENSE) --- */
+        @keyframes blinkFade {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; } /* Reduced opacity for dramatic flash */
+        }
+        .low-time-warning {
+            /* Faster duration (0.5s) and stepped timing function for a hard ON/OFF effect */
+            animation: blinkFade 0.5s steps(1) infinite; 
+        }
+
+        /* Post Modal specific styling for media button inside textarea */
+        .textarea-wrapper {
+            position: relative;
+        }
+
+        .media-upload-inside {
+            position: absolute;
+            bottom: 8px; /* Offset from bottom */
+            right: 8px; /* Offset from right */
+        }
+        
+        /* Comment Modal Specific Style for smooth slide up */
+        .comment-modal-content {
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+        }
+
+        .comment-modal-content.open {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="max-w-md mx-auto">
+        <!-- Header -->
+        <header class="p-4 border-b border-indigo-700 sticky top-0 bg-slate-900 z-40">
+            <div class="flex justify-between items-center">
+                
+                <!-- 1. Findr Text -->
+                <h1 class="text-2xl font-extrabold text-white">Findr</h1>
+                
+                <!-- Header Right Icons & Inline Search Container -->
+                <div class="flex items-center space-x-2">
+                    
+                    <!-- NEW: Dashboard Button -->
+                    <button id="dashboard-button" onclick="openDashboardModal()" class="text-white hover:text-indigo-400 transition flex-shrink-0 relative" title="Dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2m-7 7h.01M7 15h.01M17 15h.01" />
+                        </svg>
+                        <!-- Request Badge -->
+                        <span id="request-badge" class="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold hidden"></span>
+                    </button>
+                    
+                    <!-- NEW: Inline Search Input Container (Initially hidden/collapsed) -->
+                    <div id="search-container-inline" class="relative flex items-center transition-all duration-300 ease-out overflow-hidden w-0 mr-0">
+                        <input type="text" placeholder="Search..."
+                               class="w-48 p-2 bg-gray-700 text-white border-0 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-inner text-sm"
+                               id="search-input-inline" onkeyup="if(event.key === 'Enter') showNotification('Search', 'Simulated search for: ' + this.value)">
+                        
+                        <!-- Send/Search Button Inside Input (Absolute position on right) -->
+                        <button class="absolute right-0 top-1/2 transform -translate-y-1/2 mr-1 p-1 text-indigo-300 hover:text-indigo-200 transition" 
+                                onclick="showNotification('Search', 'Simulated search execution.')"
+                                title="Execute Search">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Pencil/Post Icon (NOW HAS ID) -->
+                    <button id="post-icon-button" onclick="openPostModal()" class="text-white hover:text-indigo-400 transition flex-shrink-0" title="Create Post">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                    
+                    <!-- Search/X Icon (Now toggles the inline input) -->
+                    <button id="search-toggle-button" onclick="toggleSearchInput()" class="text-white hover:text-indigo-400 transition flex-shrink-0" title="Search">
+                        <!-- Initial Search SVG -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Feed Container -->
+        <main id="feed-container">
+            <!-- Post cards will be dynamically injected here -->
+        </main>
+        
+        <!-- Modal Container for Notifications & Toasts -->
+        <div id="notification-container" class="fixed inset-0 z-50 pointer-events-none"></div>
+    </div>
+
+    <!-- Post Creation Modal -->
+    <div id="post-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-80 flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="if(event.target.id === 'post-modal') closePostModal()">
+        <div class="bg-gray-800 w-full max-w-lg rounded-xl shadow-2xl p-6 transform transition-all duration-300 scale-95 md:scale-100">
+            <h3 class="text-xl font-bold mb-4 text-indigo-400">New Post</h3>
+
+            <!-- Text Input Area Wrapper (Now relative for the Media button) -->
+            <div class="textarea-wrapper relative mb-4">
+                <textarea id="post-text-input" rows="6" placeholder="you are NEARR to being heard, post something!"
+                    class="w-full p-4 border border-gray-700 bg-gray-900 text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 resize-none text-sm"></textarea>
+                
+                <!-- Media Upload Button (NOW HAS ID) -->
+                <button onclick="uploadMedia()" 
+                        id="media-upload-button"
+                        class="media-upload-inside p-2 flex items-center text-xs text-indigo-300 bg-indigo-800 bg-opacity-60 backdrop-blur-sm rounded-full hover:bg-indigo-700 transition duration-150 shadow-md">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 18h8a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Media
+                </button>
+            </div>
+
+            <!-- Modal Action Buttons (Only Cancel and Publish remaining) -->
+            <div class="flex justify-end items-center space-x-3">
+                
+                <!-- Cancel Button -->
+                <button onclick="closePostModal()" class="px-3 py-1.5 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 text-sm">
+                    Cancel
+                </button>
+                
+                <!-- Publish Button (Changed icon to paper plane) -->
+                <button onclick="showNotification('Publish', 'Post published successfully!')" class="p-2 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 transition duration-150 shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 rotate-45 transform translate-y-[1px] translate-x-[1px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dashboard Modal (For managing connections) -->
+    <div id="dashboard-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-80 flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="if(event.target.id === 'dashboard-modal') closeDashboardModal()">
+        <div class="bg-gray-800 w-full max-w-lg rounded-xl shadow-2xl p-6 transform transition-all duration-300 scale-95 md:scale-100">
+            <h3 class="text-xl font-bold mb-4 text-indigo-400">Connection Dashboard</h3>
+            <p class="text-xs mb-4 text-gray-400">Your User ID: <span class="font-mono text-indigo-300 break-all" id="current-user-id-display">Loading...</span></p>
+
+            <!-- Finalize Connections Section -->
+            <div class="mb-6">
+                <h4 class="text-lg font-semibold mb-2 text-white">Finalize Connections (<span id="finalize-count">0</span>)</h4>
+                <div id="finalize-list" class="space-y-3 max-h-40 overflow-y-auto p-2 bg-gray-700 rounded-lg">
+                    <p class="text-sm text-gray-400">No connections ready for finalization.</p>
+                </div>
+            </div>
+
+            <!-- Pending Requests Section -->
+            <div>
+                <h4 class="text-lg font-semibold mb-2 text-white">Incoming Requests (<span id="request-count">0</span>)</h4>
+                <div id="request-list" class="space-y-3 max-h-40 overflow-y-auto p-2 bg-gray-700 rounded-lg">
+                    <p class="text-sm text-gray-400">No pending requests.</p>
+                </div>
+            </div>
+            
+            <div class="flex justify-end mt-6">
+                <button onclick="closeDashboardModal()" class="px-3 py-1.5 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 text-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- FIREBASE IMPORTS (MANDATORY FOR PERSISTENCE) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, setLogLevel, doc, setDoc, updateDoc, 
+            onSnapshot, collection, query, where, getDocs, serverTimestamp, 
+            limit, orderBy 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONSTANTS AND INITIALIZATION ---
+        const FEED_CONTAINER = document.getElementById('feed-container');
+        const MAX_TIME = 15;
+        const BLINK_TIME = 4;
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'findr-default';
+        const CIRCLE_RADIUS = 20;
+        const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS; 
+        const INITIAL_CAPTION_HEIGHT = '3.5rem';
+
+        let posts = [];
+        let currentPostIndex = 0;
+        let timer = MAX_TIME;
+        let isPaused = false;
+        let intervalId = null;
+        let isAuthReady = false;
+
+        // Global Firebase variables (provided by the environment)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Mock Config */ };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let userId = null;
+        let unsubscribeConnections = null; // Listener cleanup function
+
+        // --- GLOBAL CONNECTION STATE ---
+        // { [otherUserId]: { status: 'pending'|'connected', docId: string, finalizedByMe: boolean, finalizedByThem: boolean, isReceiver: boolean } }
+        let connections = {}; 
+        let currentConnectionCount = 0;
+        let incomingRequests = []; // Array of doc snapshots for the dashboard
+
+        // --- MOCK USER DATA (For current user and others) ---
+        const mockUsers = [
+            { id: 'user1', nickname: 'JaneDoe', country: 'USA', waNumber: '+15551234', avatarText: 'J' },
+            { id: 'user2', nickname: 'CoolGuy', country: 'UK', waNumber: '+447700900', avatarText: 'C' },
+            { id: 'user3', nickname: 'Artist88', country: 'Japan', waNumber: '+81901234', avatarText: 'A' },
+            { id: 'user4', nickname: 'Traveller', country: 'Nigeria', waNumber: '+2348001122', avatarText: 'T' },
+            { id: 'user5', nickname: 'CoderX', country: 'Germany', waNumber: '+491517788', avatarText: 'X' },
+        ];
+
+        let currentUserDetails = {
+            userId: null,
+            nickname: 'CurrentFinder',
+            country: 'Nigeria',
+            waNumber: '+2348012345',
+            avatarText: 'F'
+        };
+
+        // --- UI Elements ---
+        const searchContainerInline = document.getElementById('search-container-inline');
+        const searchInputInline = document.getElementById('search-input-inline');
+        const searchToggleButton = document.getElementById('search-toggle-button');
+        const postIconButton = document.getElementById('post-icon-button');
+        const postModal = document.getElementById('post-modal');
+        const dashboardModal = document.getElementById('dashboard-modal');
+        const requestBadge = document.getElementById('request-badge');
+
+        // --- FIREBASE CORE FUNCTIONS ---
+
+        /** Gets the reference for the public connections collection. */
+        const getConnectionsCollection = () => collection(db, `artifacts/${APP_ID}/public/data/connections`);
+
+        /** Generates a unique document ID for a connection based on user IDs. */
+        function getConnectionDocId(u1, u2) {
+            // Sort IDs to ensure a consistent document path regardless of sender/receiver order
+            return [u1, u2].sort().join('_');
+        }
+
+        /**
+         * Initializes Firebase and sets up authentication.
+         */
+        async function setupFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        currentUserDetails.userId = userId;
+                        // Use a portion of the UID for mock display if nickname isn't set
+                        currentUserDetails.nickname = `Finder_${userId.substring(0, 4)}`;
+                        
+                        document.getElementById('current-user-id-display').textContent = userId;
+
+                        // Start listening to connections once auth is ready
+                        isAuthReady = true;
+                        if (unsubscribeConnections) {
+                            unsubscribeConnections(); // Clear old listener if it somehow persisted
+                        }
+                        unsubscribeConnections = setupConnectionListeners();
+                        console.log("User authenticated. Listening to connections.");
+                        
+                    } else {
+                        userId = null;
+                        isAuthReady = true; // Still ready, just anonymous
+                        console.log("No user authenticated. Signed in anonymously.");
+                    }
+                });
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Firebase setup or authentication failed:", error);
+            }
+        }
+        
+        /**
+         * Listens to connection status changes involving the current user (sender or receiver).
+         */
+        function setupConnectionListeners() {
+            if (!userId || !isAuthReady) return;
+
+            const q = query(
+                getConnectionsCollection(),
+                // Use a logical OR condition simulated via two 'where' queries in onSnapshot 
+                // Since firestore doesn't support OR queries natively, we will query where current user is sender OR receiver
+                // For simplicity and to fit in a single listener, we rely on the security rules that allow read access 
+                // if the user is either sender or receiver of the document.
+            );
+
+            // We listen to the entire public collection and filter based on sender/receiver manually
+            return onSnapshot(getConnectionsCollection(), (snapshot) => {
+                connections = {};
+                incomingRequests = [];
+                currentConnectionCount = 0;
+
+                snapshot.docs.forEach(d => {
+                    const data = d.data();
+                    const docId = d.id;
+                    const isSender = data.senderId === userId;
+                    const isReceiver = data.receiverId === userId;
+                    
+                    if (!isSender && !isReceiver) return; // Ignore docs not involving current user
+
+                    const otherUserId = isSender ? data.receiverId : data.senderId;
+                    
+                    // Track global state for fast lookup in feed rendering
+                    connections[otherUserId] = {
+                        status: data.status,
+                        docId: docId,
+                        finalizedByMe: isSender ? data.finalizedBySender : data.finalizedByReceiver,
+                        finalizedByThem: isSender ? data.finalizedByReceiver : data.finalizedBySender,
+                        isReceiver: isReceiver,
+                        data: data // Store full data for dashboard use
+                    };
+                    
+                    // Count connected users
+                    if (data.status === 'connected') {
+                        currentConnectionCount++;
+                    }
+
+                    // Track incoming requests for Dashboard
+                    if (isReceiver && data.status === 'pending') {
+                        incomingRequests.push({ id: docId, ...data });
+                    }
+                });
+
+                // Update UI elements dependent on connection state
+                updateDashboardUI();
+                renderPost(currentPostIndex); // Rerender current post to reflect new status
+            }, (error) => {
+                console.error("Error setting up connection listener:", error);
+            });
+        }
+        
+        /**
+         * Updates the Dashboard modal's content and the header badge.
+         */
+        function updateDashboardUI() {
+            const finalizeListEl = document.getElementById('finalize-list');
+            const requestListEl = document.getElementById('request-list');
+            const finalizeCountEl = document.getElementById('finalize-count');
+            const requestCountEl = document.getElementById('request-count');
+            
+            if (!finalizeListEl || !requestListEl) return; // Check if dashboard elements exist
+
+            const requests = incomingRequests;
+            const finalizeConnections = Object.values(connections).filter(conn => 
+                conn.status === 'connected' && (!conn.finalizedByMe || !conn.finalizedByThem)
+            );
+
+            // --- Update Request List ---
+            requestListEl.innerHTML = '';
+            if (requests.length === 0) {
+                requestListEl.innerHTML = '<p class="text-sm text-gray-400">No pending requests.</p>';
+                requestBadge.classList.add('hidden');
+            } else {
+                requestBadge.textContent = requests.length > 9 ? '9+' : requests.length;
+                requestBadge.classList.remove('hidden');
+                
+                requests.forEach(req => {
+                    const sender = req.senderDetails;
+                    requestListEl.innerHTML += `
+                        <div class="flex justify-between items-center bg-gray-600 rounded-lg p-3">
+                            <div>
+                                <p class="text-sm font-semibold">${sender.nickname} from ${sender.country}</p>
+                                <p class="text-xs text-gray-200">Wants to connect (Requester ID: ${req.senderId.substring(0, 4)}...)</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="acceptConnection('${req.id}')" class="px-3 py-1 bg-green-500 rounded-lg text-xs font-semibold hover:bg-green-600">Accept</button>
+                                <!-- Declined option is not implemented for brevity -->
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            requestCountEl.textContent = requests.length;
+
+
+            // --- Update Finalize List ---
+            finalizeListEl.innerHTML = '';
+            if (finalizeConnections.length === 0) {
+                finalizeListEl.innerHTML = '<p class="text-sm text-gray-400">No connections ready for finalization.</p>';
+            } else {
+                finalizeConnections.forEach(conn => {
+                    const otherUser = conn.isReceiver ? conn.data.senderDetails : conn.data.receiverDetails;
+                    finalizeListEl.innerHTML += `
+                        <div class="flex justify-between items-center bg-gray-600 rounded-lg p-3">
+                            <div>
+                                <p class="text-sm font-semibold text-pink-300">Connected with ${otherUser.nickname}</p>
+                                <p class="text-xs text-gray-200">Status: ${conn.finalizedByMe ? '✅ You finalized' : '❌ You need to finalize'}</p>
+                            </div>
+                            <button onclick="finalizeConnection('${conn.docId}')" ${conn.finalizedByMe ? 'disabled' : ''} 
+                                    class="px-3 py-1 ${conn.finalizedByMe ? 'bg-gray-400' : 'bg-pink-500 hover:bg-pink-600'} rounded-lg text-xs font-semibold text-white">
+                                ${conn.finalizedByMe ? 'Finalized' : 'Finalize'}
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+            finalizeCountEl.textContent = finalizeConnections.length;
+        }
+
+        /**
+         * Handles the click on the 'Connect' button on a post.
+         * @param {string} receiverId - The user ID of the post owner.
+         */
+        async function sendConnectionRequest(receiverId) {
+            if (!userId) {
+                showNotification('Error', 'Authentication required to send connection request.');
+                return;
+            }
+            if (userId === receiverId) {
+                showNotification('Error', 'Cannot connect with yourself!');
+                return;
+            }
+
+            const docId = getConnectionDocId(userId, receiverId);
+            const connectionRef = doc(getConnectionsCollection(), docId);
+
+            try {
+                // Check if connection already exists/is pending
+                if (connections[receiverId] && connections[receiverId].status !== 'pending') {
+                    showNotification('Info', `Already ${connections[receiverId].status} with this user.`);
+                    return;
+                }
+                
+                // Mock receiver details (in a real app, this would be a Firestore lookup)
+                const receiverMock = mockUsers.find(u => u.id === receiverId) || { nickname: 'Post Owner', country: 'Unknown' };
+
+                await setDoc(connectionRef, {
+                    senderId: userId,
+                    receiverId: receiverId,
+                    status: 'pending',
+                    finalizedBySender: false,
+                    finalizedByReceiver: false,
+                    createdAt: serverTimestamp(),
+                    senderDetails: { nickname: currentUserDetails.nickname, country: currentUserDetails.country, waNumber: currentUserDetails.waNumber },
+                    receiverDetails: { nickname: receiverMock.nickname, country: receiverMock.country, waNumber: receiverMock.waNumber }
+                });
+
+                showToast('Connection request sent!');
+
+            } catch (e) {
+                console.error("Error sending connection request: ", e);
+                showNotification('Error', 'Failed to send request. Check console.');
+            }
+        }
+        
+        /**
+         * Receiver accepts a pending request. Status moves from 'pending' to 'connected'.
+         * @param {string} docId - The Firestore document ID of the connection.
+         */
+        async function acceptConnection(docId) {
+            const connectionRef = doc(getConnectionsCollection(), docId);
+            try {
+                await updateDoc(connectionRef, {
+                    status: 'connected',
+                });
+                closeDashboardModal();
+                showNotification('Request Accepted', 'Connection accepted! Go to the Dashboard "Finalize" section to finish the exchange.');
+            } catch (e) {
+                console.error("Error accepting connection: ", e);
+                showNotification('Error', 'Failed to accept connection. Check console.');
+            }
+        }
+        
+        /**
+         * Both users must click this to confirm contact exchange.
+         * @param {string} docId - The Firestore document ID of the connection.
+         */
+        async function finalizeConnection(docId) {
+            const connectionRef = doc(getConnectionsCollection(), docId);
+            
+            // Determine if the current user is the sender or receiver of THIS connection
+            const connData = Object.values(connections).find(c => c.docId === docId);
+
+            if (!connData || connData.status !== 'connected' || connData.finalizedByMe) {
+                showNotification('Error', 'Connection not ready for finalization or already finalized by you.');
+                return;
+            }
+
+            try {
+                const updateData = connData.isReceiver 
+                    ? { finalizedByReceiver: true } 
+                    : { finalizedBySender: true };
+
+                await updateDoc(connectionRef, updateData);
+                
+                // Re-fetch data locally or wait for snapshot update
+                const updatedConnData = { ...connData.data, ...updateData };
+                
+                // Check if BOTH are finalized
+                const isFullyFinalized = updatedConnData.finalizedBySender && updatedConnData.finalizedByReceiver;
+
+                if (isFullyFinalized) {
+                    // Trigger download for the current user
+                    downloadContactFile(updatedConnData);
+                    showNotification('Connection Finalized!', `Connection complete! Contacts downloaded. Total connections: ${currentConnectionCount + 1}`);
+                } else {
+                    showToast('Finalization step complete. Waiting for the other user.');
+                }
+                
+            } catch (e) {
+                console.error("Error finalizing connection: ", e);
+                showNotification('Error', 'Failed to finalize connection. Check console.');
+            }
+        }
+        
+        /**
+         * Generates and downloads a .vcf contact file for the connected user.
+         * @param {object} connectionData - The full connection document data.
+         */
+        function downloadContactFile(connectionData) {
+            // Determine who the *other* user is
+            const otherUser = connectionData.senderId === userId 
+                ? connectionData.receiverDetails 
+                : connectionData.senderDetails;
+
+            const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:${otherUser.nickname} (Findr Connection)
+TEL;TYPE=cell:${otherUser.waNumber}
+ORG:Findr Connections
+END:VCARD`;
+
+            const blob = new Blob([vcard], { type: 'text/vcard' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${otherUser.nickname}_WhatsApp_Findr.vcf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- MOCK DATA FOR POSTS ---
+        const mockPosts = [
+            { id: 1, type: 'Image', content: 'A stunning sunset over the ocean.', tag: '#travel #vibes', likes: 120, liked: false },
+            { id: 2, type: 'Video', content: 'Playing a guitar riff - check it out!', tag: '#music #artist', likes: 85, liked: false },
+            { id: 3, type: 'Text', content: 'Just finished reading a great book on quantum physics. Mind blown! This is another sentence to ensure the caption is long enough to trigger the truncation and expansion feature.', tag: '#science #books', likes: 340, liked: false },
+            { id: 4, type: 'Audio', content: 'A sample of my new podcast episode on productivity.', tag: '#podcast #lifehacks', likes: 55, liked: false },
+            { id: 5, type: 'Image', content: 'My homemade sourdough bread. Best batch yet!', tag: '#baking #foodie', likes: 210, liked: false },
+            { id: 6, type: 'Video', content: 'Quick coding tutorial for beginners.', tag: '#dev #tutorial', likes: 175, liked: false },
+        ];
+        
+        const mockComments = [ /* ... mock comments remains the same ... */ ];
+
+        // Populate the post list, assigning owners
+        for (let i = 0; i < 20; i++) {
+            const mockPost = mockPosts[i % mockPosts.length];
+            const owner = mockUsers[i % mockUsers.length];
+            posts.push({
+                ...mockPost,
+                id: i + 1,
+                content: `${mockPost.content} (Post ${i + 1})`,
+                postUserId: owner.id, // Assign the owner ID
+                nickname: owner.nickname,
+                avatarText: owner.avatarText,
+                mockImage: `https://picsum.photos/400/600?random=${i + 1}`,
+                likes: mockPost.likes + Math.floor(Math.random() * 20),
+                liked: false,
+                commentCount: mockComments.length + (i % 5)
+            });
+        }
+        
+        // --- UI RENDERING FUNCTIONS ---
+
+        const formatTime = (sec) => `${sec.toString().padStart(2, '0')}s`;
+
+        function toggleCaption(postId) {
+            const contentEl = document.getElementById(`caption-content-${postId}`);
+            const toggleEl = document.getElementById(`caption-toggle-${postId}`);
+            
+            if (!contentEl || !toggleEl) return;
+
+            const isCollapsed = contentEl.style.maxHeight === INITIAL_CAPTION_HEIGHT; 
+            
+            if (isCollapsed) {
+                contentEl.style.maxHeight = contentEl.scrollHeight + "px";
+                toggleEl.textContent = '... Less';
+            } else {
+                contentEl.style.maxHeight = INITIAL_CAPTION_HEIGHT; 
+                toggleEl.textContent = '... More';
+            }
+        }
+        
+        function toggleCaptionBoxVisibility(postId, show) {
+            const wrapper = document.getElementById(`caption-wrapper-${postId}`);
+            const seeCaptionWrapper = document.getElementById(`see-caption-wrapper-${postId}`);
+            
+            if (!wrapper || !seeCaptionWrapper) return;
+
+            if (show) {
+                wrapper.style.display = 'block';
+                setTimeout(() => wrapper.style.opacity = '1', 10); 
+                seeCaptionWrapper.style.opacity = '0';
+                
+                setTimeout(() => seeCaptionWrapper.style.display = 'none', 300);
+
+                const contentEl = document.getElementById(`caption-content-${postId}`);
+                if(contentEl) contentEl.style.maxHeight = INITIAL_CAPTION_HEIGHT;
+                const toggleEl = document.getElementById(`caption-toggle-${postId}`);
+                if(toggleEl) toggleEl.textContent = '... More';
+                
+            } else {
+                wrapper.style.opacity = '0';
+                
+                setTimeout(() => {
+                    wrapper.style.display = 'none';
+                    seeCaptionWrapper.style.display = 'block';
+                    setTimeout(() => seeCaptionWrapper.style.opacity = '1', 10); 
+                }, 300);
+            }
+        }
+
+        // --- TIMER CONTROL FUNCTIONS (remains the same) ---
+        function pauseFeed() {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+            isPaused = true;
+        }
+
+        function resumeFeed() {
+            const isPostModalOpen = !document.getElementById('post-modal').classList.contains('hidden');
+            const isCommentModalOpen = document.getElementById('comment-modal'); 
+            const isSearchOpen = searchContainerInline && searchContainerInline.classList.contains('w-48');
+            const isNotificationOpen = document.getElementById('current-notification');
+            const isDashboardOpen = !document.getElementById('dashboard-modal').classList.contains('hidden');
+
+            if (isPostModalOpen || isCommentModalOpen || isSearchOpen || isNotificationOpen || isDashboardOpen) {
+                return;
+            }
+
+            isPaused = false;
+            startTimer();
+        }
+
+        function handleInternalPauseButton() {
+            const currentPost = posts[currentPostIndex];
+            if (!currentPost) return;
+
+            const currentPostId = currentPost.id;
+            const currentCard = document.getElementById(`post-${currentPostId}`);
+            const timerTextEl = document.getElementById(`timer-countdown-${currentPost.id}`);
+            const pauseButtonEl = document.getElementById(`pause-button-inside-${currentPost.id}`);
+            const timerProgressEl = document.getElementById(`timer-progress-${currentPost.id}`);
+            
+            if (!currentCard || !timerTextEl || !pauseButtonEl || !timerProgressEl) return;
+
+            if (isPaused) {
+                isPaused = false;
+                startTimer();
+                
+            } else {
+                pauseFeed();
+                
+                currentCard.classList.remove('low-time-warning');
+
+                timerTextEl.classList.add('hidden');
+                pauseButtonEl.classList.remove('hidden');
+                
+                pauseButtonEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>`;
+                pauseButtonEl.classList.remove('bg-gray-800', 'hover:bg-gray-700');
+                pauseButtonEl.classList.add('bg-red-600', 'hover:bg-red-500');
+
+                timerProgressEl.classList.remove('stroke-red-400');
+                timerProgressEl.classList.add('stroke-indigo-400');
+            }
+        }
+        
+        function swipeNext() {
+            const currentCard = document.querySelector('.post-card.active');
+            if (!currentCard) return;
+
+            pauseFeed();
+            currentCard.classList.remove('active', 'low-time-warning');
+            currentCard.classList.add('swipe-out');
+            
+            currentPostIndex = (currentPostIndex + 1) % posts.length;
+            
+            currentCard.addEventListener('transitionend', () => {
+                currentCard.remove();
+                
+                timer = MAX_TIME;
+                isPaused = false; 
+                renderPost(currentPostIndex);
+                startTimer();
+                
+            }, { once: true });
+        }
+
+        function startTimer() {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+
+            const currentPost = posts[currentPostIndex];
+            if (!currentPost) return;
+
+            const currentPostId = currentPost.id;
+            const currentCard = document.getElementById(`post-${currentPostId}`);
+            const timerProgressEl = document.getElementById(`timer-progress-${currentPostId}`);
+            const timerTextEl = document.getElementById(`timer-countdown-${currentPostId}`);
+            const pauseButtonEl = document.getElementById(`pause-button-inside-${currentPostId}`);
+
+            const tick = () => {
+                if (isPaused) return;
+
+                timer--;
+                
+                if (timer < 0) {
+                    swipeNext();
+                    return;
+                }
+
+                if (currentCard) {
+                    if (timer <= BLINK_TIME) {
+                        currentCard.classList.add('low-time-warning');
+                    } else {
+                        currentCard.classList.remove('low-time-warning');
+                    }
+                }
+
+                if (timerProgressEl) {
+                    const progress = timer / MAX_TIME; 
+                    const offset = CIRCUMFERENCE * (1 - progress); 
+                    timerProgressEl.style.strokeDashoffset = offset;
+                    
+                    if (timer <= BLINK_TIME) {
+                        timerProgressEl.classList.remove('stroke-indigo-400');
+                        timerProgressEl.classList.add('stroke-red-400');
+                    } else {
+                        timerProgressEl.classList.remove('stroke-red-400');
+                        timerProgressEl.classList.add('stroke-indigo-400');
+                    }
+                }
+                
+                if (timerTextEl && pauseButtonEl) {
+                    timerTextEl.textContent = formatTime(timer);
+                    
+                    const isTextVisible = timer % 2 === 1; 
+                    
+                    if (isTextVisible) {
+                        timerTextEl.classList.remove('hidden');
+                        pauseButtonEl.classList.add('hidden');
+                        pauseButtonEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>`;
+                        pauseButtonEl.classList.remove('bg-red-600', 'hover:bg-red-500');
+                        pauseButtonEl.classList.add('bg-gray-800', 'hover:bg-gray-700'); 
+                    } else {
+                        pauseButtonEl.classList.remove('hidden');
+                        timerTextEl.classList.add('hidden');
+                    }
+                }
+            };
+
+            intervalId = setInterval(tick, 1000);
+            tick();
+        }
+
+        /**
+         * Renders a single post card into the feed container.
+         * @param {number} index - The index of the post to render.
+         */
+        function renderPost(index) {
+            const post = posts[index];
+            if (!post) return;
+            
+            // --- Determine Connection Status ---
+            let connectButtonHTML = '';
+            const connection = connections[post.postUserId];
+            const isOwner = post.postUserId === userId;
+            const totalConnections = currentConnectionCount; 
+
+            if (isOwner) {
+                // Owner view: Show connections count
+                connectButtonHTML = `
+                    <div class="px-2 py-1 bg-indigo-700 text-white rounded-full text-xs font-semibold shadow-xl">
+                        <span class="text-sm font-extrabold">${totalConnections}</span> Connections
+                    </div>
+                `;
+            } else if (!connection) {
+                // No connection yet
+                connectButtonHTML = `
+                    <button onclick="handleInteraction('Connect', ${post.id})" class="p-1.5 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-xl transition transform hover:scale-105 flex items-center space-x-1 text-xs font-semibold">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M14 20v-2a3 3 0 00-3-3H6a3 3 0 00-3 3v2M15 11l-1-1h-2l-1 1m-1 2h2m-2-2h-2m-2 2h2m-2-2h-2" />
+                        </svg>
+                        Connect
+                    </button>
+                `;
+            } else if (connection.status === 'pending') {
+                // Pending status
+                connectButtonHTML = `
+                    <div class="px-2 py-1 bg-yellow-600 text-white rounded-full text-xs font-semibold shadow-xl flex items-center space-x-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Pending
+                    </div>
+                `;
+            } else if (connection.status === 'connected') {
+                // Connected status
+                connectButtonHTML = `
+                    <div class="px-2 py-1 bg-pink-500 text-white rounded-full text-xs font-semibold shadow-xl flex items-center space-x-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 19.333a.807.807 0 01-1.294-.482l-.84-4.832a.807.807 0 01.482-1.294l4.832-.84a.807.807 0 011.294.482l.84 4.832a.807.807 0 01-.482 1.294l-4.832.84zM18.807 9.807a.807.807 0 01-.482-1.294l-4.832-.84a.807.807 0 01-1.294.482l-.84 4.832a.807.807 0 01.482 1.294l4.832.84a.807.807 0 011.294-.482l.84-4.832z" clip-rule="evenodd" /></svg>
+                        Connected
+                    </div>
+                `;
+            }
+
+
+            // Remove any old card with a swipe-out class before rendering a new one
+            document.querySelectorAll('.post-card.swipe-out').forEach(el => el.remove());
+
+            const card = document.createElement('div');
+            card.classList.add('post-card', 'active', 'relative'); 
+            card.id = `post-${post.id}`;
+            
+            const likeButtonClasses = post.liked 
+                ? 'p-1.5 bg-pink-400 hover:bg-pink-500 text-white rounded-full shadow-xl transition transform hover:scale-105'
+                : 'p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl transition transform hover:scale-105';
+
+            card.innerHTML = `
+                <!-- Content Mock Area -->
+                <div class="content-mock relative h-full">
+                    <img src="${post.mockImage}" 
+                         alt="${post.type} Placeholder" 
+                         class="w-full h-full object-cover rounded-2xl" 
+                         onerror="this.onerror=null;this.src='https://placehold.co/400x600/1e293b/f8fafc?text=Content%20Unavailable';"
+                    >
+                </div>
+
+                <!-- TOP CONTROLS (AVATAR & INFO) -->
+                <div class="absolute top-0 w-full p-4 flex justify-between items-start z-30 pointer-events-none">
+                    
+                    <!-- Top Left: User Avatar and Info -->
+                    <div class="flex items-center pointer-events-auto">
+                        
+                        <!-- Avatar: relative z-40 -->
+                        <img src="https://placehold.co/48x48/4f46e5/ffffff?text=${post.avatarText}" 
+                             class="h-12 w-12 rounded-full border-2 border-white avatar-pop-in flex-shrink-0 relative z-40" 
+                             alt="User Avatar">
+                        
+                        <!-- Username Slide Container: ml-1 anchors to avatar edge -->
+                        <div class="username-slide-container ml-1 relative z-40 flex items-center leading-tight backdrop-blur-sm bg-black bg-opacity-30 shadow-lg rounded-r-full"> 
+                            
+                            <!-- Username Text: pl-2 for padding after the gap, pr-2 for reduced right space -->
+                            <span class="text-xs font-medium text-white whitespace-nowrap pl-2 pr-2 py-1">@${post.nickname}</span>
+                        </div>
+                        
+                    </div>
+
+                    <!-- Top Right: Empty space since the pause button is now integrated -->
+                    <div class="w-14 h-14"></div> 
+                </div>
+
+                
+                <!-- POST CAPTION / CONTENT -->
+                <div class="absolute bottom-16 left-0 right-0 px-4 z-30 pointer-events-none">
+                    
+                    <!-- 1. The main caption box wrapper -->
+                    <div id="caption-wrapper-${post.id}" class="transition-opacity duration-300 inline-block max-w-full text-left pointer-events-auto opacity-1" style="display: block;">
+                        <div class="bg-black bg-opacity-40 backdrop-blur-sm rounded-xl p-3 relative">
+                            <!-- Close Button (New) -->
+                            <button class="absolute top-1 right-1 p-1 text-white opacity-70 hover:opacity-100 transition" 
+                                    onclick="toggleCaptionBoxVisibility(${post.id}, false)">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                            
+                            <!-- Content Container -->
+                            <div id="caption-content-${post.id}" style="max-height: ${INITIAL_CAPTION_HEIGHT};" class="overflow-hidden transition-all duration-300 pr-4">
+                                <p class="text-sm font-medium text-white drop-shadow-md whitespace-pre-wrap">${post.content.split('(')[0].trim()}</p>
+                                <p class="text-xs font-light text-indigo-300 mt-1">${post.tag}</p>
+                            </div>
+                            
+                            <!-- Toggle Button. -->
+                            <button id="caption-toggle-${post.id}" class="text-xs font-semibold text-indigo-400 mt-1 cursor-pointer transition-colors duration-150" onclick="toggleCaption(${post.id})">
+                                ... More
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. The "See Caption" button -->
+                    <div id="see-caption-wrapper-${post.id}" class="transition-opacity duration-300 pointer-events-auto opacity-0" style="display: none;">
+                        <button class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-full shadow-lg"
+                                onclick="toggleCaptionBoxVisibility(${post.id}, true)">
+                            See Caption
+                        </button>
+                    </div>
+
+                </div>
+
+
+                <!-- ABSOLUTE BOTTOM INTERACTION BAR (INTERACTIONS & TIMER) -->
+                <div class="absolute bottom-0 w-full p-4 flex justify-between items-end z-30">
+                    
+                    <!-- Bottom Left: Interaction Buttons -->
+                    <div class="flex space-x-2 pointer-events-auto">
+                        
+                        <!-- Like Button and Count Wrapper -->
+                        <div class="flex items-center space-x-1">
+                            <button class="${likeButtonClasses}" onclick="handleInteraction('Like', ${post.id})">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <!-- Likes Count Display -->
+                            <span id="likes-count-${post.id}" class="text-white text-xs font-semibold drop-shadow-lg min-w-[20px] text-left">${post.likes}</span>
+                        </div>
+                        
+                        <!-- Comment Button and Count Wrapper -->
+                        <div class="flex items-center space-x-1">
+                            <!-- Comment Button (Now opens modal) -->
+                            <button class="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl transition transform hover:scale-105" onclick="handleInteraction('Comment', ${post.id})">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                            </button>
+                            <!-- Comments Count Display -->
+                            <span class="text-white text-xs font-semibold drop-shadow-lg min-w-[20px] text-left">${post.commentCount}</span>
+                        </div>
+                        
+                        <!-- Dynamic Connect Button / Status / Connection Count -->
+                        ${connectButtonHTML}
+
+                    </div>
+
+                    <!-- Bottom Right: Countdown Timer (Circular SVG Timer) -->
+                    <div class="text-right pointer-events-auto z-30">
+                        <div id="timer-container-${post.id}" class="relative w-14 h-14 flex items-center justify-center">
+                            <!-- SVG Progress Circle -->
+                            <svg class="absolute w-full h-full svg-timer" viewBox="0 0 44 44">
+                                <!-- Background track -->
+                                <circle cx="22" cy="22" r="${CIRCLE_RADIUS}" class="stroke-gray-700 stroke-[2px]" fill="none" />
+                                <!-- Progress arc -->
+                                <circle id="timer-progress-${post.id}" cx="22" cy="22" r="${CIRCLE_RADIUS}" 
+                                        class="timer-progress stroke-indigo-400 stroke-[2px] transition-all duration-1000 ease-linear" 
+                                        fill="none" 
+                                        stroke-dasharray="${CIRCUMFERENCE}" 
+                                        stroke-dashoffset="0" />
+                            </svg>
+
+                            <!-- Timer Text/Button Overlay -->
+                            <div id="timer-overlay-${post.id}" class="absolute flex items-center justify-center w-full h-full">
+                                <!-- Numeric Countdown Text (default visible) -->
+                                <span id="timer-countdown-${post.id}" class="text-sm font-extrabold text-indigo-400 transition-opacity duration-100">
+                                    ${formatTime(MAX_TIME)}
+                                </span>
+                                <!-- Pause Button (default hidden, appears on alternating seconds) -->
+                                <button id="pause-button-inside-${post.id}" class="pause-button-inside hidden w-full h-full flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full transition text-white shadow-xl" onclick="handleInternalPauseButton()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            FEED_CONTAINER.appendChild(card);
+        }
+
+        /**
+         * Generic function for handling button interactions.
+         * @param {string} action - 'Like', 'Comment', or 'Connect'.
+         * @param {number} postId - The ID of the current post.
+         */
+        function handleInteraction(action, postId) {
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+            
+            if (action === 'Connect') {
+                if (!userId) {
+                    showNotification('Authentication Required', 'Please wait for user authentication to complete before sending a request.');
+                    return;
+                }
+                sendConnectionRequest(post.postUserId);
+                
+            } else if (action === 'Comment') {
+                openCommentBox(postId); 
+            
+            } else if (action === 'Like') { 
+                const countElement = document.getElementById(`likes-count-${postId}`);
+                const heartButton = event.currentTarget; 
+
+                if (post.liked) {
+                    post.likes--;
+                    post.liked = false;
+                    heartButton.classList.remove('bg-pink-400', 'hover:bg-pink-500'); 
+                    heartButton.classList.add('bg-red-600', 'hover:bg-red-700');
+                    showToast('Unliked!');
+                } else {
+                    post.likes++;
+                    post.liked = true;
+                    heartButton.classList.remove('bg-red-600', 'hover:bg-red-700'); 
+                    heartButton.classList.add('bg-pink-400', 'hover:bg-pink-500');
+                    showToast('Liked!');
+                }
+
+                if (countElement) {
+                    countElement.textContent = post.likes;
+                }
+            }
+        }
+
+        // --- MODAL AND NOTIFICATION FUNCTIONS (Comment modal, Search, Post Modal remains the same) ---
+        function closeCommentBox() {
+            const modal = document.getElementById('comment-modal');
+            const content = document.getElementById('comment-modal-content');
+
+            if (modal && content) {
+                content.classList.remove('open');
+                setTimeout(() => {
+                    modal.remove();
+                    resumeFeed();
+                }, 300);
+            }
+        }
+
+        function openCommentBox(postId) {
+            pauseFeed();
+
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+
+            // Generate comment HTML
+            const commentsHtml = mockComments.map(c => `
+                <div class="flex items-start space-x-3 mb-4 p-2 bg-gray-800 rounded-xl">
+                    <img src="https://placehold.co/32x32/10b981/ffffff?text=C" class="w-8 h-8 rounded-full flex-shrink-0 border-2 border-indigo-400" alt="Commenter Avatar">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold text-indigo-300 text-xs">${c.user}</span>
+                            <span class="text-[10px] text-gray-400">${c.time}</span>
+                        </div>
+                        <p class="text-xs mt-0.5 text-white">${c.text}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            const modalHtml = `
+                <div id="comment-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-end justify-center pointer-events-auto" onclick="if(event.target.id === 'comment-modal') closeCommentBox()">
+                    <div id="comment-modal-content" class="comment-modal-content bg-gray-900 rounded-t-3xl w-full max-w-md p-5 shadow-2xl flex flex-col"
+                         style="max-height: 80vh; min-height: 40vh;">
+                        <div class="flex justify-between items-center pb-3 mb-3 border-b border-gray-800 flex-shrink-0">
+                            <h4 class="text-lg font-bold text-indigo-400">Comments (${post.commentCount})</h4>
+                            <button onclick="closeCommentBox()" class="p-1 text-gray-400 hover:text-white transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="comment-list mb-6 flex-1 overflow-y-auto pr-2">
+                            ${commentsHtml}
+                        </div>
+                        <div class="flex space-x-2 pt-2 border-t border-gray-800 flex-shrink-0">
+                            <input type="text" placeholder="Add a comment..." class="flex-grow p-3 bg-gray-800 text-white rounded-full focus:ring-2 focus:ring-indigo-500 border-none outline-none text-sm" />
+                            <button class="p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition shadow-lg" onclick="showToast('Comment submitted!')">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            setTimeout(() => {
+                document.getElementById('comment-modal-content').classList.add('open');
+            }, 10);
+        }
+
+        function showNotification(title, message) {
+            pauseFeed();
+            
+            const notificationContainer = document.getElementById('notification-container');
+            if (!notificationContainer) return;
+
+            const boxTitle = title.includes('Success') || title.includes('Publish') || title.includes('Request Accepted') || title.includes('Connection Finalized') ? 'Success' : title;
+            const content = message || `The <strong>${title}</strong> action is currently disabled in this demo version. The feed is paused.`;
+            
+            const notificationHtml = `
+                <div id="current-notification" class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 pointer-events-auto">
+                    <div class="bg-gray-800 p-6 rounded-xl shadow-2xl text-white max-w-sm w-full">
+                        <h3 class="text-xl font-bold mb-3 text-indigo-400">${boxTitle}</h3>
+                        <p class="mb-4 text-sm">${content}</p>
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="dismissNotification()" class="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold text-sm">Resume Feed</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            dismissNotification(false);
+            notificationContainer.insertAdjacentHTML('beforeend', notificationHtml);
+        }
+        
+        function dismissNotification(shouldResume = true) {
+            const currentNotification = document.getElementById('current-notification');
+            if (currentNotification) {
+                currentNotification.remove();
+            }
+            if (shouldResume) {
+                resumeFeed();
+            }
+        }
+        
+        function showToast(message) {
+            const toastContainer = document.getElementById('notification-container');
+            const toastId = 'current-toast';
+            
+            document.getElementById(toastId)?.remove();
+
+            const toastHtml = `
+                <div id="${toastId}" class="absolute bottom-20 left-1/2 transform -translate-x-1/2 p-3 bg-green-600 bg-opacity-90 rounded-xl shadow-xl text-white text-sm font-semibold transition-opacity duration-300 opacity-0 z-50">
+                    ${message}
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            const toast = document.getElementById(toastId);
+
+            setTimeout(() => { toast.style.opacity = 1; }, 10);
+
+            setTimeout(() => {
+                toast.style.opacity = 0;
+                setTimeout(() => toast.remove(), 300);
+            }, 1500);
+        }
+        
+        function uploadMedia() {
+             const mediaButton = document.getElementById('media-upload-button');
+             if (mediaButton) {
+                 mediaButton.innerHTML = `
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                     Selected
+                 `;
+                 mediaButton.classList.remove('bg-indigo-800', 'hover:bg-indigo-700', 'text-indigo-300');
+                 mediaButton.classList.add('bg-green-600', 'hover:bg-green-500', 'text-white');
+             }
+             showNotification('Media Upload Simulation', 'Media file successfully attached to your post draft. Click "Publish" to share!');
+        }
+        
+        function toggleSearchInput() {
+            searchContainerInline.classList.toggle('w-0');
+            searchContainerInline.classList.toggle('w-48');
+            searchContainerInline.classList.toggle('mr-0');
+            searchContainerInline.classList.toggle('mr-2');
+            
+            let isSearchOpen = searchContainerInline.classList.contains('w-48');
+            
+            if (isSearchOpen) {
+                searchToggleButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                `;
+                if (postIconButton) postIconButton.classList.add('hidden'); 
+                searchInputInline.focus();
+                pauseFeed(); 
+            } else {
+                searchToggleButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                `;
+                if (postIconButton) postIconButton.classList.remove('hidden');
+                searchInputInline.value = ''; 
+                resumeFeed(); 
+            }
+        }
+        
+        function openPostModal() {
+            pauseFeed();
+            postModal.classList.remove('hidden');
+            setTimeout(() => {
+                postModal.style.opacity = 1;
+                document.getElementById('post-text-input').focus();
+            }, 10);
+        }
+
+        function closePostModal() {
+            postModal.style.opacity = 0;
+            setTimeout(() => {
+                postModal.classList.add('hidden');
+                resumeFeed();
+            }, 300);
+        }
+        
+        /** Opens the Dashboard Modal and pauses the feed. */
+        function openDashboardModal() {
+            pauseFeed();
+            // Ensure the UI is updated immediately before opening
+            updateDashboardUI(); 
+            dashboardModal.classList.remove('hidden');
+            setTimeout(() => {
+                dashboardModal.style.opacity = 1;
+            }, 10);
+        }
+
+        /** Closes the Dashboard Modal and resumes the feed. */
+        function closeDashboardModal() {
+            dashboardModal.style.opacity = 0;
+            setTimeout(() => {
+                dashboardModal.classList.add('hidden');
+                resumeFeed();
+            }, 300);
+        }
+
+
+        // --- SWIPE GESTURE LOGIC FOR MOBILE (remains the same) ---
+        let touchstartX = 0;
+        let touchendX = 0;
+        const minSwipeDistance = 50;
+
+        function checkDirection() {
+            if (touchendX < touchstartX - minSwipeDistance) {
+                swipeNext();
+            }
+        }
+
+        FEED_CONTAINER.addEventListener('touchstart', e => {
+            const target = e.target;
+            const isInteractive = target.closest('.pointer-events-auto');
+            if (isInteractive && !target.closest('#feed-container')) return;
+            touchstartX = e.changedTouches[0].screenX;
+        }, false);
+
+        FEED_CONTAINER.addEventListener('touchend', e => {
+            const target = e.target;
+            const isInteractive = target.closest('.pointer-events-auto');
+            if (isInteractive && !target.closest('#feed-container')) return;
+            touchendX = e.changedTouches[0].screenX;
+            checkDirection();
+        }, false);
+
+        // --- APPLICATION STARTUP ---
+        window.onload = function() {
+            setupFirebase();
+            renderPost(currentPostIndex);
+            startTimer();
+        };
+        
+        // Expose functions globally for HTML attributes
+        window.toggleCaption = toggleCaption;
+        window.toggleCaptionBoxVisibility = toggleCaptionBoxVisibility;
+        window.handleInternalPauseButton = handleInternalPauseButton;
+        window.handleInteraction = handleInteraction;
+        window.openCommentBox = openCommentBox;
+        window.closeCommentBox = closeCommentBox;
+        window.dismissNotification = dismissNotification;
+        window.showToast = showToast;
+        window.toggleSearchInput = toggleSearchInput;
+        window.openPostModal = openPostModal;
+        window.closePostModal = closePostModal;
+        window.uploadMedia = uploadMedia; 
+        window.openDashboardModal = openDashboardModal;
+        window.closeDashboardModal = closeDashboardModal;
+        window.acceptConnection = acceptConnection;
+        window.finalizeConnection = finalizeConnection;
+
+    </script>
+
+</body>
+</html>
+
