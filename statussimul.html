@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Viewer Recreation</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ensuring the body and HTML take full height for mobile view alignment */
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            /* Use pure black for the background to match the screenshot */
+            background-color: #000000;
+        }
+
+        /* Custom dark theme colors based on the screenshot */
+        .bg-viewer-top { background-color: #000000; }
+        .bg-viewer-bar { background-color: #202c33; }
+        .text-timestamp { color: #8696a0; }
+
+        /* The main viewer container that mimics the floating card */
+        .viewer-container {
+            max-width: 400px;
+            width: 100%;
+            /* Use 100% height on mobile, fixed height on desktop */
+            height: 100%; 
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Custom circle for profile icons */
+        .profile-circle {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+            overflow: hidden;
+            /* Added border style for hairline */
+            border: 1px solid transparent; 
+            position: relative; /* Needed for img and border */
+        }
+        /* Style for the green hairline border */
+        .profile-circle.has-border {
+             border-color: #1FAF59; /* Green color for the hairline */
+        }
+
+        /* SVG for the Back Arrow Icon */
+        .icon-back {
+            fill: white;
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* Animation for the counting text */
+        @keyframes subtle-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-1px); }
+        }
+        .animate-count {
+            animation: subtle-bounce 0.2s ease-out;
+        }
+        
+        /* --- Static Progress Bar Styling (Based on Screenshot) --- */
+        .progress-bar-track {
+            background-color: #8696a0; /* Dim color for unfilled/pending segments */
+            border-radius: 1px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-segment-inner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background-color: white; /* Color of the filled progress */
+            width: 0%; /* Default: Hidden or 0 width */
+        }
+        
+        /* Class for fully completed segments */
+        .done-fill {
+            width: 100%;
+        }
+
+        /* --- Scrolling Simulation (Manual Simulation) --- */
+        @keyframes manualScroll {
+            /* Start */
+            0% { transform: translateY(0); }
+            
+            /* 1st Swipe & Coast */
+            20% { transform: translateY(-15%); animation-timing-function: cubic-bezier(0.1, 0.7, 0.2, 1); }
+            
+            /* Pause/Hold */
+            25% { transform: translateY(-15%); } 
+
+            /* 2nd Swipe & Coast */
+            50% { transform: translateY(-40%); animation-timing-function: cubic-bezier(0.1, 0.7, 0.2, 1); } 
+
+            /* Pause/Hold */
+            55% { transform: translateY(-40%); }
+            
+            /* 3rd Swipe to loop point */
+            80% { transform: translateY(-50%); animation-timing-function: cubic-bezier(0.1, 0.7, 0.2, 1); } 
+
+            /* Hold for seamless loop */
+            100% { transform: translateY(-50%); } 
+        }
+
+        .scrolling-list {
+            /* Scroll duration based on the number of items/screen size */
+            animation: manualScroll 20s infinite; 
+            display: flex;
+            flex-direction: column;
+            will-change: transform; 
+        }
+        
+        #viewerListWrapper {
+            overflow: hidden;
+            flex-grow: 1; 
+            /* Height is now flexible to fill the remaining space */
+        }
+        
+        /* Style the Reshare SVG: fill is none, stroke color is inherited from parent text color (text-timestamp) */
+        .reshare-icon-svg {
+            fill: none; /* No background */
+            stroke-width: 2; /* Adjust line thickness */
+            stroke: currentColor; /* Inherit color from text-timestamp */
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Container for the Facebook icon to apply border and positioning */
+        .facebook-icon-container {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px; /* Fully rounded */
+            border: 1px solid white; /* White outline ring */
+            position: relative;
+            background-color: white; /* This makes the background inside the border white */
+        }
+
+        /* SVG for the actual Facebook 'f' inside */
+        .facebook-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: relative; 
+        }
+    </style>
+</head>
+<body class="bg-viewer-top flex flex-col items-center justify-start lg:justify-center min-h-screen">
+
+    <!-- Screen Mockup Container (Mobile View) --><div class="viewer-container bg-gray-900 flex flex-col rounded-lg lg:rounded-xl overflow-hidden">
+
+        <!-- Status Progress Bar Strip (5 Horizontal Lines) --><div id="progressBars" class="flex px-1 pt-2 bg-viewer-top flex-shrink-0 space-x-0.5"> 
+            <!-- Segment 1: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 2: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 3: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 4: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 5: EMPTY (Gray with NO white fill) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner"></div> 
+            </div>
+        </div>
+
+        <!-- Top Bar (Header: Back, Profile, Status Name, Menu) --><div class="flex items-center p-3 bg-viewer-top flex-shrink-0">
+            <!-- 1. Back Arrow --><svg class="icon-back mr-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H19v-2z"/>
+            </svg>
+
+            <!-- 2. Profile Icon/Avatar with Green Plus --><div class="profile-circle bg-gray-600 mr-4 relative flex-shrink-0">
+                 <!-- Avatar Placeholder Image --><img src="https://placehold.co/40x40/333333/FFFFFF?text=P" class="w-full h-full object-cover rounded-full" alt="Profile Picture"/>
+
+                <!-- Green Plus Icon (Status Adder) --><svg class="absolute bottom-[-1px] right-[-1px] w-4 h-4 text-white bg-green-500 rounded-full border-2 border-black" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                </svg>
+            </div>
+
+            <!-- 3. Name and Time --><div class="flex-grow">
+                <p class="text-white text-lg font-semibold">My status</p>
+                <!-- TIME ANIMATION ELEMENT with Reshare Icon --><p class="text-sm text-timestamp flex items-center">
+                    <!-- Time value container for JS animation --><span id="statusTimeText">1m</span>
+                    
+                    <!-- Reshare Icon (SVG with stroke="currentColor") --><svg class="w-4 h-4 mx-1 reshare-icon-svg" viewBox="0 0 24 24" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 12a9 9 0 1 1-9-9c1.07 0 2.1.28 3.01.81m-3.01 5.19V6.5L8.5 9 12 12.5V10h7v2h-7z"/>
+                    </svg>
+                    
+                    <span>Reshared</span>
+                </p>
+            </div>
+
+            <!-- 4. 3-dot menu (Right side) --><div class="ml-auto p-2">
+                 <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="1.5"/>
+                    <circle cx="12" cy="5" r="1.5"/>
+                    <circle cx="12" cy="19" r="1.5"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Video Placeholder / Main Status Content Area -->
+        <div class="p-2 pt-0 h-64 flex items-center justify-center flex-shrink-0">
+            <div class="w-full h-full bg-gray-700 rounded-md flex items-center justify-center relative overflow-hidden">
+                <!-- Simple gradient placeholder for the video content --><div class="absolute inset-0 bg-gradient-to-tr from-gray-800 to-gray-700 opacity-70"></div>
+                <span class="text-white text-sm font-light">Status Content Placeholder</span>
+                <!-- 'AC' badge placeholder --><div class="absolute top-2 right-2 px-2 py-0.5 bg-black bg-opacity-70 text-white text-xs font-semibold rounded">AC</div>
+            </div>
+        </div>
+
+        <!-- Viewer List Card (Flex-grow ensures it fills the rest of the screen height) --><div class="flex-grow bg-[#272727] pt-2 rounded-t-xl flex flex-col min-h-0">
+
+            <!-- Viewer Header Bar (Viewed by 42) --><div class="flex items-center justify-between px-4 py-2 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center">
+                    <span class="text-white text-base font-semibold mr-1">Viewed by</span>
+                    <!-- VIEW COUNT ANIMATION ELEMENT - Initial content set to 324 --><span id="viewCountText" class="text-white text-lg font-bold">324</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Facebook Icon (Maximized 'f') --><div class="facebook-icon-container">
+                        <svg class="facebook-svg" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Adjusted Path: Extended the vertical stem (V19.5) to nearly touch the bottom of the 20x20 viewBox to remove any padding. --><path d="M11.6667 12.6667H13.3333L13.8333 9.16667H11.6667V7.33333C11.6667 6.33333 12.0833 6.0 12.9167 6.0H14.1667V2.5C13.9213 2.46944 13.0456 2.41667 12.0833 2.41667C9.91667 2.41667 8.5 3.75 8.5 6.0V9.16667H6.66667V12.6667H8.5V19.5H11.1667V12.6667Z" fill="#000000"/>
+                        </svg>
+                    </div>
+                    <!-- Three Dots Menu Placeholder --><svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="12" r="1.5"/>
+                        <circle cx="12" cy="5" r="1.5"/>
+                        <circle cx="12" cy="19" r="1.5"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Viewer List Items Wrapper - Defines the visible scroll area -->
+            <!-- We use overflow-y-auto and remove the fixed height (h-72) to allow it to dynamically fill the remaining space -->
+            <div id="viewerListWrapper" class="overflow-y-auto flex-grow pb-4">
+                <!-- Viewer List Items Container - Content is dynamically generated by JavaScript -->
+                <!-- Removed the scrolling-list class here, as we rely on the parent div to manage overflow-y-auto -->
+                <div id="viewerList">
+                    <!-- Dynamic viewer items will be injected here -->
+                </div>
+            </div>
+            
+            <!-- Removed the Bottom Navigation Bar entirely -->
+        </div>
+    </div>
+
+    <script>
+        const NUM_STEPS = 35; // Steps for time counter
+        const NUM_VIEW_STEPS = 60; // Desired number of steps for view counter
+        const START_VIEWS = 324;
+        const END_VIEWS = 1000000;
+        const TOTAL_DURATION_VIEW_TIME = 60000; // 1 minute in milliseconds for the counters
+        const TOTAL_VIEWERS = 200; // Updated to 200 total names
+        const NUM_UTV = 90; // 90 names get UTV appended
+        const NUM_EMOJI = 60; // 60 names get an emoji appended
+        const NUM_AVATAR = 120; // 120 names get an image avatar
+        
+        // Emojis provided by the user
+        const EMOJIS = ['🤴', '💓', '💖', '🧑‍🎓', '🤳', '👏', '💕', '🙆', '👼', '🧡', '💯', '💖', '💓', '🔥', '💥', '💫', '🤖', '💌', '🏋️', '👮', '😁', '🤝', '👻', '🤗', '🚶', '💝', '🤍', '😁'];
+        
+        // Common name parts for generating unique names
+        const FIRST_NAMES = ["Alex", "Ben", "Chris", "Dana", "Eli", "Fin", "Grace", "Henry", "Ivy", "Jack", "Kate", "Leo", "Mia", "Noah", "Oli", "Piper", "Quinn", "Ryan", "Sara", "Tom", "Uma", "Victor", "Will", "Xena", "Yara", "Zack", "Aisha", "Bayo", "Caleb", "Devi", "Elias", "Femi", "Gia", "Idris", "Jaya", "Kofi", "Lena", "Musa", "Nala", "Omar", "Priya", "Rami", "Sita", "Tariq", "Zara", "John", "Jane", "Max", "Chloe", "Sam", "Ruby", "Liam", "Emma", "Ethan", "Olivia"];
+        const LAST_NAMES = ["Smith", "Jones", "Garcia", "Miller", "Davis", "Rodgers", "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin", "Lee", "Perez", "King", "Wright", "Baker", "Hill", "Adams", "Clark", "Young", "Scott", "Walker", "Hall", "Allen", "Cook", "Morris", "Rivera", "Gonzales", "Nelson", "Carter", "Mitchell"];
+
+        // === Utility Function to Format Time (Header) ===
+        function formatTime(totalMinutes) {
+            if (totalMinutes < 60) {
+                // If less than an hour, show in minutes
+                return `${totalMinutes}m`;
+            } else if (totalMinutes < 1440) {
+                // If less than 24 hours, show in hours
+                const hours = Math.floor(totalMinutes / 60);
+                return `${hours}h`;
+            } else if (totalMinutes === 1440) {
+                return `24hr`;
+            } 
+            return `>24hr`;
+        }
+
+        // === Utility Function to Format View Count (K/M notation) ===
+        function formatViewCount(num) {
+            if (num >= 1000000) {
+                // Format as X M (e.g., 1M)
+                // Use .toFixed(1) to potentially show 1.0M if necessary, but 1M is preferred for the final step
+                if (num === 1000000) return '1M';
+                return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            } else if (num >= 1000) {
+                // Show X K
+                return Math.round(num / 1000) + 'K';
+            }
+            return num.toString();
+        }
+
+        // === Generalized Step Generation Function (Used for Time only now) ===
+        function generateRandomSteps(start, end, numSteps) {
+            const steps = [start];
+            const range = end - start;
+            const randomFractions = [];
+            
+            for (let i = 0; i < numSteps - 2; i++) {
+                randomFractions.push(Math.random());
+            }
+            randomFractions.sort((a, b) => a - b);
+            
+            for (const fraction of randomFractions) {
+                const biasedFraction = Math.pow(fraction, 1.5); 
+                const value = Math.round(start + biasedFraction * range);
+                steps.push(value);
+            }
+            
+            steps.push(end);
+            
+            return [...new Set(steps)].sort((a, b) => a - b);
+        }
+
+        // === Function for Realistic View Count Steps (Controlled Exponential Growth) ===
+        function generateRealisticViewSteps(start, end, numSteps) {
+            const steps = [start];
+            const range = end - start;
+            // Exponent of 4 ensures very small steps initially, but a strong acceleration towards the end.
+            const exponent = 4; 
+            
+            for (let i = 1; i <= numSteps; i++) {
+                // 1. Calculate position on the exponential curve (0 to 1)
+                const normalizedStep = i / numSteps;
+                const biasedPosition = Math.pow(normalizedStep, exponent);
+                
+                // 2. Calculate the theoretical value
+                let theoreticalValue = start + biasedPosition * range;
+                
+                // 3. Add controlled random noise (e.g., +/- up to 1.5% of the value, but capped)
+                const noiseMagnitude = Math.min(100, theoreticalValue * 0.015); 
+                const noise = (Math.random() - 0.5) * 2 * noiseMagnitude; 
+                
+                let nextValue = Math.round(theoreticalValue + noise);
+                
+                // 4. Ensure value is strictly increasing and does not exceed the end
+                if (nextValue > steps[steps.length - 1] && nextValue <= end) {
+                    steps.push(nextValue);
+                }
+            }
+            
+            // 5. Ensure the final step is exactly the end value
+            if (steps[steps.length - 1] !== end) {
+                steps.push(end);
+            }
+            
+            return [...new Set(steps)].sort((a, b) => a - b);
+        }
+
+
+        /**
+         * Starts a counter animation, time-constrained to totalDuration.
+         * @param {string} elementId - ID of the HTML element to update.
+         * @param {number[]} steps - Array of values to display.
+         * @param {function(number): string} formatter - Function to format the number.
+         * @param {number} totalDuration - Target duration in ms (60000ms for 1 minute).
+         */
+        function startCounterAnimation(elementId, steps, formatter, totalDuration) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            let index = 0;
+            // Use a starting variable for time tracking to ensure the total is hit
+            let timeElapsed = 0;
+            const totalSteps = steps.length;
+            const startTime = performance.now();
+
+            const animateStep = () => {
+                const currentTime = performance.now();
+                timeElapsed = currentTime - startTime;
+                
+                // Calculate how many steps should have elapsed based on time
+                const stepsTarget = Math.min(totalSteps, Math.round((timeElapsed / totalDuration) * totalSteps));
+                
+                // If we are behind or on target, advance the index
+                if (index < stepsTarget) {
+                    index = stepsTarget;
+                }
+
+                if (index >= totalSteps) {
+                    // Set final value and stop
+                    element.textContent = formatter(steps[totalSteps - 1]);
+                    return; 
+                }
+
+                // If index advanced, update the display
+                const value = steps[index];
+                element.textContent = formatter(value);
+                
+                // Add class for subtle bounce animation
+                element.classList.add('animate-count');
+                setTimeout(() => element.classList.remove('animate-count'), 200);
+
+                index++;
+
+                // Calculate the remaining time and remaining steps for the next iteration
+                const stepsLeft = totalSteps - index;
+                const timeRemaining = totalDuration - timeElapsed;
+                
+                let delay;
+
+                if (stepsLeft > 0) {
+                    // Calculate average step duration for the remainder of the timeline
+                    let averageStepDuration = timeRemaining / stepsLeft;
+                    // Introduce controlled randomness (-30% to +30% variation)
+                    let randomDelayFactor = (Math.random() * 0.6) - 0.3; 
+                    delay = averageStepDuration * (1 + randomDelayFactor);
+                    
+                    // Ensure a minimum delay and prevent running ahead of time too much
+                    delay = Math.min(Math.max(100, delay), timeRemaining); 
+                    
+                    setTimeout(animateStep, delay);
+                }
+            };
+            
+            // Start the animation slightly after load
+            setTimeout(animateStep, 500);
+        }
+        
+        // === Viewer List Generation Utilities ===
+
+        function getRandomElement(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function generateViewTime(index) {
+            // Newer views (top of the list) are more recent
+            const recentIndex = TOTAL_VIEWERS - index;
+
+            if (recentIndex <= 30) {
+                // Very recent: Minutes ago (1-59 mins)
+                const minutesAgo = Math.floor(Math.random() * 59) + 1; 
+                return `${minutesAgo} Minutes ago`;
+            } else if (recentIndex <= 100) {
+                // Recent: Hours ago or Today, HH:MM
+                if (Math.random() < 0.6) {
+                    const hoursAgo = Math.floor(Math.random() * 23) + 1; 
+                    return `${hoursAgo} Hours ago`;
+                } else {
+                    const hour = Math.floor(Math.random() * 12) + 1;
+                    const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+                    const ampm = Math.random() < 0.5 ? 'AM' : 'PM';
+                    return `Today, ${hour}:${minute} ${ampm}`;
+                }
+            } else {
+                // Older views: Yesterday or older
+                 const hour = Math.floor(Math.random() * 12) + 1;
+                 const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+                 const ampm = Math.random() < 0.5 ? 'AM' : 'PM';
+                 return `Yesterday, ${hour}:${minute} ${ampm}`;
+            }
+        }
+        
+        // Function to get a random mock profile image URL
+        function getRandomAvatarUrl() {
+            // Placeholder images are used. Different sizes are used to simulate different avatars.
+            const size = Math.floor(Math.random() * 5) + 38; // 38px to 42px
+            const bg_colors = ['4F46E5', 'F59E0B', '10B981', 'EF4444', '8B5CF6']; // Indigo, Amber, Emerald, Red, Violet
+            const text_colors = ['FFFFFF', '000000'];
+            const initial = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
+            
+            const bgColor = getRandomElement(bg_colors);
+            const textColor = getRandomElement(text_colors);
+
+            return `https://placehold.co/${size}x${size}/${bgColor}/${textColor}?text=${initial}`;
+        }
+
+        // === Viewer List Generation (Main Function) ===
+        function generateViewerList() {
+            const listContainer = document.getElementById('viewerList');
+            if (!listContainer) return;
+
+            let viewerData = [];
+            const viewerColors = ['bg-gray-600', 'bg-gray-600', 'bg-gray-600', 'bg-gray-600', 'bg-gray-600']; // Use gray as the default background for non-avatar circles
+
+            // 1. Generate 200 unique names
+            let uniqueNames = new Set();
+            while (uniqueNames.size < TOTAL_VIEWERS) {
+                const firstName = getRandomElement(FIRST_NAMES);
+                const lastName = getRandomElement(LAST_NAMES);
+                uniqueNames.add(`${firstName} ${lastName}`);
+            }
+            
+            const namesArray = Array.from(uniqueNames);
+            
+            // 2. Randomly select indices for UTV, EMOJI, and AVATAR application
+            const indices = Array.from({ length: TOTAL_VIEWERS }, (_, i) => i);
+
+            // Randomly select 90 indices for UTV
+            const utvIndices = new Set(
+                indices.slice().sort(() => 0.5 - Math.random()).slice(0, NUM_UTV)
+            );
+
+            // Randomly select 60 indices for EMOJI 
+            const emojiIndices = new Set(
+                indices.slice().sort(() => 0.5 - Math.random()).slice(0, NUM_EMOJI)
+            );
+            
+            // Randomly select 120 indices for AVATAR
+            const avatarIndices = new Set(
+                indices.slice().sort(() => 0.5 - Math.random()).slice(0, NUM_AVATAR)
+            );
+
+
+            // 3. Construct the final viewer list
+            for (let i = 0; i < TOTAL_VIEWERS; i++) {
+                const baseName = namesArray[i];
+                const hasUtv = utvIndices.has(i);
+                const hasEmoji = emojiIndices.has(i);
+                const hasAvatar = avatarIndices.has(i);
+                
+                const initials = baseName.split(' ').map(n => n[0]).join('');
+                
+                let finalName = baseName;
+                
+                // Append Emoji to the end if applicable
+                if (hasEmoji) {
+                    const emoji = getRandomElement(EMOJIS);
+                    finalName += ` ${emoji}`;
+                }
+
+                // Append UTV to the end if applicable (can be after the emoji)
+                if (hasUtv) {
+                    finalName += ` UTV`;
+                }
+                
+                // Determine if they get the green hairline (e.g., if they have an avatar or just randomly)
+                const hasGreenHairline = hasAvatar || (Math.random() < 0.3);
+
+                viewerData.push({
+                    name: finalName,
+                    initials: initials,
+                    color: getRandomElement(viewerColors),
+                    time: generateViewTime(i),
+                    hasAvatar: hasAvatar,
+                    avatarUrl: hasAvatar ? getRandomAvatarUrl() : null,
+                    hasGreenHairline: hasGreenHairline // Apply green hairline here
+                });
+            }
+
+            // Shuffle the final list to ensure random mixing of UTV/Emoji/Avatar names
+            viewerData.sort(() => 0.5 - Math.random());
+            
+            // 4. Create DOM elements
+            let listHtml = '';
+            viewerData.forEach(viewer => {
+                const borderClass = viewer.hasGreenHairline ? 'has-border' : '';
+                
+                let avatarContent;
+                if (viewer.hasAvatar) {
+                    // Use img tag for the avatar
+                    avatarContent = `<img src="${viewer.avatarUrl}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='https://placehold.co/40x40/333333/FFFFFF?text=${viewer.initials}'" alt="Avatar"/>`;
+                } else {
+                    // Use initials for the placeholder circle
+                    avatarContent = viewer.initials;
+                }
+                
+                // Inject the content into the list item template
+                listHtml += `
+                <div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                    <div class="profile-circle ${viewer.color} text-xs mr-4 ${borderClass}">
+                        ${avatarContent}
+                    </div>
+                    <div>
+                        <p class="text-white text-base">${viewer.name}</p>
+                        <p class="text-timestamp text-sm">${viewer.time}</p>
+                    </div>
+                </div>`;
+            });
+
+            listContainer.innerHTML = listHtml;
+            // Removed setupScrollingList call
+        }
+
+        // === Main Initialization ===
+        window.addEventListener('load', () => {
+            // View Count Animation: Now uses time-constrained random delays to ensure 1M is hit in 60 seconds.
+            const viewSteps = generateRealisticViewSteps(START_VIEWS, END_VIEWS, NUM_VIEW_STEPS);
+            startCounterAnimation('viewCountText', viewSteps, formatViewCount, TOTAL_DURATION_VIEW_TIME);
+
+            // Time Count Animation
+            const startValueTime = 1; // 1 minute
+            const endValueTime = 1440; // 24 hours * 60 minutes
+            const timeSteps = generateRandomSteps(startValueTime, endValueTime, NUM_STEPS);
+            startCounterAnimation('statusTimeText', timeSteps, formatTime, TOTAL_DURATION_VIEW_TIME);
+
+            // Generate and setup the large viewer list
+            generateViewerList();
+        });
+    </script>
+</body>
+</html>
+
