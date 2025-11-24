@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Viewer Recreation</title>
+    <!-- Load Tailwind CSS for styling --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ensuring the body and HTML take full height for mobile view alignment */
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            /* Use pure black for the background to match the screenshot */
+            background-color: #000000;
+        }
+
+        /* Custom dark theme colors based on the screenshot */
+        .bg-viewer-top { background-color: #000000; }
+        .bg-viewer-bar { background-color: #202c33; }
+        .text-timestamp { color: #8696a0; }
+
+        /* The main viewer container that mimics the floating card */
+        .viewer-container {
+            max-width: 400px;
+            width: 100%;
+            /* Use 100% height on mobile, fixed height on desktop */
+            height: 100%; 
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Custom circle for profile icons */
+        .profile-circle {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        /* SVG for the Back Arrow Icon */
+        .icon-back {
+            fill: white;
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* Animation for the counting text */
+        @keyframes subtle-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-1px); }
+        }
+        .animate-count {
+            animation: subtle-bounce 0.2s ease-out;
+        }
+        
+        /* --- Static Progress Bar Styling (Based on Screenshot) --- */
+        .progress-bar-track {
+            background-color: #8696a0; /* Dim color for unfilled/pending segments */
+            border-radius: 1px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-segment-inner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background-color: white; /* Color of the filled progress */
+            width: 0%; /* Default: Hidden or 0 width */
+        }
+        
+        /* Class for fully completed segments */
+        .done-fill {
+            width: 100%;
+        }
+
+        /* Class for the partially completed segment */
+        .partial-fill {
+            width: 25%; /* Sets the partial fill state */
+        }
+        /* --- Scrolling Simulation (Manual Simulation) --- */
+        @keyframes manualScroll {
+            /* Start */
+            0% { transform: translateY(0); }
+            
+            /* 1st Swipe & Coast */
+            20% { transform: translateY(-15%); animation-timing-function: cubic-bezier(0.1, 0.7, 0.2, 1); }
+            
+            /* Pause/Hold */
+            25% { transform: translateY(-15%); } 
+
+            /* 2nd Swipe & Coast */
+            50% { transform: translateY(-40%); animation-timing-function: cubic-bezier(0.1, 0.7, 0.2, 1); } 
+
+            /* Pause/Hold */
+            55% { transform: translateY(-40%); }
+            
+            /* 3rd Swipe to loop point */
+            80% { transform: translateY(-50%); animation-timing-function: cubic-bezier(0.1, 0.7, 0.2, 1); } 
+
+            /* Hold for seamless loop */
+            100% { transform: translateY(-50%); } 
+        }
+
+        .scrolling-list {
+            animation: manualScroll 20s infinite; 
+            display: flex;
+            flex-direction: column;
+            will-change: transform; 
+        }
+        
+        #viewerListWrapper {
+            overflow: hidden;
+            flex-grow: 1; 
+            max-height: 100%;
+        }
+        
+        /* Style the Reshare SVG: fill is none, stroke color is inherited from parent text color (text-timestamp) */
+        .reshare-icon-svg {
+            fill: none; /* No background */
+            stroke-width: 2; /* Adjust line thickness */
+            stroke: currentColor; /* Inherit color from text-timestamp */
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Container for the Facebook icon to apply border and positioning */
+        .facebook-icon-container {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px; /* Fully rounded */
+            border: 1px solid white; /* White outline ring */
+            position: relative;
+            background-color: white; /* This makes the background inside the border white */
+        }
+
+        /* SVG for the actual Facebook 'f' inside */
+        .facebook-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: relative; 
+        }
+    </style>
+</head>
+<body class="bg-viewer-top flex flex-col items-center justify-start lg:justify-center min-h-screen">
+
+    <!-- Screen Mockup Container (Mobile View) --><div class="viewer-container bg-gray-900 flex flex-col rounded-lg lg:rounded-xl overflow-hidden">
+
+        <!-- Status Progress Bar Strip (5 Horizontal Lines) --><div id="progressBars" class="flex px-1 pt-2 bg-viewer-top flex-shrink-0 space-x-0.5"> 
+            <!-- Segment 1: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 2: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 3: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 4: DONE (White) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner done-fill"></div>
+            </div>
+            <!-- Segment 5: EMPTY (Gray with NO white fill) --><div class="progress-segment h-[2px] flex-grow progress-bar-track">
+                <div class="progress-segment-inner"></div> <!-- Removed partial-fill class --></div>
+        </div>
+
+        <!-- Top Bar (Header: Back, Profile, Status Name, Menu) --><div class="flex items-center p-3 bg-viewer-top flex-shrink-0">
+            <!-- 1. Back Arrow --><svg class="icon-back mr-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H19v-2z"/>
+            </svg>
+
+            <!-- 2. Profile Icon/Avatar with Green Plus --><div class="profile-circle bg-gray-600 mr-4 relative flex-shrink-0">
+                 <!-- Avatar Placeholder Image --><img src="https://placehold.co/40x40/333333/FFFFFF?text=P" class="w-full h-full object-cover rounded-full" alt="Profile Picture"/>
+
+                <!-- Green Plus Icon (Status Adder) --><svg class="absolute bottom-[-1px] right-[-1px] w-4 h-4 text-white bg-green-500 rounded-full border-2 border-black" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                </svg>
+            </div>
+
+            <!-- 3. Name and Time --><div class="flex-grow">
+                <p class="text-white text-lg font-semibold">My status</p>
+                <!-- TIME ANIMATION ELEMENT with Reshare Icon --><p class="text-sm text-timestamp flex items-center">
+                    <!-- Time value container for JS animation --><span id="statusTimeText">1m</span>
+                    
+                    <!-- Reshare Icon (SVG with stroke="currentColor") --><svg class="w-4 h-4 mx-1 reshare-icon-svg" viewBox="0 0 24 24" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 12a9 9 0 1 1-9-9c1.07 0 2.1.28 3.01.81m-3.01 5.19V6.5L8.5 9 12 12.5V10h7v2h-7z"/>
+                    </svg>
+                    
+                    <span>Reshared</span>
+                </p>
+            </div>
+
+            <!-- 4. 3-dot menu (Right side) --><div class="ml-auto p-2">
+                 <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="1.5"/>
+                    <circle cx="12" cy="5" r="1.5"/>
+                    <circle cx="12" cy="19" r="1.5"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Video Placeholder / Main Status Content Area --><div class="p-2 pt-0 h-40 flex items-center justify-center">
+            <div class="w-full h-full bg-gray-700 rounded-md flex items-center justify-center relative overflow-hidden">
+                <!-- Simple gradient placeholder for the video content --><div class="absolute inset-0 bg-gradient-to-tr from-gray-800 to-gray-700 opacity-70"></div>
+                <span class="text-white text-sm font-light">Status Content Placeholder</span>
+                <!-- 'AC' badge placeholder --><div class="absolute top-2 right-2 px-2 py-0.5 bg-black bg-opacity-70 text-white text-xs font-semibold rounded">AC</div>
+            </div>
+        </div>
+
+        <!-- Viewer List Card --><div class="flex-grow bg-[#272727] pt-2 rounded-t-xl flex flex-col">
+
+            <!-- Viewer Header Bar (Viewed by 42) --><div class="flex items-center justify-between px-4 py-3 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center">
+                    <span class="text-white text-base font-semibold mr-1">Viewed by</span>
+                    <!-- VIEW COUNT ANIMATION ELEMENT - Initial content set to first step (1) --><span id="viewCountText" class="text-white text-lg font-bold">1</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Facebook Icon (Maximized 'f') --><div class="facebook-icon-container">
+                        <svg class="facebook-svg" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Adjusted Path: Extended the vertical stem (V19.5) to nearly touch the bottom of the 20x20 viewBox to remove any padding. --><path d="M11.6667 12.6667H13.3333L13.8333 9.16667H11.6667V7.33333C11.6667 6.33333 12.0833 6.0 12.9167 6.0H14.1667V2.5C13.9213 2.46944 13.0456 2.41667 12.0833 2.41667C9.91667 2.41667 8.5 3.75 8.5 6.0V9.16667H6.66667V12.6667H8.5V19.5H11.1667V12.6667Z" fill="#000000"/>
+                        </svg>
+                    </div>
+                    <!-- Three Dots Menu Placeholder --><svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="12" r="1.5"/>
+                        <circle cx="12" cy="5" r="1.5"/>
+                        <circle cx="12" cy="19" r="1.5"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Viewer List Items Wrapper - Defines the visible scroll area --><div id="viewerListWrapper" class="overflow-hidden max-h-full pb-10">
+                <!-- Viewer List Items Container - This is the element that will scroll --><div id="viewerList">
+                    
+                    <!-- Item 1 --><div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                        <div class="profile-circle bg-green-500 text-xs mr-4">E</div>
+                        <div>
+                            <p class="text-white text-base">Emmanuel Emmanuel</p>
+                            <p class="text-timestamp text-sm">Today, 8:18 PM</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 2 --><div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                        <div class="profile-circle bg-green-500 text-xs mr-4">A</div>
+                        <div>
+                            <p class="text-white text-base">Aduragbemi Fagbohun UTV</p>
+                            <p class="text-timestamp text-sm">Today, 7:47 PM</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 3 --><div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                        <div class="profile-circle bg-green-700 text-xs mr-4">S</div>
+                        <div>
+                            <p class="text-white text-base">Sam UTV</p>
+                            <p class="text-timestamp text-sm">13 Minutes ago</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 4 (Placeholder for profile image) --><div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                        <div class="profile-circle bg-red-600 text-xs mr-4">
+                            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="7" r="3"></circle>
+                                <path d="M17.92 20C17.43 17.65 15.69 16 12 16c-3.7 0-5.44 1.65-5.92 4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-white text-base">Cisco UTV</p>
+                            <p class="text-timestamp text-sm">38 Minutes ago</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 5 (Placeholder for funny avatar) --><div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                        <div class="profile-circle bg-black text-xs mr-4">
+                            <span role="img" aria-label="funny monster" class="text-xl">👹</span>
+                        </div>
+                        <div>
+                            <p class="text-white text-base">Oscar UTV</p>
+                            <p class="text-timestamp text-sm">49 Minutes ago</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 6 (Placeholder for picture) --><div class="viewer-item flex items-center p-3 hover:bg-gray-800 transition duration-150">
+                        <div class="profile-circle bg-pink-500 text-xs mr-4">
+                            <span role="img" aria-label="girl with tongue out" class="text-xl">😜</span>
+                        </div>
+                        <div>
+                            <p class="text-white text-base">betty2mygirl😜 UTV</p>
+                            <p class="text-timestamp text-sm">51 Minutes ago</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- The second set of items is appended here by JavaScript for looping --></div>
+        </div>
+
+        <!-- Bottom Navigation Bar (Placeholder) --><div class="w-full h-12 bg-black flex items-center justify-around flex-shrink-0">
+            <div class="w-6 h-6 border-2 border-white rounded-full"></div>
+            <div class="w-8 h-8 bg-white rounded-full"></div>
+            <div class="w-6 h-6 border-2 border-white rounded-full"></div>
+        </div>
+    </div>
+
+    <script>
+        const NUM_STEPS = 35;
+        const TOTAL_DURATION_VIEW_TIME = 60000; // 1 minute in milliseconds for the counters
+        
+
+        // === Utility Function to Format Time ===
+        function formatTime(totalMinutes) {
+            if (totalMinutes < 60) {
+                return `${totalMinutes}m`;
+            } else if (totalMinutes < 1440) {
+                const hours = Math.floor(totalMinutes / 60);
+                // Modified: Only return the hour count, removing the minute count display.
+                return `${hours}h`;
+            } else if (totalMinutes === 1440) {
+                return `24hr`;
+            } 
+            return `>24hr`;
+        }
+
+        // === Utility Function to Format View Count (K/M notation) ===
+        function formatViewCount(num) {
+            if (num >= 1000000) {
+                // To fixed(0) to keep it an integer for large numbers
+                return (num / 1000000).toFixed(0) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(0) + 'K';
+            }
+            return num.toString();
+        }
+
+        // === Generalized Step Generation Function ===
+        function generateRandomSteps(start, end, numSteps) {
+            const steps = [start];
+            const range = end - start;
+            const randomFractions = [];
+            
+            for (let i = 0; i < numSteps - 2; i++) {
+                randomFractions.push(Math.random());
+            }
+            randomFractions.sort((a, b) => a - b);
+            
+            for (const fraction of randomFractions) {
+                const biasedFraction = Math.pow(fraction, 1.5); 
+                const value = Math.round(start + biasedFraction * range);
+                steps.push(value);
+            }
+            
+            steps.push(end);
+            
+            return [...new Set(steps)].sort((a, b) => a - b);
+        }
+
+        // === Generalized Animation Loop (View Count & Time) ===
+        function startCounterAnimation(elementId, steps, formatter, totalDuration) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            let index = 0;
+            let remainingTime = totalDuration;
+
+            const animateStep = () => {
+                if (index >= steps.length) {
+                    // Set final value and stop
+                    element.textContent = formatter(steps[steps.length - 1]);
+                    return; 
+                }
+
+                const value = steps[index];
+                element.textContent = formatter(value);
+                
+                element.classList.add('animate-count');
+                setTimeout(() => element.classList.remove('animate-count'), 200);
+
+                index++;
+                
+                const stepsLeft = steps.length - index;
+                if (stepsLeft > 0) {
+                    let averageStepDuration = remainingTime / stepsLeft;
+                    let randomDelayFactor = (Math.random() * 0.6) - 0.3;
+                    let delay = averageStepDuration * (1 + randomDelayFactor);
+                    delay = Math.max(100, delay);
+                    
+                    remainingTime -= delay;
+                    setTimeout(animateStep, delay);
+                }
+            };
+            
+            setTimeout(animateStep, 500);
+        }
+        
+        // === Scrolling List Setup ===
+        function setupScrollingList() {
+            const listContainer = document.getElementById('viewerList');
+            if (!listContainer) return;
+
+            // Clone the existing content once to ensure a seamless loop point
+            const listContent = listContainer.innerHTML;
+            listContainer.innerHTML = listContent + listContent; 
+
+            // Apply the scrolling class to start the CSS animation
+            listContainer.classList.add('scrolling-list');
+        }
+
+        // === Main Initialization ===
+        window.addEventListener('load', () => {
+            // View Count Animation (Runs for 60s)
+            const startValueView = 1;
+            const endValueView = 1000000; // 1M
+            const viewSteps = generateRandomSteps(startValueView, endValueView, NUM_STEPS);
+            startCounterAnimation('viewCountText', viewSteps, formatViewCount, TOTAL_DURATION_VIEW_TIME);
+
+            // Time Count Animation (Runs for 60s)
+            const startValueTime = 1; // 1 minute
+            const endValueTime = 1440; // 24 hours * 60 minutes
+            const timeSteps = generateRandomSteps(startValueTime, endValueTime, NUM_STEPS);
+            startCounterAnimation('statusTimeText', timeSteps, formatTime, TOTAL_DURATION_VIEW_TIME);
+
+            // List Scrolling Animation
+            setupScrollingList();
+        });
+    </script>
+</body>
+</html>
+
