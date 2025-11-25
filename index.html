@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -26,21 +26,15 @@
         </div>
         <div class="right-side">
             <div class="description">Increase WhatsApp views, get customers, meet local friends</div>
-            <div class="logo">ASSOCIATES</div>
-            <button id="getContactsBtn">Get Contacts</button>
+            <div class="logo">NEARR</div>
+            <!-- BUTTON TEXT UPDATED -->
+            <button id="getContactsBtn">Join wait-list</button>
 
 <script>
-    // Simulated user authentication check
+    // The button action is updated to redirect directly to wait-list.html
     document.getElementById('getContactsBtn').addEventListener('click', function() {
-        const user = localStorage.getItem('registeredUser');
-
-        if (user) {
-            // User exists, redirect to dashboard
-            window.location.href = 'dashboard.html';
-        } else {
-            // User not registered, redirect to signup page
-            window.location.href = 'signup.html';
-        }
+        // User requested redirection to the wait-list page
+        window.location.href = 'wait-list.html';
     });
 </script>
         </div>
