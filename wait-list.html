@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Signup Process</title>
+<!-- Load Tailwind CSS for styling and responsiveness -->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    /* Configure Tailwind to use the Inter font (standard, good for mobile) */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f7f9fc;
+    }
+    /* Custom styling for the intl-tel-input library */
+    .iti {
+        width: 100%;
+        display: block;
+    }
+    /* Input and Select styling consistency */
+    input[type="text"], input[type="tel"], input[type="email"], input[type="password"], select {
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        width: 100%;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    input:focus, select:focus {
+        border-color: #3b82f6;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    }
+
+    /* Tag Styling for Hobbies/Interests/Services */
+    .tag {
+        display: inline-block;
+        background-color: #e5e7eb;
+        color: #4b5563;
+        padding: 0.5rem 1rem;
+        margin: 0.35rem;
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: background-color 0.2s, color 0.2s, transform 0.1s;
+        font-size: 0.875rem;
+        user-select: none;
+        border: 1px solid #d1d5db;
+    }
+    .tag:hover {
+        background-color: #d1d5db;
+    }
+    .tag.selected {
+        background-color: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+        transform: scale(1.03);
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.75);
+        display: none; /* Controlled by JS */
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+    }
+    .modal-overlay.open {
+        display: flex;
+    }
+    .modal-content {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+</style>
+
+<!-- Include intl-tel-input CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/css/intlTelInput.min.css"/>
+
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+
+<div class="max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-2xl space-y-6">
+
+    <!-- View 1: Profile Signup -->
+    <div id="profileView">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Tell us about yourself so we can properly match you with people of like minds</h2>
+
+        <form id="signupForm" class="space-y-6">
+
+            <!-- WhatsApp Number -->
+            <div>
+                <label for="whatsappNumber" class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number:</label>
+                <input type="tel" id="whatsappNumber" name="whatsappNumber" required class="w-full">
+            </div>
+
+            <!-- Full Name -->
+            <div>
+                <label for="fullname" class="block text-sm font-medium text-gray-700 mb-1">Full Name:</label>
+                <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+            </div>
+
+            <!-- Nickname -->
+            <div>
+                <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Nickname:</label>
+                <input type="text" id="nickname" name="nickname" placeholder="Your WhatsApp Name" required>
+                <small class="text-xs text-gray-500 mt-1 block">
+                    <b><i>(e.g., David(Real Estate) Moses(marketing) Pauline(Nurse))</i></b>
+                </small>
+            </div>
+
+            <!-- Demographics Form -->
+            <h2 class="text-xl font-semibold text-gray-800 pt-4 border-t border-gray-200">Tell Us About Yourself</h2>
+
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Age -->
+                <div>
+                    <label for="age" class="block text-sm font-medium text-gray-700 mb-1">Age:</label>
+                    <select id="age" name="age" required>
+                        <option value="">Select Age</option>
+                    </select>
+                </div>
+
+                <!-- Gender -->
+                <div>
+                    <label for="gender" class="block text-sm font-medium text-gray-700 mb-1">Gender:</label>
+                    <select id="gender" name="gender" required>
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Country/State/City -->
+            <div>
+                <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Country:</label>
+                <select id="country" name="country" required>
+                    <option value="">Select Country</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State:</label>
+                <select id="state" name="state" required disabled>
+                    <option value="">Select State</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City:</label>
+                <select id="city" name="city" required disabled>
+                    <option value="">Select City</option>
+                </select>
+            </div>
+
+            <!-- Hobbies & Interests -->
+            <h3 class="text-lg font-semibold text-gray-800 pt-4 border-t border-gray-200">Hobbies and Interests</h3>
+            <p class="text-sm text-gray-600 mb-2">Select all that apply:</p>
+            <div id="hobbiesContainer" class="flex flex-wrap -m-1 p-1 bg-gray-50 rounded-lg"></div>
+
+            <!-- Recommend Me To Customers -->
+            <h3 class="text-lg font-semibold text-gray-800 pt-4 border-t border-gray-200">RECOMMEND ME TO CUSTOMERS WHO NEED</h3>
+            <p class="text-sm text-gray-600 mb-2">Select the services you provide:</p>
+            <div id="customersContainer" class="flex flex-wrap -m-1 p-1 bg-gray-50 rounded-lg"></div>
+
+            <!-- Recommend Me To Friends -->
+            <h3 class="text-lg font-semibold text-gray-800 pt-4 border-t border-gray-200">RECOMMEND ME TO NEARBY FRIENDS FOR</h3>
+            <p class="text-sm text-gray-600 mb-2">Select reasons a friend may refer you:</p>
+            <div id="friendsContainer" class="flex flex-wrap -m-1 p-1 bg-gray-50 rounded-lg"></div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg">
+                Continue
+            </button>
+
+        </form>
+    </div>
+
+    <!-- View 2: Credentials -->
+    <div id="credentialsView" class="hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Create Your Account Credentials</h2>
+
+        <form id="credentialsForm" class="space-y-6">
+            <!-- Email -->
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required>
+            </div>
+
+            <!-- Password -->
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+
+            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg">
+                Sign Up
+            </button>
+            <button type="button" onclick="goToProfileView()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg mt-2">
+                &larr; Back to Profile
+            </button>
+        </form>
+    </div>
+
+</div>
+
+<!-- System Message Modal (Used for Errors and Submission) -->
+<div id="systemModal" class="modal-overlay">
+    <div class="modal-content bg-white p-8 rounded-xl shadow-2xl w-11/12 max-w-lg">
+        <h3 id="modalTitle" class="text-2xl font-bold text-green-600 mb-4"></h3>
+        <p id="modalMessage" class="text-gray-700 mb-4"></p>
+        <div id="finalData" class="bg-gray-100 p-4 rounded-lg text-sm whitespace-pre-wrap hidden"></div>
+        <button onclick="document.getElementById('systemModal').style.display='none'" class="mt-6 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg">
+            Close
+        </button>
+    </div>
+</div>
+
+
+<!-- Include intl-tel-input JS and utils -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/intlTelInput.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/utils.js"></script>
+
+<script>
+    // --- Global State and Data Storage ---
+    let itiInstance = null;
+    let profileData = {};
+
+    // Data Sets to track selected tags
+    const selectedHobbies = new Set();
+    const selectedServices = new Set();
+    const selectedFriends = new Set();
+
+    // --- View Management Functions ---
+    function goToProfileView() {
+        document.getElementById('profileView').classList.remove('hidden');
+        document.getElementById('credentialsView').classList.add('hidden');
+    }
+
+    function goToCredentialsView() {
+        document.getElementById('profileView').classList.add('hidden');
+        document.getElementById('credentialsView').classList.remove('hidden');
+    }
+
+    // --- Modal Message Handler (Replaces alert()) ---
+    function showModalMessage(title, message, isError = false, showData = false, dataContent = '') {
+        const modal = document.getElementById('systemModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const finalDataContainer = document.getElementById('finalData');
+
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        modalTitle.className = `text-2xl font-bold mb-4 ${isError ? 'text-red-600' : 'text-green-600'}`;
+        
+        if (showData) {
+            finalDataContainer.innerHTML = dataContent;
+            finalDataContainer.classList.remove('hidden');
+        } else {
+            finalDataContainer.classList.add('hidden');
+        }
+
+        modal.style.display = 'flex';
+    }
+
+
+    // --- Utility Function to Handle Tag Toggling (Visual and Data) ---
+    function setupTagToggle(containerId, list, dataSet) {
+        const container = document.getElementById(containerId);
+        list.forEach(item => {
+            const tag = document.createElement('span');
+            tag.innerText = item;
+            tag.classList.add('tag');
+
+            tag.addEventListener('click', () => {
+                tag.classList.toggle('selected');
+                if (tag.classList.contains('selected')) {
+                    dataSet.add(item);
+                } else {
+                    dataSet.delete(item);
+                }
+            });
+            container.appendChild(tag);
+        });
+    }
+
+    // --- Location Data ---
+    const locationData = {
+        "Nigeria": { "Lagos": ["Ikeja", "Epe", "Ikorodu"], "Abuja": ["Garki", "Wuse", "Maitama"] },
+        "United States": { "California": ["Los Angeles", "San Francisco", "San Diego"], "Texas": ["Houston", "Dallas", "Austin"] }
+    };
+
+    // --- Tag Data Lists (Rest of the data lists remain the same) ---
+    const hobbiesList = [
+        "Personal","Fitness","Health","Wellness","Fashion","Beauty","Travel","Photography",
+        "Music","Movies","Television","Gaming","Art","Crafts","Technology","Coding",
+        "Science","Mathematics","Reading","Writing","Blogging","Vlogging","Food","Cooking",
+        "Baking","Gardening","Home Decor","Pets","Animals","Adventure","Sports","Football",
+        "Basketball","Tennis","Yoga","Meditation","Spirituality","Religion","Politics",
+        "Current Events","Finance","Investing","Cryptocurrency","Business","Entrepreneurship",
+        "Marketing","Social Media","Memes","Quotes","Motivation","Lifestyle","Education",
+        "Languages","Culture","History","Volunteering","Community","Networking","Events",
+        "Cars","Motorcycles","Boating","Hiking","Camping","Fitness Challenges","Collectibles",
+        "Board Games","Puzzles","Science Fiction","Fantasy","Comedy","Drama","Romance",
+        "Action","Documentaries","Nature","Environment","DIY Projects","Shopping",
+        "Luxury","Minimalism","Self-improvement","Meditation","Journaling","Adventure Sports",
+        "Photography","Videography","Street Art","Museums","Exhibitions"
+    ];
+
+    const servicesList = [
+        "Shoes","Fruits & Vegetables","Beverages","Fashion Accessories","Catering",
+        "Hair/Beauty Services","Event Planning","Logistics","Tutoring / Lessons",
+        "Therapy / Counseling","Electronics","Printing / Design Services",
+        "Fitness / Personal Training","Other"
+    ];
+
+    const friendsList = [
+        "Marriage / Godly Relationship","Business Purposes","Learning / Education",
+        "Religious Purposes","Friendship / Networking","Sports / Team Activities",
+        "Events / Celebrations","Travel / Tours","Health / Wellness",
+        "Evangelism Purposes","Other"
+    ];
+
+
+    // --- Initialization on Load ---
+    window.onload = function() {
+        const input = document.querySelector("#whatsappNumber");
+
+        // 1. Initialize intl-tel-input
+        itiInstance = window.intlTelInput(input, {
+            initialCountry: "auto",
+            geoIpLookup: function(success, failure) {
+                fetch('https://ipinfo.io/json?token=904952d10edf9e')
+                .then(resp => resp.json())
+                .then(resp => success(resp.country))
+                .catch(() => success("us"));
+            },
+        });
+
+        // 2. Populate Age Options
+        const ageSelect = document.getElementById('age');
+        for (let i = 18; i <= 100; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = i;
+            ageSelect.appendChild(option);
+        }
+
+        // 3. Setup Location Logic
+        const countrySelect = document.getElementById('country');
+        const stateSelect = document.getElementById('state');
+        const citySelect = document.getElementById('city');
+
+        Object.keys(locationData).forEach(country => {
+            const option = document.createElement('option');
+            option.value = country;
+            option.text = country;
+            countrySelect.appendChild(option);
+        });
+
+        countrySelect.addEventListener('change', () => {
+            stateSelect.innerHTML = '<option value="">Select State</option>';
+            citySelect.innerHTML = '<option value="">Select City</option>';
+            stateSelect.disabled = true;
+            citySelect.disabled = true;
+
+            const selectedCountry = countrySelect.value;
+            const states = Object.keys(locationData[selectedCountry] || {});
+
+            if (states.length > 0) {
+                stateSelect.disabled = false;
+                states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state;
+                    option.text = state;
+                    stateSelect.appendChild(option);
+                });
+            }
+        });
+
+        stateSelect.addEventListener('change', () => {
+            citySelect.innerHTML = '<option value="">Select City</option>';
+            citySelect.disabled = true;
+
+            const selectedCountry = countrySelect.value;
+            const selectedState = stateSelect.value;
+            const cities = locationData[selectedCountry]?.[selectedState] || [];
+
+            if (cities.length > 0) {
+                citySelect.disabled = false;
+                cities.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.text = city;
+                    citySelect.appendChild(option);
+                });
+            }
+        });
+
+        // 4. Setup Tags
+        setupTagToggle('hobbiesContainer', hobbiesList, selectedHobbies);
+        setupTagToggle('customersContainer', servicesList, selectedServices);
+        setupTagToggle('friendsContainer', friendsList, selectedFriends);
+
+        // 5. Setup Form 1 Submission (Profile Data)
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Validation check
+            if (!itiInstance || !itiInstance.isValidNumber()) {
+                showModalMessage(
+                    'Validation Error',
+                    'Please enter a valid WhatsApp number before continuing.',
+                    true // isError = true
+                );
+                return;
+            }
+
+            // Collect profile data
+            profileData = {
+                'WhatsApp Number (E.164)': itiInstance.getNumber(),
+                'Full Name': document.getElementById('fullname').value.trim(),
+                'Nickname': document.getElementById('nickname').value.trim(),
+                'Age': document.getElementById('age').value,
+                'Gender': document.getElementById('gender').value,
+                // Ensure location fields are filled before proceeding (HTML 'required' handles this partially)
+                'Location': `${document.getElementById('city').value || '[City missing]'}, ${document.getElementById('state').value || '[State missing]'}, ${document.getElementById('country').value || '[Country missing]'}`,
+                'Hobbies/Interests': Array.from(selectedHobbies),
+                'Customer Services': Array.from(selectedServices),
+                'Friend Referral Reasons': Array.from(selectedFriends)
+            };
+
+            // Switch view only upon successful validation
+            goToCredentialsView();
+        });
+
+        // 6. Setup Form 2 Submission (Credentials Data)
+        document.getElementById('credentialsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Collect credentials data
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            const credentialsData = {
+                'Email': email,
+                'Password (Not Saved)': '*'.repeat(password.length)
+            };
+
+            // Combine all data
+            const finalData = { ...profileData, ...credentialsData };
+
+            // Format data for display in the modal
+            const dataHtml = Object.entries(finalData)
+                .map(([key, value]) => {
+                    let displayValue;
+                    if (Array.isArray(value)) {
+                        displayValue = value.length > 0 ? value.join(', ') : 'None Selected';
+                    } else {
+                        displayValue = value;
+                    }
+                    return `<div class="mb-2"><span class="font-semibold text-gray-800">${key}:</span> ${displayValue}</div>`;
+                }).join('');
+
+            // Show the final submission modal
+            showModalMessage(
+                '✅ Account Created!',
+                'Below is a summary of the combined data collected from both steps.',
+                false, // isError = false
+                true,  // showData = true
+                dataHtml
+            );
+        });
+
+    };
+</script>
+
+</body>
+</html>
+
