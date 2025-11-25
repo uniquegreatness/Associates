@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEARR Leaderboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    body {
+        font-family: 'Inter', sans-serif;
+    }
+    /* Custom Blue Gradient Background matching the image style */
+    .bg-leaderboard-gradient {
+        background: linear-gradient(180deg, #1e40af 0%, #3b82f6 100%);
+    }
+
+    /* Profile image styles */
+    .profile-img {
+        width: 100%; 
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .img-container {
+        /* Size remains 32x32 for slimmer bars */
+        width: 32px; 
+        height: 32px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        transform: rotate(-45deg); 
+        border-radius: 0.5rem; 
+        box-shadow: 0 0 0 2px white;
+        flex-shrink: 0;
+        background-color: #dbeafe; /* bg-blue-100 */
+    }
+
+    /* Custom style for the arrow/signboard shape on the list item */
+    .leaderboard-item-pill {
+        /* FIXED RIGHT POINT: Now uses calc(100% - 10px) on the top/bottom for a more pronounced arrow,
+           but keeps the point tight on the right edge. */
+        clip-path: polygon(0% 0%, 0% 100%, calc(100% - 10px) 100%, 100% 50%, calc(100% - 10px) 0%);
+        border-radius: 0.5rem; 
+        margin-right: -5px; 
+    }
+
+    /* Apply rounded corners only to the left side of the pill */
+    .rounded-l-only {
+        border-top-left-radius: 9999px; 
+        border-bottom-left-radius: 9999px; 
+    }
+    
+    body {
+        background-color: white; 
+    }
+
+    /* Style for the icon text/emoji inside the rotated container */
+    .icon-rotate-back {
+        transform: rotate(45deg); /* Counter-rotate the icon */
+        font-size: 18px; /* Icon size */
+        line-height: 1;
+    }
+    
+    /* CSS for collapsing the list */
+    #leaderboardList {
+        /* Set a more precise max-height for 20 items (20 * approx 40px height per item) */
+        max-height: 800px; 
+        overflow: hidden;
+        /* Smoother transition */
+        transition: max-height 0.7s ease-in-out; 
+    }
+    #leaderboardList.expanded {
+        /* Set to a value greater than the max possible height (1000 items) for smooth fold-out */
+        max-height: 50000px; 
+    }
+    
+    /* Hiding members via display:none is essential for the paged viewing logic */
+    .hidden-member {
+        display: none !important; 
+    }
+    .visible-member {
+        /* Note: Keep this as flex to maintain layout when visible */
+        display: flex !important;
+    }
+
+
+    /* Custom styles for SLEEK, MODERN BUTTONS with SMALLER FONTS */
+    .btn-sleek {
+        /* Reduced Padding */
+        padding: 0.4rem 0.65rem; 
+        /* Extra Bold */
+        font-weight: 900; 
+        /* Further Reduced Font Size for single line */
+        font-size: 0.7rem; 
+        /* Slightly deeper shadow for pop */
+        box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.3);
+        /* Ensure it's fully rounded */
+        border-radius: 9999px; 
+        display: flex;
+        align-items: center;
+        transition: all 0.2s ease-in-out;
+        white-space: nowrap; /* Ensure it stays on one line */
+    }
+
+    /* Primary (Blue) Button Style */
+    .btn-primary {
+        color: white;
+        background-color: #2563eb; /* Blue-600 */
+        border: 2px solid #3b82f6; /* Blue-500 */
+    }
+    .btn-primary:hover {
+        background-color: #1d4ed8; /* Blue-700 */
+        border-color: #1e40af; /* Blue-800 */
+    }
+
+    /* Secondary (White/Collapse) Button Style */
+    .btn-secondary {
+        color: #1e40af; /* Blue-800 */
+        background-color: white;
+        border: 2px solid #dbeafe; /* Blue-100 */
+    }
+    .btn-secondary:hover {
+        background-color: #eff6ff; /* Blue-50 */
+        border-color: #93c5fd; /* Blue-300 */
+    }
+
+
+    /* Space reduction for the container when both buttons are visible */
+    .dual-button-container {
+        display: flex;
+        justify-content: space-between;
+        padding-top: 0.5rem; 
+        padding-bottom: 0.75rem; 
+        padding-left: 0.75rem; 
+        padding-right: 0.75rem;
+    }
+    .single-button-container {
+        display: flex;
+        justify-content: center;
+        padding-top: 0.5rem; 
+        padding-bottom: 0.75rem; 
+        padding-left: 0.75rem; 
+        padding-right: 0.75rem;
+    }
+    
+    /* Rank Movement Arrow Styles */
+    .rank-arrow {
+        font-size: 0.6rem; 
+        line-height: 1;
+        margin-right: 4px;
+        align-self: center; 
+        width: 12px; 
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .rank-up {
+        color: #22c55e; 
+    }
+    .rank-down {
+        color: #ef4444; 
+    }
+    .rank-same {
+        color: #9ca3af; 
+        font-size: 0.7rem; 
+    }
+
+    /* NEW: Current User Highlight Style */
+    .current-user-highlight .leaderboard-item-pill {
+        /* Yellow border for visibility */
+        border: 2px solid #fcd34d; /* yellow-300 */
+        /* Slightly different background to stand out */
+        background-color: #fffbeb; /* yellow-50 */
+        /* Darker text/icons for contrast */
+    }
+    .current-user-highlight .leaderboard-item-pill .text-blue-600 {
+        color: #b45309; /* amber-800 for points and rank number */
+    }
+    .current-user-highlight .leaderboard-item-pill .text-gray-800 {
+        font-weight: 800; /* Extra bold name */
+    }
+</style>
+
+<script>
+    // --- Global Configuration ---
+    const MAX_MEMBERS = 1000;
+    const BASE_REWARD = 100;
+    const REFERRAL_REWARD = 20;
+    const INITIAL_VISIBLE_COUNT = 20; // Ranks 4-23
+    const EXPANSION_INCREMENT = 50; // New members to show or hide on each click
+    
+    // NEW: Simulate the current authenticated user ID. 
+    // We will assign this ID to the user who ends up at a specific mock rank (e.g., rank 450)
+    const CURRENT_USER_ID = 'user-450-highlight-me'; 
+
+    // --- State Variables ---
+    let currentVisibleItems = INITIAL_VISIBLE_COUNT;
+    
+    // --- Mock Data ---
+    const maleNames = ["George", "Paul", "Ben", "Charles", "Luis", "David", "Oliver", "Ethan", "Felix", "Liam"];
+    const femaleNames = ["Emma", "Claire", "Sheila", "Sophia", "Grace", "Anya", "Nina", "Ava", "Mia", "Zoe"];
+    const lastNames = ["Smith", "Jones", "Chen", "Gupta", "Garcia", "Kim", "Williams", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris"];
+
+    
+    /**
+     * Generates and sorts 1000 mock members, including a random previous rank simulation.
+     * @returns {Array<Object>} Sorted list of mock members (total MAX_MEMBERS).
+     */
+    function getMockMembers() {
+        const mockMembers = [];
+        
+        for (let i = 1; i <= MAX_MEMBERS; i++) {
+            const gender = Math.random() < 0.5 ? 'male' : 'female';
+            const pool = gender === 'male' ? maleNames : femaleNames;
+            
+            const randomFirstName = pool[Math.floor(Math.random() * pool.length)];
+            const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+            const nickname = `${randomFirstName} ${randomLastName}`; 
+            
+            let referrals;
+            
+            // Generate varied referral numbers, skewed heavily toward the top ranks
+            if (i === 1) referrals = Math.floor(Math.random() * 50) + 150; // Rank 1
+            else if (i === 2) referrals = Math.floor(Math.random() * 30) + 100; // Rank 2
+            else if (i === 3) referrals = Math.floor(Math.random() * 20) + 80; // Rank 3
+            else if (i <= 10) referrals = Math.floor(Math.random() * 20) + 20; // Ranks 4-10
+            else if (i <= 100) referrals = Math.floor(Math.random() * 10) + 5; // Ranks 11-100
+            else referrals = Math.floor(Math.random() * 5) + 0; // Ranks 101+
+
+            const nrt_coins = BASE_REWARD + referrals * REFERRAL_REWARD;
+            
+            let id = `mock${i}`;
+            // If this loop iteration corresponds to the user who will end up at Rank 450 (which is member index 450 in the sorted array), assign the CURRENT_USER_ID
+            if (i === 450) { 
+                id = CURRENT_USER_ID;
+            }
+
+            mockMembers.push({
+                id: id,
+                nickname: nickname,
+                referrals: referrals,
+                nrt_coins: nrt_coins,
+                gender: gender,
+                // Simulate previous rank to calculate movement
+                previous_rank: i <= 10 ? 
+                                i + Math.floor(Math.random() * 5) - 2 : 
+                                i + Math.floor(Math.random() * 50) - 25 
+            });
+        }
+        
+        // Final sort determines the CURRENT rank (based on nrt_coins)
+        return mockMembers.sort((a, b) => b.nrt_coins - a.nrt_coins);
+    }
+    
+    // Static array containing the 1000 mock members
+    const MOCK_MEMBERS = getMockMembers();
+    
+    // NEW: Find the Current User's actual rank after sorting
+    const CURRENT_USER_RANK_INDEX = MOCK_MEMBERS.findIndex(member => member.id === CURRENT_USER_ID);
+    // Rank is 1-based, so index + 1
+    const CURRENT_USER_RANK = CURRENT_USER_RANK_INDEX !== -1 ? CURRENT_USER_RANK_INDEX + 1 : -1;
+
+
+    // --- Core Logic ---
+
+    function updateListVisibility() {
+        const listContainer = document.getElementById('leaderboardList');
+        const listItems = listContainer.querySelectorAll('.list-item-wrapper');
+        const totalListItems = listItems.length; // 997 items after Rank 3
+        
+        let visibleCount = 0;
+
+        listItems.forEach((item, index) => {
+            if (index < currentVisibleItems) {
+                // Ensure visible members are shown
+                item.classList.add('visible-member');
+                item.classList.remove('hidden-member');
+                visibleCount++;
+            } else {
+                // Ensure hidden members are completely removed from rendering for MAX-HEIGHT transition to work smoothly
+                item.classList.add('hidden-member');
+                item.classList.remove('visible-member');
+            }
+        });
+
+        // Update the button state
+        updateToggleButton(totalListItems, visibleCount);
+    }
+    
+    function updateToggleButton(totalListItems, visibleCount) {
+        const buttonContainer = document.getElementById('toggleButtonContainer');
+        const listContainer = document.getElementById('leaderboardList');
+        
+        // --- Manage Collapsing/Expanding Transition Class ---
+        if (visibleCount > INITIAL_VISIBLE_COUNT) {
+            listContainer.classList.add('expanded');
+        } else {
+            listContainer.classList.remove('expanded');
+        }
+        // ---------------------------------------------------
+
+        let userIsVisible = false;
+        // Check if the current user is visible in the list section (Ranks 4+)
+        if (CURRENT_USER_RANK > 3 && (CURRENT_USER_RANK - 4) < visibleCount) {
+            userIsVisible = true;
+        }
+
+
+        if (visibleCount >= totalListItems) {
+            // Case 1: Fully Expanded (Action: Reset to Top 23)
+            buttonContainer.innerHTML = `
+                <div class="single-button-container">
+                    <button id="toggleButton" onclick="resetLeaderboardView()" class="btn-sleek bg-red-600 hover:bg-red-700 text-white">
+                        Reset to Top 23 <span class="ml-2">▲</span>
+                    </button>
+                </div>
+            `;
+        } else if (visibleCount > INITIAL_VISIBLE_COUNT) {
+            // Case 2: Partially Expanded (Action: Show More or Show Less)
+            
+            const currentStepValue = currentVisibleItems - INITIAL_VISIBLE_COUNT;
+
+            // --- Collapse logic: Calculate the exact number of items to hide (decrement) ---
+            const collapseTargetVisibleItems = Math.max(INITIAL_VISIBLE_COUNT, currentVisibleItems - EXPANSION_INCREMENT);
+            const collapseIncrement = currentVisibleItems - collapseTargetVisibleItems; 
+            
+            const nextCollapseStepValue = currentStepValue - collapseIncrement; 
+            
+            // --- Expansion logic: Calculate the exact number of items to show (nextExpansion) ---
+            const remainingToExpand = totalListItems - visibleCount;
+            const nextExpansion = Math.min(remainingToExpand, EXPANSION_INCREMENT); 
+            
+            const nextExpansionStepValue = currentStepValue + nextExpansion; 
+            
+            
+            buttonContainer.innerHTML = `
+                <div class="relative">
+                    <div class="dual-button-container">
+                        <button onclick="collapseLeaderboardView(${collapseIncrement})" class="btn-sleek btn-secondary">
+                            <span class="mr-1">▲</span> Show Less to ${nextCollapseStepValue + 23}
+                        </button>
+                        
+                        <button onclick="expandLeaderboardView(${nextExpansion})" class="btn-sleek btn-primary">
+                            Show up to ${nextExpansionStepValue + 23} <span class="ml-2">▼</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+        } else {
+            // Case 3: Initial View (Action: Show More + optional Go To My Rank button)
+            const nextExpansion = EXPANSION_INCREMENT;
+            const nextTotalRank = visibleCount + nextExpansion + 3; 
+            
+            if (CURRENT_USER_RANK > 23) {
+                 // Current user is outside the initial view: offer Show More and Go To My Rank buttons
+                 buttonContainer.innerHTML = `
+                    <div class="relative">
+                        <div class="dual-button-container">
+                            <button onclick="goToMyRank()" class="btn-sleek btn-secondary">
+                                <span class="mr-1">🏠</span> Go To My Rank (${CURRENT_USER_RANK})
+                            </button>
+                            
+                            <button id="toggleButton" onclick="expandLeaderboardView(${nextExpansion})" class="btn-sleek btn-primary">
+                                Show up to ${nextTotalRank} <span class="ml-2">▼</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Current user is already visible (or in top 3)
+                buttonContainer.innerHTML = `
+                    <div class="relative">
+                        <div class="single-button-container">
+                            <button id="toggleButton" onclick="expandLeaderboardView(${nextExpansion})" class="btn-sleek btn-primary">
+                                Show up to ${nextTotalRank} <span class="ml-2">▼</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }
+    
+    function expandLeaderboardView(increment) {
+        currentVisibleItems += increment;
+        updateListVisibility();
+    }
+    
+    function collapseLeaderboardView(decrement) {
+        currentVisibleItems = Math.max(INITIAL_VISIBLE_COUNT, currentVisibleItems - decrement);
+        updateListVisibility();
+        
+        if (currentVisibleItems === INITIAL_VISIBLE_COUNT) {
+             const listContainer = document.getElementById('leaderboardList');
+             listContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+    
+    function resetLeaderboardView() {
+        currentVisibleItems = INITIAL_VISIBLE_COUNT;
+        updateListVisibility(); 
+        
+        const listContainer = document.getElementById('leaderboardList');
+        listContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    /**
+     * Finds the current user's rank (if > 3) and expands/scrolls to them.
+     */
+    function goToMyRank() {
+        if (CURRENT_USER_RANK === -1 || CURRENT_USER_RANK <= 3) return;
+
+        // The current user is at Rank N. The list items start at Rank 4.
+        // List item index (0-based) = Rank - 4
+        const targetIndex = CURRENT_USER_RANK - 4; 
+        
+        // 1. Set visibility to ensure the user's rank is shown
+        // currentVisibleItems (the count of items in the list, starting at index 0)
+        // must be greater than or equal to the target index + 1.
+        currentVisibleItems = targetIndex + 1; 
+
+        // 2. Update visibility and buttons
+        updateListVisibility();
+        
+        // 3. Scroll to the element
+        const listContainer = document.getElementById('leaderboardList');
+        // The list item elements are siblings directly under the list container.
+        const targetElement = listContainer.children[targetIndex]; 
+
+        if (targetElement) {
+            // Wait slightly for the max-height transition to start before scrolling
+            setTimeout(() => {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }
+
+
+    // --- Rendering (Modified to include movement arrow and user highlight) ---
+    function getRankMovementArrow(currentRank, previousRank) {
+        previousRank = Math.max(1, previousRank);
+        const movement = previousRank - currentRank; 
+
+        if (movement > 0) {
+            return `<span class="rank-arrow rank-up">▲</span>`;
+        } else if (movement < 0) {
+            return `<span class="rank-arrow rank-down">▼</span>`;
+        } else {
+            return `<span class="rank-arrow rank-same">-</span>`;
+        }
+    }
+    
+    function renderLeaderboard(members) {
+        const top3Container = document.getElementById('top3Podium');
+        const listContainer = document.getElementById('leaderboardList');
+        
+        top3Container.innerHTML = '';
+        listContainer.innerHTML = '';
+
+        if (members.length < 3) {
+            listContainer.innerHTML = '<p class="text-center text-white p-8">Not enough members to display the full leaderboard.</p>';
+            return;
+        }
+
+        // --- Render Top 3 Podium (Ranks 1, 2, 3) ---
+        const top3 = [members[1], members[0], members[2]]; 
+
+        const TrophyIcon = (size) => `<span class="${size} block">🏆</span>`;
+        
+        const getRankColorClasses = (rank) => {
+             if (rank === 1) return 'text-yellow-300';
+             if (rank === 2) return 'text-gray-300';
+             if (rank === 3) return 'text-amber-500';
+             return 'text-white/90';
+        };
+
+        top3.forEach((member, index) => {
+            const rank = [2, 1, 3][index]; 
+            const item = document.createElement('div');
+            
+            let orderClass, trophySize, heightClass; 
+
+            if (rank === 1) {
+                orderClass = 'order-2'; 
+                trophySize = 'text-5xl';
+                heightClass = 'pb-4 pt-1'; 
+            } else if (rank === 2) {
+                orderClass = 'order-1'; 
+                trophySize = 'text-3xl';
+                heightClass = 'pb-2';
+            } else { 
+                orderClass = 'order-3'; 
+                trophySize = 'text-3xl';
+                heightClass = 'pb-2';
+            }
+            
+            const rankStyles = rank === 1 
+                ? 'w-1/3 text-3xl font-extrabold' 
+                : 'w-1/3 text-xl font-bold opacity-90'; 
+            
+            const colorClasses = getRankColorClasses(rank);
+            
+            // Highlight top 3 if current user is one of them
+            const userHighlightClass = member.id === CURRENT_USER_ID ? 'ring-2 ring-yellow-300 rounded-lg' : '';
+
+            item.className = `flex flex-col items-center justify-end text-white/90 ${rankStyles} ${orderClass} ${heightClass} ${userHighlightClass}`;
+            
+            item.innerHTML = `
+                <div class="text-lg font-black mb-1 opacity-70">${rank < 10 ? '0' : ''}${rank}</div>
+                ${TrophyIcon(trophySize)}
+                <div class="font-extrabold text-sm mt-1 text-center truncate w-full ${colorClasses}">${member.nickname.split(' ')[0]}</div>
+                <div class="text-xs font-medium text-center opacity-70">${member.nrt_coins.toLocaleString()}</div>
+            `;
+            top3Container.appendChild(item);
+        });
+        
+
+        // --- Render Leaderboard List (Ranks 4+ / All 997 members) ---
+        members.slice(3).forEach((member, index) => {
+            const rank = index + 4; 
+            
+            const movementArrow = getRankMovementArrow(rank, member.previous_rank);
+
+            // Conditional Highlight Class
+            const userHighlightClass = member.id === CURRENT_USER_ID ? 'current-user-highlight' : '';
+
+            // Initial class setup: all members after the initial view count are hidden
+            const visibilityClass = index < INITIAL_VISIBLE_COUNT ? 'visible-member' : 'hidden-member';
+            
+            const iconContent = member.gender === 'female' 
+                ? '<span class="icon-rotate-back">👩</span>' 
+                : '<span class="icon-rotate-back">👨</span>'; 
+            
+            const listItem = document.createElement('div');
+            // Added both list-item-wrapper and the highlight class here
+            listItem.className = `flex items-center list-item-wrapper ${visibilityClass} ${userHighlightClass}`; 
+            
+            listItem.innerHTML = `
+                <div class="leaderboard-item-pill flex items-center justify-between bg-white shadow-md flex-grow min-w-0 transition duration-200 cursor-pointer overflow-hidden py-0.5 pl-4 pr-3 rounded-l-only">
+                    
+                    <div class="flex items-center space-x-3 flex-shrink-0"> 
+                        <span class="text-sm font-semibold text-blue-600 w-6 text-center flex-shrink-0">${rank < 10 ? '0' : ''}${rank}</span>
+
+                        <div class="img-container">
+                            ${iconContent}
+                        </div>
+                        
+                        ${movementArrow}
+
+                        <span class="font-semibold text-gray-800 truncate text-sm">${member.nickname.split(' ')[0]}</span>
+                    </div>
+
+                    <div class="flex-grow text-center min-w-0 w-16 text-right">
+                        <span class="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                            ${member.referrals}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+                        <span class="text-sm font-semibold text-blue-600 whitespace-nowrap">
+                            ${member.nrt_coins.toLocaleString()} NRT
+                        </span>
+                    </div>
+                </div>
+            `;
+            listContainer.appendChild(listItem);
+        });
+
+        // Initial setup of the button
+        updateListVisibility();
+    }
+
+    // --- Entry Point: Load data and render immediately ---
+    window.onload = function() {
+        // Reset state on load
+        currentVisibleItems = INITIAL_VISIBLE_COUNT;
+        renderLeaderboard(MOCK_MEMBERS);
+    };
+
+</script>
+
+</head>
+<body class="bg-white min-h-screen">
+    
+    <div id="dashboardArea" class="bg-gray-800 text-white p-6 shadow-2xl">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-2xl font-bold mb-4">📈 Wait-list Dashboard Overview</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-gray-700 p-3 rounded-lg text-center">
+                    <p class="text-sm opacity-75">Total Users</p>
+                    <p class="text-2xl font-extrabold">${MAX_MEMBERS.toLocaleString()}</p>
+                </div>
+                <div class="bg-gray-700 p-3 rounded-lg text-center">
+                    <p class="text-sm opacity-75">New Today</p>
+                    <p class="text-2xl font-extrabold text-green-400">128</p>
+                </div>
+                <div class="bg-gray-700 p-3 rounded-lg text-center">
+                    <p class="text-sm opacity-75">NRT Minted</p>
+                    <p class="text-2xl font-extrabold">400K</p>
+                </div>
+                <div class="bg-gray-700 p-3 rounded-lg text-center">
+                    <p class="text-sm opacity-75">Avg. Referrals</p>
+                    <p class="text-2xl font-extrabold">2.4</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-center p-4 sm:p-8">
+        <div id="appContainer" class="leaderboard-container w-full max-w-xs sm:max-w-sm space-y-4 bg-leaderboard-gradient rounded-xl shadow-xl relative">
+            <header class="text-center pt-6 pb-2 px-4 bg-white rounded-t-xl text-gray-900">
+                <h1 class="text-3xl font-extrabold">
+                    NEARR Leaderboard
+                </h1>
+                </header>
+
+            <div id="top3Podium" class="flex justify-between items-end mb-4 py-4 px-2">
+                </div>
+
+            <div id="leaderboardList" class="space-y-2 px-6">
+                <p class="text-center text-white/70">Loading Mock Data...</p>
+            </div>
+            
+            <div id="toggleButtonContainer" class="relative">
+                </div>
+            
+        </div>
+    </div>
+</body>
+</html>
