@@ -7,6 +7,12 @@ const { createClient } = require('@supabase/supabase-js');
 const cors = require('cors'); 
 
 const app = express();
+// Add a simple GET route for the root path (/)
+app.get('/', (req, res) => {
+  res.send('Server is live and running!');
+});
+
+
 const port = process.env.PORT || 3000;
 
 const supabaseUrl = process.env.SUPABASE_URL;
