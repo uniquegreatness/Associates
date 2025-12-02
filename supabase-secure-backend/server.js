@@ -52,7 +52,7 @@ app.get('/api/secure-data', async (req, res) => {
 
     // This query runs securely using the SERVICE_ROLE_KEY
     const { data, error } = await supabase
-        .from('items') // <--- *** CHANGE THIS TO YOUR TABLE NAME ***
+        .from('items') // <--- This is your existing table query
         .select('*');
 
     if (error) {
@@ -64,6 +64,51 @@ app.get('/api/secure-data', async (req, res) => {
 
     res.status(200).json(data);
 });
+
+
+// ----------------------------------------------------
+// NEW WAITLIST SUBMISSION ROUTE
+// ----------------------------------------------------
+
+// New endpoint to handle waitlist form submissions (e.g., from 'join wait-list' button)
+app.post('/api/waitlist', async (req, res) => {
+    
+    // Get data from the request body (e.g., { email: "user@example.com" })
+    const submissionData = req.body;
+    
+    if (!submissionData || Object.keys(submissionData).length === 0) {
+        return res.status(400).json({ error: 'No data provided in the request body.' });
+    }
+
+    // Insert data into the 'user_profiles' Supabase table
+    const { data, error } = await supabase
+        .from('user_profiles') // *** USING YOUR SPECIFIED TABLE NAME ***
+        .insert([submissionData])
+        .select();
+
+    if (error) {
+        console.error('Supabase insertion error:', error.message);
+        
+        // Handle common errors like duplicate keys (e.g., if 'email' is unique)
+        if (error.code === '23505') { 
+             return res.status(409).json({ error: 'This entry is already in the database (e.g., email already exists).' });
+        }
+        return res.status(500).json({ 
+            error: 'Failed to save submission. Please check server logs for details.' 
+        });
+    }
+
+    // Respond with success
+    res.status(201).json({ 
+        message: 'Successfully joined the waitlist!', 
+        record: data[0] 
+    });
+});
+
+// ----------------------------------------------------
+// END NEW WAITLIST SUBMISSION ROUTE
+// ----------------------------------------------------
+
 
 app.listen(port, () => {
     console.log(`Backend server running on port ${port}`);
