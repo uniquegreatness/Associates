@@ -62,8 +62,6 @@ app.get('/update-password.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'update-password.html'));
 });
 
----
-
 // ----------------------------------------------------
 // SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - FINAL FIX IMPLEMENTED
 // Ensures session cookies are set reliably for instant access.
