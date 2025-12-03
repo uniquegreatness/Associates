@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
     res.redirect('/leaderboard.html');
 });
 
-// NEW: Route for the login page
+// Route for the login page
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'login.html'));
 });
@@ -55,6 +55,10 @@ app.get('/leaderboard.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'leaderboard.html'));
 });
 
+// NEW ROUTE: Dedicated page for password reset/update
+app.get('/update-password.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'update-password.html'));
+});
 
 // ----------------------------------------------------
 // SINGLE-STEP REGISTRATION ROUTE (/api/waitlist)
