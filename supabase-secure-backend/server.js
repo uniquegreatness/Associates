@@ -6,7 +6,7 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js'); 
 const cors = require('cors'); 
 const path = require('path'); 
-const cookieParser = require('cookie-parser'); // <-- NEW: Import cookie-parser
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -27,18 +27,16 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 app.use(express.json()); // Essential for parsing the request body (req.body)
 app.use(cors()); 
-app.use(cookieParser()); // <-- NEW: Use cookie-parser middleware
+app.use(cookieParser()); // Use cookie-parser middleware
 
 // ------------------------------------------------------------------
-// FRONTEND SERVING CONFIGURATION (UPDATED for authentication flow)
+// FRONTEND SERVING CONFIGURATION
 // ------------------------------------------------------------------
 
 app.use(express.static(path.join(__dirname, '..')));
 
-// NEW: Root path redirects to the secure leaderboard
+// Root path redirects to the secure leaderboard
 app.get('/', (req, res) => {
-    // This redirect will send the user to the leaderboard, 
-    // which in turn will redirect unauthenticated users to /login.html
     res.redirect('/leaderboard.html');
 });
 
@@ -57,26 +55,25 @@ app.get('/leaderboard.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'leaderboard.html'));
 });
 
-// NEW ROUTE: Dedicated page for password reset/update
+// Dedicated page for password reset/update
 app.get('/update-password.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'update-password.html'));
 });
 
 // ----------------------------------------------------
-// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - FINAL FIX IMPLEMENTED
-// Ensures session cookies are set reliably for instant access.
+// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - FINAL FIX
 // ----------------------------------------------------
 app.post('/api/waitlist', async (req, res) => {
     
     const submissionData = req.body;
     
-    // 1. Input Validation: Check for required credentials
-    if (!submissionData.email || !submissionData.password || !submissionData.whatsapp_number) {
-        return res.status(400).json({ error: 'Missing required fields: email, password, or whatsapp_number.' });
+    // 1. Input Validation: CHECK FOR ALL REQUIRED FIELDS, INCLUDING NICKNAME
+    if (!submissionData.email || !submissionData.password || !submissionData.whatsapp_number || !submissionData.nickname) {
+        return res.status(400).json({ error: 'Missing required fields: email, password, nickname, or whatsapp_number.' });
     }
     
-    // Separate fields needed for auth from fields needed for profile
-    const { email, password, ...profileFields } = submissionData;
+    // Destructure specifically to ensure the nickname is ready for the profile
+    const { email, password, nickname, ...otherProfileFields } = submissionData;
 
     let newUser;
     
@@ -107,8 +104,9 @@ app.post('/api/waitlist', async (req, res) => {
     const profileToInsert = {
         user_id: newUser.id,
         email: email, 
+        nickname: nickname, // Explicitly include the nickname here
         referrals: 0, 
-        ...profileFields
+        ...otherProfileFields // Spread remaining fields (like whatsapp_number)
     };
     
     try {
@@ -129,18 +127,17 @@ app.post('/api/waitlist', async (req, res) => {
         }
         
         // ----------------------------------------------------------------------
-        // --- STEP 3: ESTABLISH ACTIVE SESSION VIA ADMIN LOGIN (THE FINAL FIX) ---
+        // --- STEP 3: ESTABLISH ACTIVE SESSION VIA ADMIN LOGIN (THE SESSION FIX) ---
         // ----------------------------------------------------------------------
         
         // 1. Simulate sign-in using the newly created credentials
-        // This reliably generates a session object using the user's password.
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
             email: email,
             password: password,
         });
 
         if (signInError || !signInData.session) {
-             console.error('CRITICAL ERROR: Failed to reliably sign in newly created user.', signInError?.message);
+             console.error('CRITICAL ERROR: Failed to reliably sign in newly created user. Forcing manual login.', signInError?.message);
              // We still confirm success but fall back to manual login
              return res.status(201).json({ 
                 message: 'Successfully joined the waitlist, but please log in manually due to session error.', 
@@ -180,17 +177,15 @@ app.post('/api/waitlist', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// LEADERBOARD DATA ROUTE (/api/secure-data) - FINALIZED
-// Fetches data from user_profiles, sorted by 'referrals'
+// LEADERBOARD DATA ROUTE (/api/secure-data)
 // ----------------------------------------------------
 app.get('/api/secure-data', async (req, res) => {
     
     // Fetch data from the public.user_profiles table
     const { data, error } = await supabase
         .from('user_profiles') 
-        // We only fetch fields the frontend needs for display and ranking
         .select('user_id, nickname, gender, referrals') 
-        .order('referrals', { ascending: false }); // CRITICAL: Order by referrals DESC for ranking
+        .order('referrals', { ascending: false }); // Order by referrals DESC for ranking
 
     if (error) {
         console.error('Supabase query error for leaderboard:', error.message);
