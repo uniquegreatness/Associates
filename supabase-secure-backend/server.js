@@ -28,20 +28,29 @@ app.use(express.json()); // Essential for parsing the request body (req.body)
 app.use(cors()); 
 
 // ------------------------------------------------------------------
-// FRONTEND SERVING CONFIGURATION (UPDATED for 'newwaitlist.html')
+// FRONTEND SERVING CONFIGURATION (UPDATED for authentication flow)
 // ------------------------------------------------------------------
 
 app.use(express.static(path.join(__dirname, '..')));
 
-// Route for root path (/) now points to the new file
+// NEW: Root path redirects to the secure leaderboard
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'newwaitlist.html'));
+    // This redirect will send the user to the leaderboard, 
+    // which in turn will redirect unauthenticated users to /login.html
+    res.redirect('/leaderboard.html');
 });
-// Explicit route for the new file name
+
+// NEW: Route for the login page
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'login.html'));
+});
+
+// Route for the waitlist page
 app.get('/newwaitlist.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'newwaitlist.html'));
 });
-// Existing leaderboard route
+
+// Route for the leaderboard (secure dashboard)
 app.get('/leaderboard.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'leaderboard.html'));
 });
