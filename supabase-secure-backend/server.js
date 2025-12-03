@@ -28,7 +28,7 @@ app.use(express.json()); // Essential for parsing the request body (req.body)
 app.use(cors()); 
 
 // ------------------------------------------------------------------
-// FRONTEND SERVING CONFIGURATION (UPDATED)
+// FRONTEND SERVING CONFIGURATION (UPDATED for 'newwaitlist.html')
 // ------------------------------------------------------------------
 
 app.use(express.static(path.join(__dirname, '..')));
@@ -48,8 +48,8 @@ app.get('/leaderboard.html', (req, res) => {
 
 
 // ----------------------------------------------------
-// RESTORED SINGLE-STEP REGISTRATION ROUTE (/api/waitlist)
-// This is the recommended version with cleanup logic.
+// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist)
+// Includes user creation and profile insertion with cleanup logic.
 // ----------------------------------------------------
 app.post('/api/waitlist', async (req, res) => {
     
@@ -67,7 +67,6 @@ app.post('/api/waitlist', async (req, res) => {
     
     try {
         // --- STEP 1: CREATE USER IN AUTH.USERS ---
-        // Sets user as verified immediately (email_confirm: true)
         const { data: userData, error: authError } = await supabase.auth.admin.createUser({
             email: email,
             password: password,
@@ -94,6 +93,8 @@ app.post('/api/waitlist', async (req, res) => {
     const profileToInsert = {
         user_id: newUser.id,
         email: email, 
+        // Ensure 'referrals' starts at 0, even if not explicitly passed by the client
+        referrals: 0, 
         ...profileFields // Includes all remaining profile data
     };
     
@@ -101,12 +102,11 @@ app.post('/api/waitlist', async (req, res) => {
         const { error: profileError } = await supabase
             .from('user_profiles') 
             .insert([profileToInsert]);
-            // Removed .select() as it's not strictly necessary for an insert
 
         if (profileError) {
             console.error('Supabase PROFILE INSERTION Error:', profileError.code, profileError.message);
             
-            // 🛑 CLEANUP: Delete the user account if profile insertion fails (to prevent orphaned data)
+            // 🛑 CRITICAL CLEANUP: Delete the user account if profile insertion fails
             await supabase.auth.admin.deleteUser(newUser.id); 
             
             return res.status(500).json({ 
@@ -129,22 +129,26 @@ app.post('/api/waitlist', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// LEADERBOARD DATA ROUTE (/api/secure-data)
-// Uses a placeholder table for now (needs to be adjusted once you provide leaderboard code)
+// LEADERBOARD DATA ROUTE (/api/secure-data) - FINALIZED
+// Fetches data from user_profiles, sorted by 'referrals'
 // ----------------------------------------------------
 app.get('/api/secure-data', async (req, res) => {
-    // This is the existing route for fetching secure data
+    
+    // Fetch data from the public.user_profiles table
     const { data, error } = await supabase
-        .from('items') // Assuming your table is named 'items'
-        .select('*');
+        .from('user_profiles') 
+        // We only fetch fields the frontend needs for display and ranking
+        .select('user_id, nickname, gender, referrals') 
+        .order('referrals', { ascending: false }); // CRITICAL: Order by referrals DESC for ranking
 
     if (error) {
-        console.error('Supabase query error:', error.message);
+        console.error('Supabase query error for leaderboard:', error.message);
         return res.status(500).json({ 
-            error: 'Failed to fetch data securely from the database.'
+            error: 'Failed to fetch leaderboard data from the database.'
         });
     }
 
+    // Send the fetched data back to the frontend
     res.status(200).json(data);
 });
 
