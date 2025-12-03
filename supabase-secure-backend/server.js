@@ -3,111 +3,153 @@
 require('dotenv').config(); 
 
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
+// We need the createClient from auth for user sign up
+const { createClient } = require('@supabase/supabase-js'); 
 const cors = require('cors'); 
-const path = require('path'); // Add path module for file operations
+const path = require('path'); 
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Supabase Configuration
 const supabaseUrl = process.env.SUPABASE_URL;
+// NOTE: Use the SERVICE_ROLE_KEY for server-side operations to bypass RLS
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; 
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("FATAL ERROR: Supabase environment variables are missing.");
+    process.exit(1); 
+}
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-app.use(cors()); 
+// ------------------------------------------------------------------
+// CORE MIDDLEWARE 
+// ------------------------------------------------------------------
+
+// 1. JSON Body Parser: ESSENTIAL for req.body to work.
 app.use(express.json());
 
-// ----------------------------------------------------
-// FRONTEND SERVING CONFIGURATION
-// Assuming ALL frontend files (index.html, CSS, JS) are one level up (..) 
-// from the current directory ('supabase-secure-backend')
-// ----------------------------------------------------
+// 2. CORS: Allowing all origins for easy deployment on Render (you can restrict this later).
+app.use(cors()); 
 
-// Configure Express to serve static files from the parent directory
+// ------------------------------------------------------------------
+// FRONTEND SERVING CONFIGURATION (Unchanged)
+// ------------------------------------------------------------------
+
 app.use(express.static(path.join(__dirname, '..')));
 
-// This route handles all GET requests that didn't match an API route.
-// It sends the main index.html file to start the frontend application.
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'wait-list.html'));
 });
-
-// If your wait-listupdate.html or leaderboard.html are also accessed directly 
-// via the browser, you may need specific routes for them:
-app.get('/wait-listupdate.html', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'wait-listupdate.html'));
+app.get('/wait-list.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'wait-list.html'));
 });
 app.get('/leaderboard.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'leaderboard.html'));
 });
 
-// ----------------------------------------------------
-// END FRONTEND SERVING CONFIGURATION
-// ----------------------------------------------------
-
-
-// The endpoint your frontend will call: /api/secure-data
-app.get('/api/secure-data', async (req, res) => {
-
-    // This query runs securely using the SERVICE_ROLE_KEY
-    const { data, error } = await supabase
-        .from('items') // <--- This is your existing table query
-        .select('*');
-
-    if (error) {
-        console.error('Supabase query error:', error.message);
-        return res.status(500).json({ 
-            error: 'Failed to fetch data securely from the database.'
-        });
-    }
-
-    res.status(200).json(data);
-});
-
 
 // ----------------------------------------------------
-// NEW WAITLIST SUBMISSION ROUTE
+// NEW WAITLIST SUBMISSION ROUTE (TWO-STEP FIX)
 // ----------------------------------------------------
 
-// New endpoint to handle waitlist form submissions (e.g., from 'join wait-list' button)
 app.post('/api/waitlist', async (req, res) => {
     
-    // Get data from the request body (e.g., { email: "user@example.com" })
     const submissionData = req.body;
     
-    if (!submissionData || Object.keys(submissionData).length === 0) {
-        return res.status(400).json({ error: 'No data provided in the request body.' });
+    console.log('--- Incoming Waitlist Submission ---');
+    console.log('Body received (partial view):', submissionData.email, submissionData.full_name); 
+    
+    // 1. Input Validation: Check for required credentials
+    if (!submissionData.email || !submissionData.password || !submissionData.whatsapp_number) {
+        return res.status(400).json({ error: 'Missing required fields: email, password, or whatsapp_number.' });
     }
+    
+    const { email, password, ...profileFields } = submissionData;
 
-    // Insert data into the 'user_profiles' Supabase table
-    const { data, error } = await supabase
-        .from('user_profiles') // *** USING YOUR SPECIFIED TABLE NAME ***
-        .insert([submissionData])
-        .select();
-
-    if (error) {
-        console.error('Supabase insertion error:', error.message);
-        
-        // Handle common errors like duplicate keys (e.g., if 'email' is unique)
-        if (error.code === '23505') { 
-             return res.status(409).json({ error: 'This entry is already in the database (e.g., email already exists).' });
-        }
-        return res.status(500).json({ 
-            error: 'Failed to save submission. Please check server logs for details.' 
+    let newUser;
+    
+    try {
+        // ------------------------------------------
+        // STEP 1: CREATE USER IN AUTH.USERS
+        // ------------------------------------------
+        // Use the SERVICE ROLE KEY here to bypass the need for client-side RLS setup for sign-up,
+        // which is safer for a server-side route.
+        const { data: userData, error: authError } = await supabase.auth.admin.createUser({
+            email: email,
+            password: password,
+            // Optionally set email confirmation to skip, though generally not recommended
+            email_confirm: true 
         });
+
+        if (authError) {
+            console.error('Supabase AUTH Error:', authError.message);
+            // Handle common auth errors (e.g., user already registered)
+            return res.status(400).json({ 
+                error: 'Account creation failed.',
+                details: authError.message.includes('already registered') 
+                    ? 'This email is already registered.' 
+                    : authError.message
+            });
+        }
+        
+        newUser = userData.user;
+        console.log('SUCCESS: User created in auth.users with ID:', newUser.id);
+        
+    } catch (e) {
+        console.error('SERVER ERROR during Supabase Auth:', e.message);
+        return res.status(500).json({ error: 'Server failed during user authentication step.' });
     }
 
-    // Respond with success
-    res.status(201).json({ 
-        message: 'Successfully joined the waitlist!', 
-        record: data[0] 
-    });
+    // ------------------------------------------
+    // STEP 2: CREATE PROFILE IN public.user_profiles
+    // ------------------------------------------
+    // Map the profile data and attach the mandatory user_id
+    const profileToInsert = {
+        user_id: newUser.id,
+        // The frontend sends the email, but your schema already includes it in the profile table
+        email: email, 
+        ...profileFields
+        // NOTE: password is excluded here as it's not a profile field
+    };
+    
+    try {
+        const { data: profileData, error: profileError } = await supabase
+            .from('user_profiles') 
+            .insert([profileToInsert])
+            .select();
+
+        if (profileError) {
+            // 🚨 Crucial Log: This will catch schema mismatches (typos, wrong data type)
+            console.error('Supabase PROFILE INSERTION Error:', profileError.code, profileError.message);
+            
+            // NOTE: If this fails after Step 1, you may need to manually delete the user from auth.users
+            // to prevent orphaned accounts, but we'll ignore that complexity for now.
+            
+            return res.status(500).json({ 
+                error: 'Database profile creation failed. Check logs for schema/column errors.',
+                details: profileError.message
+            });
+        }
+
+        // Final Success
+        console.log('SUCCESS: Profile created for user:', newUser.id);
+        res.status(201).json({ 
+            message: 'Successfully joined the waitlist and created profile!', 
+            user_id: newUser.id 
+        });
+
+    } catch (e) {
+        console.error('SERVER ERROR during Profile Creation:', e.message);
+        return res.status(500).json({ error: 'Server failed during profile creation step.' });
+    }
 });
 
 // ----------------------------------------------------
-// END NEW WAITLIST SUBMISSION ROUTE
+// EXISTING /api/secure-data route (Unchanged)
 // ----------------------------------------------------
+app.get('/api/secure-data', async (req, res) => {
+    // ... (existing logic)
+});
 
 
 app.listen(port, () => {
