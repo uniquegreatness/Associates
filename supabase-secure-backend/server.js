@@ -179,8 +179,6 @@ app.post('/api/waitlist', async (req, res) => {
     }
 });
 
----
-
 // ----------------------------------------------------
 // LEADERBOARD DATA ROUTE (/api/secure-data) - FINALIZED
 // Fetches data from user_profiles, sorted by 'referrals'
