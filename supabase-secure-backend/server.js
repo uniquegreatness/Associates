@@ -6,6 +6,7 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js'); 
 const cors = require('cors'); 
 const path = require('path'); 
+const cookieParser = require('cookie-parser'); // <-- NEW: Import cookie-parser
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -26,6 +27,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 app.use(express.json()); // Essential for parsing the request body (req.body)
 app.use(cors()); 
+app.use(cookieParser()); // <-- NEW: Use cookie-parser middleware
 
 // ------------------------------------------------------------------
 // FRONTEND SERVING CONFIGURATION (UPDATED for authentication flow)
@@ -61,8 +63,7 @@ app.get('/update-password.html', (req, res) => {
 });
 
 // ----------------------------------------------------
-// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist)
-// Includes user creation and profile insertion with cleanup logic.
+// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - UPDATED FOR INSTANT SESSION
 // ----------------------------------------------------
 app.post('/api/waitlist', async (req, res) => {
     
@@ -95,7 +96,6 @@ app.post('/api/waitlist', async (req, res) => {
         }
         
         newUser = userData.user;
-        console.log('SUCCESS: User created in auth.users with ID:', newUser.id);
         
     } catch (e) {
         console.error('SERVER ERROR during Supabase Auth:', e.message);
@@ -106,9 +106,8 @@ app.post('/api/waitlist', async (req, res) => {
     const profileToInsert = {
         user_id: newUser.id,
         email: email, 
-        // Ensure 'referrals' starts at 0, even if not explicitly passed by the client
         referrals: 0, 
-        ...profileFields // Includes all remaining profile data
+        ...profileFields
     };
     
     try {
@@ -127,17 +126,52 @@ app.post('/api/waitlist', async (req, res) => {
                 details: profileError.message
             });
         }
+        
+        // --- STEP 3: ESTABLISH ACTIVE SESSION AND SET COOKIES (NEW FIX) ---
+        
+        // 1. Get the session object for the newly created user
+        // We use generateLink with type 'magiclink' to get a usable session object
+        const { data: { session }, error: sessionError } = await supabase.auth.admin.generateLink({
+            type: 'magiclink',
+            email: email,
+        });
+
+        if (sessionError || !session) {
+             console.warn('WARNING: Failed to generate session token after signup. User will log in manually.', sessionError);
+             // Proceed without session, user will have to log in manually
+             return res.status(201).json({ 
+                message: 'Successfully joined the waitlist, but please log in manually.', 
+                user_id: newUser.id 
+             });
+        }
+
+        // 2. The critical step: Set the Supabase authentication cookies
+        // These cookies establish the active session in the client's browser.
+        const cookieOptions = { 
+            maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+            httpOnly: false, // Must be false for Supabase JS client to read
+            secure: true,    // Recommended for Render/production environment
+            sameSite: 'Lax'  // Recommended for modern browsers
+        };
+        
+        // Set the access token and refresh token cookies
+        res.cookie('sb-access-token', session.access_token, cookieOptions); 
+        res.cookie('sb-refresh-token', session.refresh_token, cookieOptions);
 
         // Final Success
-        console.log('SUCCESS: Profile created for user:', newUser.id);
+        console.log('SUCCESS: Profile created and session established for user:', newUser.id);
         res.status(201).json({ 
-            message: 'Successfully joined the waitlist and created profile!', 
+            message: 'Successfully joined the waitlist and session established!', 
             user_id: newUser.id 
         });
 
     } catch (e) {
-        console.error('SERVER ERROR during Profile Creation:', e.message);
-        return res.status(500).json({ error: 'Server failed during profile creation step.' });
+        console.error('SERVER ERROR during Profile Creation/Session Setup:', e.message);
+        // Ensure cleanup is attempted if the error occurred after user creation
+        if (newUser && newUser.id) {
+             await supabase.auth.admin.deleteUser(newUser.id);
+        }
+        return res.status(500).json({ error: 'Server failed during finalization steps.' });
     }
 });
 
