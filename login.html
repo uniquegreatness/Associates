@@ -37,7 +37,12 @@
                 </div>
 
                 <div>
-                    <label for="password" class="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
+                        <a href="#" onclick="handleForgotPassword(event)" class="text-xs font-medium text-blue-600 hover:text-blue-800 transition duration-150">
+                            Forgot Password?
+                        </a>
+                    </div>
                     <input type="password" id="password" required 
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
                            placeholder="********">
@@ -52,7 +57,7 @@
 
         <p class="text-center text-sm text-gray-500 mt-6">
             Not registered? You can only join through the waitlist.
-            <a href="/waitlist.html" class="text-blue-600 hover:text-blue-800 font-semibold underline">
+            <a href="/newwaitlist.html" class="text-blue-600 hover:text-blue-800 font-semibold underline">
                 Go to Waitlist
             </a>
         </p>
@@ -120,6 +125,39 @@
             loginButton.disabled = false;
             loginButton.textContent = 'Sign In';
         }
+
+        // --- NEW: Forgot Password Handler ---
+        async function handleForgotPassword(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value;
+
+            if (!email) {
+                displayMessage('Please enter your email address above to receive a password reset link.', true);
+                return;
+            }
+
+            loginButton.disabled = true;
+            displayMessage('Sending password reset link...', false);
+
+            // IMPORTANT: You must configure a recovery URL in your Supabase Auth Settings.
+            // This link will be sent to the user's email.
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                // If you want a specific page to handle the password change, put its URL here.
+                // Otherwise, Supabase uses a default handler. Leaving it out for simplicity.
+                // redirectTo: 'https://yourdomain.com/update-password', 
+            });
+
+            if (error) {
+                displayMessage('Error sending reset email. Please try again later or check your email address.', true);
+                console.error('Password Reset Error:', error);
+            } else {
+                displayMessage(`A password reset link has been sent to ${email}. Check your inbox!`, false);
+            }
+
+            loginButton.disabled = false;
+            loginButton.textContent = 'Sign In';
+        }
+        // ------------------------------------
 
         /**
          * Check if the user is already logged in and redirect them.
