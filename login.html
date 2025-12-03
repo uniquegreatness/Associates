@@ -69,7 +69,7 @@
         </div>
         
         <div id="forgotView" class="hidden-view">
-            <p class="text-gray-600 mb-4">Enter your registered email address and we'll send you a link to reset your password.</p>
+            <p class="text-gray-600 mb-4">Enter your email address to receive a password reset link.</p>
             
             <form id="forgotPasswordForm" onsubmit="handlePasswordReset(event)">
                 <div class="space-y-4">
@@ -97,7 +97,6 @@
 
     <script>
         // --- Supabase Client Initialization ---
-        // REPLACE THESE WITH YOUR ACTUAL KEYS IF THEY ARE DIFFERENT
         const SUPABASE_URL = 'https://jtnnyfxdjqhtqddisrvp.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0bm55ZnhkanFodHFkZGlzcnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MDgyNDksImV4cCI6MjA4MDA4NDI0OX0.fFy_Z36VFHwOpZnSwR2WWlR_2b3hBrfEFXDp2EnAS9A';
         
@@ -121,7 +120,6 @@
          * @param {'login' | 'forgot'} viewName 
          */
         function showView(viewName) {
-            // Clear message and state
             messageDiv.classList.add('hidden');
             loginButton.disabled = false;
             if (resetButton) resetButton.disabled = false;
@@ -130,13 +128,12 @@
                 forgotView.classList.add('hidden-view');
                 loginView.classList.remove('hidden-view');
                 pageSubtitle.textContent = 'Sign in to view your leaderboard rank.';
-                forgotPasswordForm.classList.remove('hidden-view'); // Ensure form is visible when going back
+                forgotPasswordForm.classList.remove('hidden-view');
             } else if (viewName === 'forgot') {
                 loginView.classList.add('hidden-view');
                 forgotView.classList.remove('hidden-view');
                 pageSubtitle.textContent = 'Reset your password.';
                 
-                // Transfer email from login input to reset input if available
                 if (emailInput.value) {
                     resetEmailInput.value = emailInput.value;
                 }
@@ -207,23 +204,23 @@
             resetButton.textContent = 'Sending...';
             displayMessage('Sending password reset link...', false);
 
-            const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+            // UPDATED: Set redirectTo to the new page where the user will update their password
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/update-password.html` 
+            });
 
+            // Security Note: We intentionally DO NOT check if the user is registered.
+            // We give a generic success message to prevent user enumeration.
             if (error) {
-                // For security, Supabase reset calls often return a generic error or success 
-                // regardless of whether the email exists. We will display a generic success 
-                // message to prevent user enumeration.
                 console.error('Password Reset Error:', error);
-                displayMessage(`A password reset link has been sent to ${email}. Check your inbox!`, false);
-                forgotPasswordForm.classList.add('hidden-view');
-            } else {
-                displayMessage(`A password reset link has been sent to ${email}. Check your inbox!`, false);
-                forgotPasswordForm.classList.add('hidden-view');
             }
+            
+            // Display secure success message whether the user exists or not
+            displayMessage(`If an account is registered with ${email}, a password reset link has been sent to your inbox.`, false);
+            forgotPasswordForm.classList.add('hidden-view');
 
-            // Note: We don't re-enable the button immediately after success/error to 
-            // discourage rapid-fire submissions. The user should check their email or click 
-            // 'Back to Login'.
+            resetButton.disabled = false;
+            resetButton.textContent = 'Send Reset Link';
         }
 
 
@@ -233,7 +230,6 @@
         async function checkExistingSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
-                // User is already logged in, redirect them immediately
                 window.location.href = '/leaderboard.html';
             }
         }
