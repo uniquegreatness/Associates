@@ -28,17 +28,20 @@ app.use(express.json()); // Essential for parsing the request body (req.body)
 app.use(cors()); 
 
 // ------------------------------------------------------------------
-// FRONTEND SERVING CONFIGURATION (Unchanged)
+// FRONTEND SERVING CONFIGURATION (UPDATED)
 // ------------------------------------------------------------------
 
 app.use(express.static(path.join(__dirname, '..')));
 
+// Route for root path (/) now points to the new file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'wait-list.html'));
+    res.sendFile(path.join(__dirname, '..', 'newwaitlist.html'));
 });
-app.get('/wait-list.html', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'wait-list.html'));
+// Explicit route for the new file name
+app.get('/newwaitlist.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'newwaitlist.html'));
 });
+// Existing leaderboard route
 app.get('/leaderboard.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'leaderboard.html'));
 });
@@ -95,10 +98,10 @@ app.post('/api/waitlist', async (req, res) => {
     };
     
     try {
-        const { data: profileData, error: profileError } = await supabase
+        const { error: profileError } = await supabase
             .from('user_profiles') 
-            .insert([profileToInsert])
-            .select();
+            .insert([profileToInsert]);
+            // Removed .select() as it's not strictly necessary for an insert
 
         if (profileError) {
             console.error('Supabase PROFILE INSERTION Error:', profileError.code, profileError.message);
@@ -126,7 +129,8 @@ app.post('/api/waitlist', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// EXISTING /api/secure-data route (Unchanged)
+// LEADERBOARD DATA ROUTE (/api/secure-data)
+// Uses a placeholder table for now (needs to be adjusted once you provide leaderboard code)
 // ----------------------------------------------------
 app.get('/api/secure-data', async (req, res) => {
     // This is the existing route for fetching secure data
