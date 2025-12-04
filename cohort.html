@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Cluster Contact Exchange</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Define the primary color palette based on a bright blue */
+        :root {
+            --primary-blue: #3b82f6; /* Tailwind blue-500 */
+            --light-blue: #eff6ff; /* Tailwind blue-50 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-blue);
+            color: #1f2937; /* Dark text for high contrast */
+        }
+        .card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px rgba(59, 130, 246, 0.15);
+        }
+        .join-btn {
+            background-color: var(--primary-blue);
+            transition: background-color 0.2s ease;
+        }
+        .join-btn:hover {
+            background-color: #2563eb; /* Tailwind blue-600 */
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Notification/Error Message Container (Replaces alert()) -->
+    <div id="notificationArea" class="fixed top-4 right-4 z-50 w-full max-w-xs space-y-2">
+        <!-- Messages will be injected here -->
+    </div>
+
+    <!-- Header / Navigation Bar -->
+    <header class="bg-white shadow-lg sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <h1 class="text-2xl font-bold text-blue-600">NEAR Network</h1>
+                <nav>
+                    <a href="#" class="text-gray-600 font-medium hover:text-blue-800 transition duration-150">My Profile</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4 text-center">
+            Find Your Cohort
+        </h2>
+        <p class="text-center text-lg text-gray-500 mb-10 max-w-3xl mx-auto">
+            Join a cluster and connect mutually with 10,000 others who share your interests. Your contact details will only be exchanged once the cohort is full.
+        </p>
+        
+        <!-- Cards Grid -->
+        <div id="clusterGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Cards will be dynamically inserted here by JavaScript -->
+        </div>
+    </main>
+    
+    <!-- Modal for User Input (Nickname, Profession, WhatsApp, Visibility) -->
+    <div id="inputModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-6">
+            <h3 class="text-2xl font-bold text-gray-800 border-b pb-3">Share Your Details to Join</h3>
+            
+            <form id="contactForm">
+                <input type="hidden" id="modalClusterId">
+                <div class="space-y-4">
+                    
+                    <div>
+                        <label for="nickname" class="block text-sm font-medium text-gray-700">Nickname (Required for VCF)</label>
+                        <input type="text" id="nickname" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label for="profession" class="block text-sm font-medium text-gray-700">Profession</label>
+                        <input type="text" id="profession" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Software Developer, Student">
+                    </div>
+
+                    <div>
+                        <label for="whatsapp" class="block text-sm font-medium text-gray-700">WhatsApp Number</label>
+                        <input type="tel" id="whatsapp" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500" placeholder="+1234567890">
+                    </div>
+
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="displayProfession" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="displayProfession" class="font-medium text-gray-700">Display my Profession on the VCF contact file.</label>
+                            <p class="text-gray-500">If unchecked, your name will appear as "NEARR [Nickname]".</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit" class="join-btn px-4 py-2 text-sm font-medium text-white rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Confirm Join Cluster
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION AND DATA ---
+
+        // The Fixed Capacity Cohort Size
+        const MAX_COHORT_SIZE = 10000;
+        
+        // Mock data for the 10 categories
+        const categories = [
+            { id: 1, name: "Personality Archetypes", details: "Groups people by how they think, socialize, and make decisions. Examples: analytical thinkers, creatives, explorers, nurturers, leaders." },
+            { id: 2, name: "Life Goals & Ambitions", details: "Connect people who are trying to achieve similar things. Examples: career growth, building wealth, self-improvement, spirituality, building a family, entrepreneurship." },
+            { id: 3, name: "Core Values", details: "Match people who share similar moral anchors. Examples: honesty, ambition, loyalty, freedom, tradition, creativity, fairness." },
+            { id: 4, name: "Social Energy & Interaction Style", details: "Helps users find people they vibe with socially. Examples: extroverts, introverts, ambiverts, deep conversationalists, social butterflies." },
+            { id: 5, name: "Hobbies & Personal Interests", details: "This is one of the strongest bonding categories. Examples: gaming, fitness, cooking, music, movies, travel, tech, art, books." },
+            { id: 6, name: "Work & Professional Lifestyle", details: "Groups people with similar work rhythms and environments. Examples: remote workers, creatives, entrepreneurs, students, tech professionals, business people." },
+            { id: 7, name: "Emotional & Relational Style", details: "Helps people find others who communicate in similar ways. Examples: peace-lovers, problem-solvers, deep feelers, logical communicators, supportive helpers." },
+            { id: 8, name: "Growth & Learning Preferences", details: "People who pursue self-development in similar ways. Examples: readers, podcast listeners, course takers, experimenters, mentors and mentees." },
+            { id: 9, name: "Lifestyle & Daily Habits", details: "Connects people with compatible lifestyles. Examples: early birds, night owls, fitness-focused, minimalists, adventurers, homebodies." },
+            { id: 10, name: "Worldview & Philosophy Type", details: "People bond when they see life in similar ways. Examples: realists, dreamers, optimists, analysts, spiritualists, humanitarians." }
+        ];
+
+        // MOCK/SIMULATED CLUSTER STATE (This will come from Supabase in the final version)
+        // For demonstration, let's pretend cluster 1 is closed and cluster 2 is half full.
+        let clusterState = {
+            1: { cohort_id: 'PA_1', is_full: true, current_members: MAX_COHORT_SIZE, user_is_member: true }, // Completed cohort
+            2: { cohort_id: 'LGA_1', is_full: false, current_members: 5432, user_is_member: false }, // Active cohort
+            3: { cohort_id: 'CV_1', is_full: false, current_members: 1, user_is_member: false }, // New cohort
+            // ... all other clusters are assumed to have open, active cohorts
+        };
+
+        // --- 2. UI MANIPULATION AND HELPERS ---
+
+        /**
+         * Displays a notification message.
+         * @param {string} message - The message content.
+         * @param {string} type - 'success', 'error', or 'info'.
+         */
+        function showNotification(message, type) {
+            const area = document.getElementById('notificationArea');
+            const colorMap = {
+                'success': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400' },
+                'error': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400' },
+                'info': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-400' },
+            };
+            const colors = colorMap[type] || colorMap['info'];
+
+            const notification = document.createElement('div');
+            notification.className = `${colors.bg} ${colors.text} p-4 rounded-lg border-l-4 ${colors.border} shadow-lg transition-opacity duration-300`;
+            notification.textContent = message;
+
+            area.prepend(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, 5000);
+        }
+
+        /**
+         * Opens the modal and sets the cluster ID.
+         * @param {number} clusterId - The ID of the cluster the user is joining.
+         */
+        function showModal(clusterId) {
+            document.getElementById('modalClusterId').value = clusterId;
+            document.getElementById('inputModal').classList.remove('hidden');
+            document.getElementById('inputModal').classList.add('flex');
+        }
+
+        /**
+         * Closes the modal.
+         */
+        function closeModal() {
+            document.getElementById('inputModal').classList.remove('flex');
+            document.getElementById('inputModal').classList.add('hidden');
+            document.getElementById('contactForm').reset();
+        }
+
+        /**
+         * Renders the cluster cards based on the current state.
+         */
+        function renderClusters() {
+            const grid = document.getElementById('clusterGrid');
+            grid.innerHTML = ''; // Clear existing cards
+
+            categories.forEach(category => {
+                // Get the current simulated state, defaulting to an open, new cohort
+                const state = clusterState[category.id] || { cohort_id: `NEW_${category.id}`, is_full: false, current_members: 0, user_is_member: false };
+
+                let buttonText = 'Join Cluster';
+                let buttonAction = `showModal(${category.id})`;
+                let buttonClass = 'join-btn';
+
+                if (state.is_full && state.user_is_member) {
+                    // Scenario 1: Cohort is full AND user is a member -> Download is available
+                    buttonText = 'Download Contacts (Ready)';
+                    buttonAction = `downloadContacts('${state.cohort_id}')`;
+                    buttonClass = 'bg-green-600 hover:bg-green-700';
+                } else if (state.is_full && !state.user_is_member) {
+                    // Scenario 2: Cohort is full, user needs to join the NEXT cohort
+                    // This scenario is handled by the backend logic, but we still need a button to join the new cohort
+                    buttonText = 'Cohort Full (Join Next)';
+                    buttonAction = `showModal(${category.id})`;
+                } else if (!state.is_full) {
+                    // Scenario 3: Cohort is active/open -> Join
+                    const remaining = MAX_COHORT_SIZE - state.current_members;
+                    buttonText = `Join Cluster (${remaining.toLocaleString()} spots left)`;
+                    buttonAction = `showModal(${category.id})`;
+                }
+
+                const cardHTML = `
+                    <div class="card bg-white p-6 rounded-xl space-y-4">
+                        <h3 class="text-xl font-semibold text-blue-600">${category.name}</h3>
+                        <p class="text-gray-500 text-sm h-16 line-clamp-3">
+                            ${category.details}
+                        </p>
+                        <button 
+                            class="${buttonClass} w-full text-white font-semibold py-2 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-150" 
+                            onclick="${buttonAction}" 
+                            data-cluster-id="${category.id}"
+                        >
+                            ${buttonText}
+                        </button>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', cardHTML);
+            });
+        }
+
+
+        // --- 3. CORE LOGIC (Supabase/Node.js API Simulation) ---
+
+        /**
+         * Handles the form submission to join a cluster.
+         * @param {Event} event - The form submission event.
+         */
+        async function handleFormSubmission(event) {
+            event.preventDefault();
+
+            const clusterId = document.getElementById('modalClusterId').value;
+            const nickname = document.getElementById('nickname').value.trim();
+            const profession = document.getElementById('profession').value.trim();
+            const whatsapp = document.getElementById('whatsapp').value.trim();
+            const displayProfession = document.getElementById('displayProfession').checked;
+
+            if (!nickname || !whatsapp) {
+                showNotification("Please fill in your Nickname and WhatsApp Number.", "error");
+                return;
+            }
+
+            const userData = {
+                cluster_id: parseInt(clusterId),
+                nickname: nickname,
+                profession: profession,
+                whatsapp_number: whatsapp,
+                display_profession: displayProfession,
+                // In a real app, you would also pass the authenticated user's ID here:
+                // user_auth_id: auth.currentUser.uid, 
+            };
+            
+            closeModal();
+            showNotification(`Attempting to join cluster ${clusterId}...`, 'info');
+
+            // --- API CALL TO NODE.JS/SUPABASE BACKEND ---
+            try {
+                // This simulates the frontend request to your backend service
+                const response = await fetch('/api/join-cluster', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error during cluster join.');
+                }
+                
+                // Expecting a response that updates the client state
+                const result = await response.json(); 
+                
+                // Update the simulated cluster state based on the server response
+                // In a real app, this step would involve polling or a real-time subscription
+                if (result.success) {
+                    // Update mock state to reflect joining
+                    clusterState[clusterId] = {
+                        cohort_id: result.cohort_id,
+                        is_full: result.is_full,
+                        current_members: result.current_members,
+                        user_is_member: true
+                    };
+                    renderClusters(); // Re-render cards to show updated status
+                    
+                    if (result.is_full) {
+                        showNotification(`Success! Cohort ${result.cohort_id} is now FULL (10,000 members). You can download the contacts now!`, 'success');
+                    } else {
+                        showNotification(`Successfully joined! Waiting for ${MAX_COHORT_SIZE - result.current_members} more members.`, 'success');
+                    }
+                } else {
+                    showNotification(result.message || 'Failed to join the cluster.', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error joining cluster:', error);
+                showNotification('An error occurred. Check console for details.', 'error');
+            }
+            // ---------------------------------------------
+        }
+
+        /**
+         * Initiates the download of the VCF file for a completed cohort.
+         * @param {string} cohortId - The ID of the closed cohort (e.g., 'PA_1').
+         */
+        async function downloadContacts(cohortId) {
+            showNotification(`Requesting contact file for cohort ${cohortId}...`, 'info');
+
+            // --- API CALL TO NODE.JS/SUPABASE BACKEND ---
+            try {
+                // This simulates the frontend request to your backend service
+                const response = await fetch(`/api/download-contacts?cohort=${cohortId}`, {
+                    method: 'GET',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error during contact file generation.');
+                }
+
+                // Assuming the server responds with a direct download link or the VCF content
+                const contentType = response.headers.get("Content-Type");
+
+                if (contentType && contentType.includes('text/vcard')) {
+                    // Scenario: Server sends the VCF file directly
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `Cluster_Contacts_${cohortId}.vcf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+
+                    showNotification('Download started successfully!', 'success');
+                } else {
+                    // Scenario: Server sends JSON with the VCF data or a URL
+                    const result = await response.json();
+                    
+                    if (result.vcfContent) {
+                        // Backend sent the VCF content as a string, let's process it client-side
+                        generateVcfDownload(cohortId, result.vcfContent);
+                    } else {
+                        throw new Error(result.message || 'The server did not return a valid contact file.');
+                    }
+                }
+                
+                // After successful download/retrieval, the server should have deleted the Supabase table.
+                // We could update the UI here to reflect the cohort is finished/archived, 
+                // but for now, we leave it as 'Download Contacts (Ready)'.
+
+            } catch (error) {
+                console.error('Download failed:', error);
+                showNotification('Download failed. Please try again or contact support.', 'error');
+            }
+            // ---------------------------------------------
+        }
+
+        /**
+         * Helper function to generate and trigger the download of VCF data (used if backend returns string).
+         * @param {string} cohortId - The cohort identifier.
+         * @param {string} vcfContent - The VCF file content string.
+         */
+        function generateVcfDownload(cohortId, vcfContent) {
+            const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Cluster_Contacts_${cohortId}.vcf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification('Download started successfully!', 'success');
+        }
+
+
+        // --- 4. INITIALIZATION ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Render the initial cluster cards
+            renderClusters();
+
+            // 2. Attach the submit handler to the form
+            document.getElementById('contactForm').addEventListener('submit', handleFormSubmission);
+            
+            // NOTE: The Web3 component (Ethers.js) is omitted for now, as requested.
+            // When ready, we will add 'Connect Wallet' to the header and integrate 
+            // the wallet address into the userData payload for authentication.
+        });
+
+    </script>
+</body>
+</html>
