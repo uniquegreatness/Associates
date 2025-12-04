@@ -19,6 +19,8 @@ if (!supabaseUrl || !supabaseServiceKey) {
     console.error("FATAL ERROR: Supabase environment variables are missing.");
     process.exit(1); 
 }
+// We use the same client instance for both admin tasks (with service key)
+// and standard client actions (like signInWithPassword)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ------------------------------------------------------------------
@@ -61,7 +63,7 @@ app.get('/update-password.html', (req, res) => {
 });
 
 // ----------------------------------------------------
-// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - FINAL FIX
+// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - FINAL FIX IMPLEMENTED HERE
 // ----------------------------------------------------
 app.post('/api/waitlist', async (req, res) => {
     
@@ -78,7 +80,7 @@ app.post('/api/waitlist', async (req, res) => {
     let newUser;
     
     try {
-        // --- STEP 1: CREATE USER IN AUTH.USERS ---
+        // --- STEP 1: CREATE USER IN AUTH.USERS (Requires SERVICE_ROLE_KEY) ---
         const { data: userData, error: authError } = await supabase.auth.admin.createUser({
             email: email,
             password: password,
@@ -127,18 +129,18 @@ app.post('/api/waitlist', async (req, res) => {
         }
         
         // ----------------------------------------------------------------------
-        // --- STEP 3: ESTABLISH ACTIVE SESSION VIA ADMIN LOGIN (THE SESSION FIX) ---
+        // ✅ STEP 3: ESTABLISH ACTIVE SESSION (THE FIX)
         // ----------------------------------------------------------------------
         
-        // 1. Simulate sign-in using the newly created credentials
+        // 1. Sign in using the newly created credentials (using the standard client API)
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
             email: email,
             password: password,
         });
 
         if (signInError || !signInData.session) {
-             console.error('CRITICAL ERROR: Failed to reliably sign in newly created user. Forcing manual login.', signInError?.message);
-             // We still confirm success but fall back to manual login
+             console.error('CRITICAL ERROR: Failed to reliably sign in newly created user.', signInError?.message);
+             // We still confirm success but warn that a manual login might be needed
              return res.status(201).json({ 
                 message: 'Successfully joined the waitlist, but please log in manually due to session error.', 
                 user_id: newUser.id 
@@ -147,11 +149,11 @@ app.post('/api/waitlist', async (req, res) => {
         
         const session = signInData.session;
 
-        // 2. Set the Supabase authentication cookies
+        // 2. Set the required Supabase authentication cookies on the browser
         const cookieOptions = { 
             maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-            httpOnly: false, // Must be false for Supabase JS client to read
-            secure: true,    // Recommended for Render/production environment
+            httpOnly: false, // Must be false for Supabase JS client on the frontend to read
+            secure: process.env.NODE_ENV === 'production', // Use secure in production
             sameSite: 'Lax'  // Recommended for modern browsers
         };
         
