@@ -63,7 +63,7 @@ app.get('/update-password.html', (req, res) => {
 });
 
 // ----------------------------------------------------
-// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist) - FINAL FIX IMPLEMENTED HERE
+// SINGLE-STEP REGISTRATION ROUTE (/api/waitlist)
 // ----------------------------------------------------
 app.post('/api/waitlist', async (req, res) => {
     
@@ -112,6 +112,7 @@ app.post('/api/waitlist', async (req, res) => {
     };
     
     try {
+        // The database trigger will automatically populate the 'referral_code' here.
         const { error: profileError } = await supabase
             .from('user_profiles') 
             .insert([profileToInsert]);
@@ -129,7 +130,7 @@ app.post('/api/waitlist', async (req, res) => {
         }
         
         // ----------------------------------------------------------------------
-        // ✅ STEP 3: ESTABLISH ACTIVE SESSION (THE FIX)
+        // ✅ STEP 3: ESTABLISH ACTIVE SESSION 
         // ----------------------------------------------------------------------
         
         // 1. Sign in using the newly created credentials (using the standard client API)
@@ -186,7 +187,8 @@ app.get('/api/secure-data', async (req, res) => {
     // Fetch data from the public.user_profiles table
     const { data, error } = await supabase
         .from('user_profiles') 
-        .select('user_id, nickname, gender, referrals') 
+        // FIX: Added 'referral_code' to the select statement so it is available to the frontend.
+        .select('user_id, nickname, gender, referrals, referral_code') 
         .order('referrals', { ascending: false }); // Order by referrals DESC for ranking
 
     if (error) {
