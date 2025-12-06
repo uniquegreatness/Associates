@@ -113,25 +113,24 @@
     </div>
 
     <script type="module">
-        // --- FIREBASE IMPORTS (MANDATORY FOR USER ID/AUTH CONTEXT) ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // --- SUPABASE IMPORTS (Replaces Firebase) ---
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/supabase.browser.esm.min.js";
         
         // --- 1. CONFIGURATION AND DATA ---
 
         // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const supabaseUrl = typeof __supabase_url !== 'undefined' ? __supabase_url : 'MOCK_SUPABASE_URL';
+        const supabaseAnonKey = typeof __supabase_anon_key !== 'undefined' ? __supabase_anon_key : 'MOCK_ANON_KEY';
 
-        let auth;
+        let supabase; // Global instance for the client
         let userId = null;
         let isAuthReady = false;
 
         // The Fixed Capacity Cohort Size (REDUCED FOR TESTING)
         const MAX_COHORT_SIZE = 5;
         
-        // ** NEW STATE TRACKING **
+        // ** STATE TRACKING **
         // userClusterMemberships: Tracks which cluster categories the current user has successfully joined.
         // Key: Cluster ID (integer), Value: { cohort_id: 'PA_1', is_full: true, current_members: 10000 }
         let userClusterMemberships = {};
@@ -394,34 +393,45 @@
             }
         }
 
-        // --- 4. FIREBASE INITIALIZATION ---
-        function initializeFirebase() {
+        // --- 4. SUPABASE INITIALIZATION (Replaces Firebase) ---
+        async function initializeSupabase() {
             try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
+                if (supabaseUrl === 'MOCK_SUPABASE_URL' || supabaseAnonKey === 'MOCK_ANON_KEY') {
+                    // Display error if environment variables are missing
+                    console.error("Supabase environment variables are missing. Cannot initialize client.");
+                    showNotification("Configuration Error: Supabase keys not set.", 'error');
+                    isAuthReady = true;
+                    renderClusters();
+                    return;
+                }
 
-                // Set up auth state observer
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        document.getElementById('userIdDisplay').textContent = `User ID: ${userId.substring(0, 8)}...`;
-                        isAuthReady = true;
-                    } else {
-                        // Attempt to sign in with custom token or anonymously
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    }
-                    // In a real app, we would fetch the initial cluster status here
-                    // fetchInitialClusterStatus().then(renderClusters); 
-                    // For now, we rely on the join response to build state.
-                    renderClusters(); 
-                });
+                // Initialize the Supabase Client
+                supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+                // Check for active session (relying on cookies set by server.js)
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                if (sessionError) {
+                    console.error("Supabase Session Error:", sessionError);
+                    showNotification("Session check failed. Please log in again.", 'error');
+                }
+
+                if (session && session.user) {
+                    userId = session.user.id;
+                    document.getElementById('userIdDisplay').textContent = `User ID: ${userId.substring(0, 8)}...`;
+                } else {
+                    // User is not logged in.
+                    document.getElementById('userIdDisplay').textContent = 'User: Guest (Please log in)';
+                    // Optionally redirect to login.html here
+                    // window.location.href = '/login.html'; 
+                }
+
             } catch (error) {
-                console.error("Firebase Initialization Error:", error);
+                console.error("Supabase Initialization Error:", error);
                 showNotification("Initialization failed. Cannot access cluster status.", 'error');
+            } finally {
+                // IMPORTANT: Ensure isAuthReady is set to true regardless of success/failure 
+                // to enable the card rendering logic (even if userId is null).
                 isAuthReady = true; 
                 renderClusters();
             }
@@ -430,7 +440,7 @@
         // --- 5. INITIALIZATION ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            initializeFirebase();
+            initializeSupabase();
             document.getElementById('contactForm').addEventListener('submit', handleFormSubmission);
         });
 
