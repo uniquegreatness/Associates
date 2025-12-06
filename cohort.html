@@ -33,6 +33,11 @@
         .join-btn:hover {
             background-color: #2563eb; /* Tailwind blue-600 */
         }
+        .full-btn {
+            background-color: #6b7280; /* Tailwind gray-500 */
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -61,7 +66,7 @@
             Find Your Cohort
         </h2>
         <p class="text-center text-lg text-gray-500 mb-10 max-w-3xl mx-auto">
-            Join a cluster and connect mutually with 10,000 others who share your interests. Your contact details will only be exchanged once the cohort is full.
+            Join a cluster and connect mutually with 5 others who share your interests. Your contact details will only be exchanged once the cohort is full.
         </p>
         
         <!-- Cards Grid -->
@@ -79,7 +84,7 @@
                 <input type="hidden" id="modalClusterId">
                 
                 <p class="text-sm text-gray-500 mb-4">
-                    Your profile data (Nickname, Profession, WhatsApp) will be fetched from the **`user_profiles`** table. Please confirm how your name should appear in the shared contact file:
+                    Your profile data (Nickname, Profession, WhatsApp) will be fetched from the **`user_profiles`** table by the server. Please confirm how your name should appear in the shared contact file:
                 </p>
 
                 <div class="flex items-start p-4 border rounded-lg bg-blue-50">
@@ -87,7 +92,7 @@
                         <input id="displayProfession" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
                     </div>
                     <div class="ml-3 text-sm">
-                        <label for="displayProfession" class="font-bold text-gray-800">Display my Profession (e.g., JaneDoe (Architect))</label>
+                        <label for="displayProfession" class="font-bold text-gray-800">Display my Profession</label>
                         <p class="text-gray-600 mt-1">
                             <span class="font-semibold">Checked:</span> Name will be **[Nickname (Profession)]**.<br>
                             <span class="font-semibold">Unchecked:</span> Name will be **[Nickname NEARR]** (Note the space).
@@ -123,9 +128,18 @@
         let userId = null;
         let isAuthReady = false;
 
-        // The Fixed Capacity Cohort Size
-        const MAX_COHORT_SIZE = 10000;
+        // The Fixed Capacity Cohort Size (REDUCED FOR TESTING)
+        const MAX_COHORT_SIZE = 5;
         
+        // ** NEW STATE TRACKING **
+        // userClusterMemberships: Tracks which cluster categories the current user has successfully joined.
+        // Key: Cluster ID (integer), Value: { cohort_id: 'PA_1', is_full: true, current_members: 10000 }
+        let userClusterMemberships = {};
+        
+        // clusterStatusCache: Cache for the status of ALL cohorts the user might join or has joined.
+        // This is updated ONLY by the server response after a join attempt.
+        let clusterStatusCache = {};
+
         // Mock data for the 10 categories
         const categories = [
             { id: 1, name: "Personality Archetypes", details: "Groups people by how they think, socialize, and make decisions. Examples: analytical thinkers, creatives, explorers, nurturers, leaders." },
@@ -139,14 +153,6 @@
             { id: 9, name: "Lifestyle & Daily Habits", details: "Connects people with compatible lifestyles. Examples: early birds, night owls, fitness-focused, minimalists, adventurers, homebodies." },
             { id: 10, name: "Worldview & Philosophy Type", details: "People bond when they see life in similar ways. Examples: realists, dreamers, optimists, analysts, spiritualists, humanitarians." }
         ];
-
-        // MOCK/SIMULATED CLUSTER STATE (This will come from your Supabase backend)
-        // Cohort ID pattern: [Category Short Name]_[Cohort Number] e.g. PA_1
-        let clusterState = {
-            1: { cohort_id: 'PA_1', is_full: true, current_members: MAX_COHORT_SIZE, user_is_member: true }, // Completed cohort
-            2: { cohort_id: 'LGA_1', is_full: false, current_members: 5432, user_is_member: false }, // Active cohort
-            3: { cohort_id: 'CV_1', is_full: false, current_members: 1, user_is_member: false }, // New cohort
-        };
 
         // --- 2. UI MANIPULATION AND HELPERS ---
 
@@ -201,38 +207,54 @@
         }
 
         /**
-         * Renders the cluster cards based on the current state.
+         * Renders the cluster cards based on the current state (from cache and membership).
          */
         function renderClusters() {
             const grid = document.getElementById('clusterGrid');
             grid.innerHTML = ''; // Clear existing cards
 
             categories.forEach(category => {
-                // Get the current simulated state, defaulting to an open, new cohort
-                const state = clusterState[category.id] || { cohort_id: `NEW_${category.id}`, is_full: false, current_members: 0, user_is_member: false };
+                const clusterId = category.id;
+                // Get the current known status from the last join attempt or cache.
+                const state = clusterStatusCache[clusterId] || { 
+                    cohort_id: `NEW_${clusterId}`, 
+                    is_full: false, 
+                    current_members: 0 
+                };
+                
+                // Check if the user is a member of any cohort in this category
+                const userMembership = userClusterMemberships[clusterId];
+                const userIsMember = !!userMembership; 
 
                 let buttonText = 'Join Cluster';
-                let buttonAction = `showModal(${category.id})`;
+                let buttonAction = `showModal(${clusterId})`;
                 let buttonClass = 'join-btn';
 
                 if (!isAuthReady) {
                     buttonText = 'Loading...';
                     buttonAction = '';
                     buttonClass = 'bg-gray-400 cursor-not-allowed';
-                } else if (state.is_full && state.user_is_member) {
+                } else if (userIsMember && userMembership.is_full) {
                     // Scenario 1: Cohort is full AND user is a member -> Download is available
                     buttonText = 'Download Contacts (Ready)';
-                    buttonAction = `downloadContacts('${state.cohort_id}')`;
+                    buttonAction = `downloadContacts('${userMembership.cohort_id}')`;
                     buttonClass = 'bg-green-600 hover:bg-green-700';
-                } else if (state.is_full && !state.user_is_member) {
-                    // Scenario 2: Cohort is full, user needs to join the NEXT cohort
-                    buttonText = 'Cohort Full (Join Next)';
-                    buttonAction = `showModal(${category.id})`;
-                } else if (!state.is_full) {
-                    // Scenario 3: Cohort is active/open -> Join
-                    const remaining = MAX_COHORT_SIZE - state.current_members;
-                    buttonText = `Join Cluster (${remaining.toLocaleString()} spots left)`;
-                    buttonAction = `showModal(${category.id})`;
+                } else if (userIsMember && !userMembership.is_full) {
+                    // Scenario 2: User is a member, waiting for cohort to fill
+                    // ** SHOW SPOTS ONLY TO MEMBERS **
+                    const remaining = MAX_COHORT_SIZE - userMembership.current_members;
+                    buttonText = `Joined! (${remaining} spots left)`;
+                    buttonAction = ''; // Cannot rejoin
+                    buttonClass = 'full-btn'; // Use a greyed-out class
+                } else if (state.is_full && !userIsMember) {
+                    // Scenario 3: The PREVIOUS cohort for this category is full, user joins the next one
+                    buttonText = 'Previous Cohort Full (Join New)';
+                    buttonAction = `showModal(${clusterId})`;
+                } else {
+                    // Scenario 4: Cohort is active/open (Non-member) -> Join the active one
+                    // ** HIDE SPOTS FOR NON-MEMBERS **
+                    buttonText = `Join Cluster`;
+                    buttonAction = `showModal(${clusterId})`;
                 }
 
                 const cardHTML = `
@@ -244,7 +266,7 @@
                         <button 
                             class="${buttonClass} w-full text-white font-semibold py-2 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-150" 
                             onclick="${buttonAction}" 
-                            data-cluster-id="${category.id}"
+                            data-cluster-id="${clusterId}"
                             ${!isAuthReady || buttonAction === '' ? 'disabled' : ''}
                         >
                             ${buttonText}
@@ -256,7 +278,7 @@
         }
 
 
-        // --- 3. CORE LOGIC (Supabase/Node.js API Simulation) ---
+        // --- 3. CORE LOGIC (Node.js API Call) ---
 
         /**
          * Handles the form submission to join a cluster.
@@ -272,23 +294,17 @@
             }
 
             const clusterId = document.getElementById('modalClusterId').value;
-            // The only data collected client-side is the VCF display preference.
             const displayProfession = document.getElementById('displayProfession').checked; 
 
             const joinData = {
-                user_id: userId, // CRITICAL: This ID is used by the backend to fetch profile data from 'user_profiles'
+                user_id: userId,
                 cluster_id: parseInt(clusterId),
-                display_profession: displayProfession, // This is saved directly to the temporary cluster table
+                display_profession: displayProfession,
             };
             
             closeModal();
             showNotification(`Attempting to join cluster ${clusterId}...`, 'info');
 
-            // --- API CALL TO NODE.JS/SUPABASE BACKEND ---
-            // Your backend must:
-            // 1. Fetch user profile data using 'user_id'.
-            // 2. Insert (user_id, nickname, profession, whatsapp_number, display_profession) into the active cluster table.
-            // 3. Check for cohort completion (10,000 members) and handle table creation/deletion.
             try {
                 const response = await fetch('/api/join-cluster', {
                     method: 'POST',
@@ -296,36 +312,44 @@
                     body: JSON.stringify(joinData)
                 });
 
-                if (!response.ok) {
-                    throw new Error('Server error during cluster join.');
-                }
-                
                 const result = await response.json(); 
                 
-                if (result.success) {
-                    // Update mock state based on server response
-                    clusterState[clusterId] = {
-                        cohort_id: result.cohort_id,
-                        is_full: result.is_full,
-                        current_members: result.current_members,
-                        user_is_member: true
-                    };
-                    renderClusters();
-                    
-                    if (result.is_full) {
-                        showNotification(`Success! Cohort ${result.cohort_id} is now FULL (10,000 members). Download is now available!`, 'success');
+                if (!response.ok || !result.success) {
+                    // Handle unique violation error specifically
+                    const errorMessage = result.message || 'Server error during cluster join.';
+                    if (errorMessage.includes('already joined cohort')) {
+                         showNotification(`You have already joined this cluster category.`, 'error');
                     } else {
-                        showNotification(`Successfully joined! Waiting for ${(MAX_COHORT_SIZE - result.current_members).toLocaleString()} more members.`, 'success');
+                         showNotification(errorMessage, 'error');
                     }
+                    return;
+                }
+                
+                // --- SUCCESS: Update Client State ---
+                
+                // 1. Update the status cache for the category
+                clusterStatusCache[clusterId] = {
+                    cohort_id: result.cohort_id,
+                    is_full: result.is_full,
+                    current_members: result.current_members,
+                };
+                
+                // 2. Mark the user as a member of this category
+                userClusterMemberships[clusterId] = clusterStatusCache[clusterId];
+                
+                renderClusters();
+                
+                if (result.is_full) {
+                    showNotification(`Success! Cohort ${result.cohort_id} is now FULL. Download is ready!`, 'success');
                 } else {
-                    showNotification(result.message || 'Failed to join the cluster.', 'error');
+                    const remaining = MAX_COHORT_SIZE - result.current_members;
+                    showNotification(`Successfully joined ${result.cohort_id}! Waiting for ${remaining.toLocaleString()} more members.`, 'success');
                 }
 
             } catch (error) {
                 console.error('Error joining cluster:', error);
-                showNotification('An error occurred. Check console for details.', 'error');
+                showNotification('An internal error occurred. Check console for details.', 'error');
             }
-            // ---------------------------------------------
         }
 
         /**
@@ -335,26 +359,20 @@
         async function downloadContacts(cohortId) {
             showNotification(`Requesting contact file for cohort ${cohortId}...`, 'info');
 
-            // --- API CALL TO NODE.JS/SUPABASE BACKEND ---
-            // Your backend must:
-            // 1. Check if the VCF file exists in Supabase Storage.
-            // 2. If it doesn't exist (error state), generate it (fetch from the now-deleted table backup/logs if possible, though not possible in production).
-            // 3. Serve the VCF file as a download.
             try {
-                // Assuming the backend handles the VCF generation and deletion process when the cohort is full.
                 const response = await fetch(`/api/download-contacts?cohort=${cohortId}`, {
                     method: 'GET',
                 });
 
                 if (!response.ok) {
-                    throw new Error('Server error during contact file retrieval.');
+                    const errorJson = await response.json();
+                    throw new Error(errorJson.message || 'Server error during contact file retrieval.');
                 }
 
                 // The server should send the VCF data directly
                 const contentType = response.headers.get("Content-Type");
 
                 if (contentType && contentType.includes('text/vcard')) {
-                    // Server sends the VCF file directly (ideal)
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -366,16 +384,14 @@
                     window.URL.revokeObjectURL(url);
                     showNotification('Download started successfully!', 'success');
                 } else {
-                    // Handle non-direct download responses (e.g., JSON containing an error or a download URL)
-                    const result = await response.json();
-                    throw new Error(result.message || 'The server did not return a valid contact file.');
+                    // Fallback for unexpected response format
+                    throw new Error('The server did not return a valid VCF file format.');
                 }
 
             } catch (error) {
                 console.error('Download failed:', error);
-                showNotification('Download failed. The file may not be fully generated yet.', 'error');
+                showNotification(error.message || 'Download failed. The file may not be fully generated yet.', 'error');
             }
-            // ---------------------------------------------
         }
 
         // --- 4. FIREBASE INITIALIZATION ---
@@ -388,7 +404,7 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-                        document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
+                        document.getElementById('userIdDisplay').textContent = `User ID: ${userId.substring(0, 8)}...`;
                         isAuthReady = true;
                     } else {
                         // Attempt to sign in with custom token or anonymously
@@ -398,12 +414,15 @@
                             await signInAnonymously(auth);
                         }
                     }
-                    renderClusters(); // Re-render once auth state is confirmed
+                    // In a real app, we would fetch the initial cluster status here
+                    // fetchInitialClusterStatus().then(renderClusters); 
+                    // For now, we rely on the join response to build state.
+                    renderClusters(); 
                 });
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
                 showNotification("Initialization failed. Cannot access cluster status.", 'error');
-                isAuthReady = true; // Mark as ready to show error state
+                isAuthReady = true; 
                 renderClusters();
             }
         }
@@ -412,7 +431,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
-            // Attach the submit handler to the form
             document.getElementById('contactForm').addEventListener('submit', handleFormSubmission);
         });
 
