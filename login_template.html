@@ -215,8 +215,7 @@
                 // We keep the console.error for backend logging if available
                 console.error('Login Error:', error); 
             } else {
-                // Update message to reflect the new delay
-                displayMessage('Login successful! Redirecting in 40 seconds...', false); 
+                displayMessage('Login successful! Redirecting...', false); 
                 
                 // --- REDIRECT LOGIC ---
                 const intendedDestination = sessionStorage.getItem('intended_destination');
@@ -231,13 +230,9 @@
                     sessionStorage.removeItem('intended_destination');
                 }
                 
-                // !!! START TEMPORARY DEBUG REDIRECT DELAY (REMOVE AFTER FIXING REDIRECTION ISSUE) !!!
-                setTimeout(() => {
-                    logDebug(`Redirecting to: ${redirectPath}`);
-                    window.location.href = redirectPath;
-                }, 40000); // 40 second delay to allow copying of the Debug Log
-                // !!! END TEMPORARY DEBUG REDIRECT DELAY !!!
+                // The temporary debug delay block has been removed.
                 
+                window.location.href = redirectPath;
             }
             
             loginButton.disabled = false;
