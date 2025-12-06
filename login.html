@@ -97,8 +97,9 @@
 
     <script>
         // --- Supabase Client Initialization ---
-        const SUPABASE_URL = 'https://jtnnyfxdjqhtqddisrvp.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0bm55ZnhkanFodHFkZGlzcnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MDgyNDksImV4cCI6MjA4MDA4NDI0OX0.fFy_Z36VFHwOpZnSwR2WWlR_2b3hBrfEFXDp2EnAS9A';
+        // NOTE: These values are placeholders; the server will replace them with the actual config
+        const SUPABASE_URL = '__SUPABASE_URL_INJECTION__'; 
+        const SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         // ----------------------------------------
@@ -155,7 +156,7 @@
         }
         
         /**
-         * Handles the LOGIN form submission.
+         * Handles the LOGIN form submission and redirects to the intended destination.
          */
         async function handleLogin(event) {
             event.preventDefault();
@@ -181,7 +182,18 @@
                 console.error('Login Error:', error);
             } else {
                 displayMessage('Login successful! Redirecting...', false);
-                window.location.href = '/leaderboard.html'; 
+                
+                // --- NEW REDIRECT LOGIC ---
+                const intendedDestination = sessionStorage.getItem('intended_destination');
+                const redirectPath = intendedDestination || '/leaderboard.html'; 
+                
+                // Clear the item so the login page doesn't keep redirecting there unnecessarily
+                if (intendedDestination) {
+                    sessionStorage.removeItem('intended_destination');
+                }
+                
+                window.location.href = redirectPath;
+                // --- END NEW REDIRECT LOGIC ---
             }
             
             loginButton.disabled = false;
@@ -225,12 +237,22 @@
 
 
         /**
-         * Check if the user is already logged in and redirect them.
+         * Check if the user is already logged in and redirect them to their intended page.
          */
         async function checkExistingSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
-                window.location.href = '/leaderboard.html';
+                // --- NEW REDIRECT LOGIC ---
+                const intendedDestination = sessionStorage.getItem('intended_destination');
+                const redirectPath = intendedDestination || '/leaderboard.html';
+                
+                // Clear the item after using it
+                if (intendedDestination) {
+                    sessionStorage.removeItem('intended_destination');
+                }
+                
+                window.location.href = redirectPath;
+                // --- END NEW REDIRECT LOGIC ---
             }
         }
 
