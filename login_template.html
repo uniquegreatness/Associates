@@ -17,6 +17,16 @@
         .hidden-view {
             display: none;
         }
+        /* Style for the on-screen debug log */
+        #debugLog {
+            white-space: pre-wrap;
+            font-size: 0.75rem;
+            line-height: 1.25;
+            min-height: 2rem;
+            max-height: 10rem;
+            overflow-y: auto;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -92,6 +102,15 @@
                 </div>
             </form>
         </div>
+        
+        <!-- ON-SCREEN DEBUG LOG SECTION -->
+        <div class="mt-6 pt-4 border-t border-gray-200">
+            <h3 class="text-sm font-bold text-gray-600 mb-2">Debug Log</h3>
+            <div id="debugLog" class="bg-gray-800 text-green-300 p-2 rounded-lg font-mono">
+                Awaiting sign-in or session check...
+            </div>
+        </div>
+        <!-- END DEBUG LOG SECTION -->
 
     </div>
 
@@ -114,7 +133,18 @@
         const pageSubtitle = document.getElementById('pageSubtitle');
         const emailInput = document.getElementById('email');
         const resetEmailInput = document.getElementById('resetEmail');
-
+        const debugLogElement = document.getElementById('debugLog'); // New element reference
+        
+        /**
+         * Utility function to log messages to the on-screen debug log.
+         * @param {string} message 
+         */
+        function logDebug(message) {
+            const now = new Date().toLocaleTimeString();
+            debugLogElement.innerHTML += `[${now}] ${message}\n`;
+            // Scroll to the bottom of the log
+            debugLogElement.scrollTop = debugLogElement.scrollHeight;
+        }
 
         /**
          * Switches the active view (Login or Forgot Password).
@@ -150,8 +180,10 @@
             messageDiv.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
             if (isError) {
                 messageDiv.classList.add('bg-red-100', 'text-red-800');
+                logDebug(`ERROR: ${text}`);
             } else {
                 messageDiv.classList.add('bg-green-100', 'text-green-800');
+                logDebug(`INFO: ${text}`);
             }
         }
         
@@ -164,6 +196,7 @@
             const email = emailInput.value;
             const password = document.getElementById('password').value;
             
+            logDebug('Attempting sign-in...');
             loginButton.disabled = true;
             loginButton.textContent = 'Signing In...';
             messageDiv.classList.add('hidden');
@@ -179,13 +212,18 @@
                     : error.message;
 
                 displayMessage(errorMessage, true);
-                console.error('Login Error:', error);
+                // We keep the console.error for backend logging if available
+                console.error('Login Error:', error); 
             } else {
                 displayMessage('Login successful! Redirecting...', false);
                 
-                // --- NEW REDIRECT LOGIC ---
+                // --- REDIRECT LOGIC ---
                 const intendedDestination = sessionStorage.getItem('intended_destination');
-                const redirectPath = intendedDestination || '/leaderboard.html'; 
+                logDebug(`Session Storage Intended Destination: ${intendedDestination}`);
+
+                // Use intended destination or default to /cohort.html
+                const redirectPath = intendedDestination || '/cohort.html'; 
+                logDebug(`Final Redirect Path: ${redirectPath}`);
                 
                 // Clear the item so the login page doesn't keep redirecting there unnecessarily
                 if (intendedDestination) {
@@ -193,7 +231,7 @@
                 }
                 
                 window.location.href = redirectPath;
-                // --- END NEW REDIRECT LOGIC ---
+                // --- END REDIRECT LOGIC ---
             }
             
             loginButton.disabled = false;
@@ -212,18 +250,18 @@
                 return;
             }
 
+            logDebug('Attempting password reset...');
             resetButton.disabled = true;
             resetButton.textContent = 'Sending...';
             displayMessage('Sending password reset link...', false);
 
-            // UPDATED: Set redirectTo to the new page where the user will update their password
+            // Set redirectTo to the new page where the user will update their password
             const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/update-password.html` 
             });
 
-            // Security Note: We intentionally DO NOT check if the user is registered.
-            // We give a generic success message to prevent user enumeration.
             if (error) {
+                logDebug(`Password Reset Supabase Error: ${error.message}`);
                 console.error('Password Reset Error:', error);
             }
             
@@ -240,11 +278,18 @@
          * Check if the user is already logged in and redirect them to their intended page.
          */
         async function checkExistingSession() {
+            logDebug('Checking for existing session...');
             const { data: { session } } = await supabaseClient.auth.getSession();
+            
             if (session) {
-                // --- NEW REDIRECT LOGIC ---
+                logDebug('Session found. Preparing redirect.');
+                // --- REDIRECT LOGIC ---
                 const intendedDestination = sessionStorage.getItem('intended_destination');
-                const redirectPath = intendedDestination || '/leaderboard.html';
+                logDebug(`Session Storage Intended Destination on Load: ${intendedDestination}`);
+
+                // Use intended destination or default to /cohort.html
+                const redirectPath = intendedDestination || '/cohort.html';
+                logDebug(`Final Redirect Path on Load: ${redirectPath}`);
                 
                 // Clear the item after using it
                 if (intendedDestination) {
@@ -252,7 +297,9 @@
                 }
                 
                 window.location.href = redirectPath;
-                // --- END NEW REDIRECT LOGIC ---
+                // --- END REDIRECT LOGIC ---
+            } else {
+                logDebug('No active session. Showing login form.');
             }
         }
 
