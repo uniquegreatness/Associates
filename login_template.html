@@ -215,7 +215,8 @@
                 // We keep the console.error for backend logging if available
                 console.error('Login Error:', error); 
             } else {
-                displayMessage('Login successful! Redirecting in 5 seconds...', false);
+                // Update message to reflect the new delay
+                displayMessage('Login successful! Redirecting in 40 seconds...', false); 
                 
                 // --- REDIRECT LOGIC ---
                 const intendedDestination = sessionStorage.getItem('intended_destination');
@@ -234,7 +235,7 @@
                 setTimeout(() => {
                     logDebug(`Redirecting to: ${redirectPath}`);
                     window.location.href = redirectPath;
-                }, 5000); // 5 second delay to allow copying of the Debug Log
+                }, 40000); // 40 second delay to allow copying of the Debug Log
                 // !!! END TEMPORARY DEBUG REDIRECT DELAY !!!
                 
             }
