@@ -463,15 +463,12 @@ app.get('/api/secure-data', async (req, res) => {
 app.listen(port, () => {
     console.log(`Backend server running on port ${port}`);
 });
-```eof
 
-***
-
-### ⚠️ Important Next Step
+⚠️ Important Next Step
 
 The name fix is complete. However, running the code may reveal a new error if the function signature in your database does not match the parameters we are passing now:
 
-```javascript
+
 // Step 1: Initial join call
 await supabase.rpc('complete_cohort_exchange', {
     p_cluster_id: p_cluster_id, 
