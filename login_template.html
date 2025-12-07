@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEARR Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase client load -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
@@ -16,16 +17,6 @@
         /* CSS to ensure views are hidden/shown correctly */
         .hidden-view {
             display: none;
-        }
-        /* Style for the on-screen debug log */
-        #debugLog {
-            white-space: pre-wrap;
-            font-size: 0.75rem;
-            line-height: 1.25;
-            min-height: 2rem;
-            max-height: 10rem;
-            overflow-y: auto;
-            word-break: break-all;
         }
     </style>
 </head>
@@ -103,14 +94,7 @@
             </form>
         </div>
         
-        <!-- ON-SCREEN DEBUG LOG SECTION -->
-        <div class="mt-6 pt-4 border-t border-gray-200">
-            <h3 class="text-sm font-bold text-gray-600 mb-2">Debug Log</h3>
-            <div id="debugLog" class="bg-gray-800 text-green-300 p-2 rounded-lg font-mono">
-                Awaiting sign-in or session check...
-            </div>
-        </div>
-        <!-- END DEBUG LOG SECTION -->
+        <!-- Removed ON-SCREEN DEBUG LOG SECTION -->
 
     </div>
 
@@ -120,7 +104,11 @@
         const SUPABASE_URL = '__SUPABASE_URL_INJECTION__'; 
         const SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
         
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Ensure supabase object is globally available from the CDN script tag
+        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+        if (!supabaseClient) {
+            console.error("FATAL: Supabase client failed to initialize. Check CDN script.");
+        }
         // ----------------------------------------
 
         const loginView = document.getElementById('loginView');
@@ -133,18 +121,8 @@
         const pageSubtitle = document.getElementById('pageSubtitle');
         const emailInput = document.getElementById('email');
         const resetEmailInput = document.getElementById('resetEmail');
-        const debugLogElement = document.getElementById('debugLog'); // New element reference
         
-        /**
-         * Utility function to log messages to the on-screen debug log.
-         * @param {string} message 
-         */
-        function logDebug(message) {
-            const now = new Date().toLocaleTimeString();
-            debugLogElement.innerHTML += `[${now}] ${message}\n`;
-            // Scroll to the bottom of the log
-            debugLogElement.scrollTop = debugLogElement.scrollHeight;
-        }
+        // Removed logDebug function
 
         /**
          * Switches the active view (Login or Forgot Password).
@@ -180,10 +158,10 @@
             messageDiv.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
             if (isError) {
                 messageDiv.classList.add('bg-red-100', 'text-red-800');
-                logDebug(`ERROR: ${text}`);
+                console.error(`UI Message (Error): ${text}`);
             } else {
                 messageDiv.classList.add('bg-green-100', 'text-green-800');
-                logDebug(`INFO: ${text}`);
+                console.log(`UI Message (Info): ${text}`);
             }
         }
         
@@ -192,16 +170,21 @@
          */
         async function handleLogin(event) {
             event.preventDefault();
+
+            if (!supabaseClient) {
+                displayMessage('Supabase service is not available.', true);
+                return;
+            }
             
             const email = emailInput.value;
             const password = document.getElementById('password').value;
             
-            logDebug('Attempting sign-in...');
+            console.log('Attempting sign-in...');
             loginButton.disabled = true;
             loginButton.textContent = 'Signing In...';
             messageDiv.classList.add('hidden');
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
+            const { error } = await supabaseClient.auth.signInWithPassword({
                 email: email,
                 password: password,
             });
@@ -212,25 +195,22 @@
                     : error.message;
 
                 displayMessage(errorMessage, true);
-                // We keep the console.error for backend logging if available
                 console.error('Login Error:', error); 
             } else {
                 displayMessage('Login successful! Redirecting...', false); 
                 
                 // --- REDIRECT LOGIC ---
                 const intendedDestination = sessionStorage.getItem('intended_destination');
-                logDebug(`Session Storage Intended Destination: ${intendedDestination}`);
+                console.log(`Session Storage Intended Destination: ${intendedDestination}`);
 
                 // Use intended destination or default to /cohort.html
                 const redirectPath = intendedDestination || '/cohort.html'; 
-                logDebug(`Final Redirect Path: ${redirectPath}`);
+                console.log(`Final Redirect Path: ${redirectPath}`);
                 
                 // Clear the item so the login page doesn't keep redirecting there unnecessarily
                 if (intendedDestination) {
                     sessionStorage.removeItem('intended_destination');
                 }
-                
-                // The temporary debug delay block has been removed.
                 
                 window.location.href = redirectPath;
             }
@@ -251,7 +231,12 @@
                 return;
             }
 
-            logDebug('Attempting password reset...');
+            if (!supabaseClient) {
+                displayMessage('Supabase service is not available.', true);
+                return;
+            }
+
+            console.log('Attempting password reset for:', email);
             resetButton.disabled = true;
             resetButton.textContent = 'Sending...';
             displayMessage('Sending password reset link...', false);
@@ -262,8 +247,7 @@
             });
 
             if (error) {
-                logDebug(`Password Reset Supabase Error: ${error.message}`);
-                console.error('Password Reset Error:', error);
+                console.error('Password Reset Supabase Error:', error);
             }
             
             // Display secure success message whether the user exists or not
@@ -279,18 +263,23 @@
          * Check if the user is already logged in and redirect them to their intended page.
          */
         async function checkExistingSession() {
-            logDebug('Checking for existing session...');
+            if (!supabaseClient) {
+                console.error('Cannot check session: Supabase client is null.');
+                return;
+            }
+            
+            console.log('Checking for existing session...');
             const { data: { session } } = await supabaseClient.auth.getSession();
             
             if (session) {
-                logDebug('Session found. Preparing redirect.');
+                console.log('Session found. Preparing redirect.');
                 // --- REDIRECT LOGIC ---
                 const intendedDestination = sessionStorage.getItem('intended_destination');
-                logDebug(`Session Storage Intended Destination on Load: ${intendedDestination}`);
+                console.log(`Session Storage Intended Destination on Load: ${intendedDestination}`);
 
                 // Use intended destination or default to /cohort.html
                 const redirectPath = intendedDestination || '/cohort.html';
-                logDebug(`Final Redirect Path on Load: ${redirectPath}`);
+                console.log(`Final Redirect Path on Load: ${redirectPath}`);
                 
                 // Clear the item after using it
                 if (intendedDestination) {
@@ -300,7 +289,7 @@
                 window.location.href = redirectPath;
                 // --- END REDIRECT LOGIC ---
             } else {
-                logDebug('No active session. Showing login form.');
+                console.log('No active session. Showing login form.');
             }
         }
 
