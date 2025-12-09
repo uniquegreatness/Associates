@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Cluster Contact Exchange</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase client load -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Define the primary color palette based on a bright blue */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        :root {
+            --primary-blue: #3b82f6; /* Tailwind blue-500 */
+            --light-blue: #eff6ff; /* Tailwind blue-50 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-blue);
+            color: #1f2937; /* Dark text for high contrast */
+        }
+        .card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px rgba(59, 130, 246, 0.15);
+        }
+        .join-btn {
+            background-color: var(--primary-blue);
+            transition: background-color 0.2s ease;
+        }
+        .join-btn:hover {
+            background-color: #2563eb; /* Tailwind blue-600 */
+        }
+        .full-btn {
+            background-color: #6b7280; /* Tailwind gray-500 */
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        .login-prompt-btn {
+            background-color: #f59e0b; /* Tailwind amber-500 */
+            transition: background-color 0.2s ease;
+        }
+        .login-prompt-btn:hover {
+             background-color: #d97706; /* Tailwind amber-600 */
+        }
+        /* Ensure the clamp works for card descriptions */
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;  
+            overflow: hidden;
+        }
+        .download-btn {
+            background-color: #10b981; /* Tailwind emerald-500 */
+            transition: background-color 0.2s ease;
+        }
+        .download-btn:hover {
+            background-color: #059669; /* Tailwind emerald-600 */
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-4">
+
+    <!-- Notification/Error Message Container (Replaces alert() and confirms()) -->
+    <div id="notificationArea" class="fixed top-4 right-4 z-50 w-full max-w-xs space-y-2">
+        <!-- Messages will be injected here -->
+    </div>
+
+    <!-- Header / Navigation Bar -->
+    <header class="bg-white shadow-lg sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <h1 class="text-2xl font-bold text-blue-600">NEAR Network</h1>
+                <nav>
+                    <!-- Nav content placeholder -->
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4 text-center">
+            Find Your Cohort
+        </h2>
+        <p class="text-center text-lg text-gray-500 mb-10 max-w-3xl mx-auto">
+            Join a cluster and connect mutually with 5 others who share your interests. Your contact details will only be exchanged once the cohort is full.
+        </p>
+        
+        <!-- Cards Grid -->
+        <div id="clusterGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Cards will be dynamically inserted here by JavaScript -->
+        </div>
+    </main>
+    
+    <!-- Modal for User Join Input (Profession Display Preference) -->
+    <div id="inputModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-6">
+            <h3 class="text-2xl font-bold text-gray-800 border-b pb-3">Final Step: Define Your VCF Display</h3>
+            
+            <form id="contactForm">
+                <input type="hidden" id="modalClusterId">
+                
+                <p class="text-sm text-gray-500 mb-4">
+                    Your profile data (Nickname, Profession, WhatsApp) will be fetched from the **`user_profiles`** table by the server. Please confirm how your name should appear in the shared contact file:
+                </p>
+
+                <div class="flex items-start p-4 border rounded-lg bg-blue-50">
+                    <div class="flex items-center h-5">
+                        <input id="displayProfession" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="displayProfession" class="font-bold text-gray-800">Display my Profession</label>
+                        <p class="text-gray-600 mt-1">
+                            <span class="font-semibold">Checked:</span> Name will be **[Nickname (Profession)]**.<br>
+                            <span class="font-semibold">Unchecked:</span> Name will be **[Nickname NEARR]** (Note the space).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal('inputModal')" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit" class="join-btn px-4 py-2 text-sm font-medium text-white rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Confirm Join Cluster
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for User Reset Confirmation -->
+    <div id="resetModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-6">
+            <h3 class="text-2xl font-bold text-red-600 border-b pb-3">Confirm Leave Cohort</h3>
+            
+            <p class="text-gray-700">
+                You are about to leave the cohort in the <span id="resetClusterName" class="font-bold text-red-800"></span> cluster.
+            </p>
+            <p class="text-sm text-gray-500">
+                If the cohort is incomplete, your slot will be immediately freed up. If the VCF file is still processing, you will lose access to the final contact list. **This action cannot be undone.**
+            </p>
+
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="button" onclick="closeModal('resetModal')" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                    Cancel
+                </button>
+                <button type="button" id="confirmResetBtn" class="bg-red-500 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2" onclick="handleReset()">
+                    I Understand, Leave Cohort
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Script Block -->
+    <script>
+        // --- 1. CONFIGURATION AND DATA ---
+
+        // Global variables provided by the environment (required for Supabase integration)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // These keys are expected to be injected by the hosting environment
+        const supabaseUrl = '__SUPABASE_URL_INJECTION__';
+        const supabaseAnonKey = '__SUPABASE_ANON_KEY_INJECTION__';
+
+        let supabase; // Global instance for the client
+        let userId = null;
+        let isAuthReady = false; // Tracks if the initial Supabase session check is complete
+
+        // The Fixed Capacity Cohort Size 
+        const MAX_COHORT_SIZE = 5;
+        
+        // ** STATE TRACKING **
+        // Tracks user's membership status for quick access: { cluster_id: { ..., user_is_member: true } }
+        let userClusterMemberships = {}; 
+        // Tracks the overall cohort status: { cluster_id: { cohort_id: 'C_1_2', is_full: false, current_members: 3, vcf_uploaded: false, vcf_file_name: null } }
+        let clusterStatusCache = {}; 
+        // Temp storage for the cluster ID pending reset confirmation
+        let pendingResetClusterId = null;
+
+        // Mock data for the 10 categories
+        const categories = [
+            { id: 1, name: "Personality Archetypes", details: "Groups people by how they think, socialize, and make decisions. Examples: analytical thinkers, creatives, explorers, nurturers, leaders." },
+            { id: 2, name: "Life Goals & Ambitions", details: "Connect people who are trying to achieve similar things. Examples: career growth, building wealth, self-improvement, spirituality, building a family, entrepreneurship." },
+            { id: 3, name: "Core Values", details: "Match people who share similar moral anchors. Examples: honesty, ambition, loyalty, freedom, tradition, creativity, fairness." },
+            { id: 4, name: "Social Energy & Interaction Style", details: "Helps users find people they vibe with socially. Examples: extroverts, introverts, ambiverts, deep conversationalists, social butterflies." },
+            { id: 5, name: "Hobbies & Personal Interests", details: "This is one of the strongest bonding categories. Examples: gaming, fitness, cooking, music, movies, travel, tech, art, books." },
+            { id: 6, name: "Work & Professional Lifestyle", details: "Groups people with similar work rhythms and environments. Examples: remote workers, creatives, entrepreneurs, students, tech professionals, business people." },
+            { id: 7, name: "Emotional & Relational Style", details: "Helps people find others who communicate in similar ways. Examples: peace-lovers, problem-solvers, deep feelers, logical communicators, supportive helpers." },
+            { id: 8, name: "Growth & Learning Preferences", details: "People who pursue self-development in similar ways. Examples: readers, podcast listeners, course takers, experimenters, mentors and mentees." },
+            { id: 9, name: "Lifestyle & Daily Habits", details: "Connects people with compatible lifestyles. Examples: early birds, night owls, fitness-focused, minimalists, adventurers, homebodies." },
+            { id: 10, name: "Worldview & Philosophy Type", details: "People bond when they see life in similar ways. Examples: realists, dreamers, optimists, analysts, spiritualists, humanitarians." }
+        ];
+
+        // --- 2. UI MANIPULATION AND HELPERS ---
+
+        /**
+         * Redirects the user to the login page, saving the current page as the intended destination.
+         */
+        function redirectToLogin() {
+            // Save the current full URL (path + query parameters) before redirecting
+            sessionStorage.setItem('intended_destination', window.location.pathname + window.location.search);
+            console.log(`Saved intended destination to: ${sessionStorage.getItem('intended_destination')}`);
+
+            showNotification("You must be logged in to join or download contacts. Redirecting to login...", 'info');
+            
+            // Wait a moment for the user to read the message, then redirect
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 1500);
+        }
+
+        /**
+         * Displays a notification message.
+         * @param {string} message - The message content.
+         * @param {string} type - 'success', 'error', or 'info'.
+         */
+        function showNotification(message, type) {
+            const area = document.getElementById('notificationArea');
+            const colorMap = {
+                'success': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400' },
+                'error': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400' },
+                'info': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-400' },
+            };
+            const colors = colorMap[type] || colorMap['info'];
+
+            const notification = document.createElement('div');
+            notification.className = `${colors.bg} ${colors.text} p-4 rounded-lg border-l-4 ${colors.border} shadow-lg transition-opacity duration-300`;
+            notification.textContent = message;
+
+            area.prepend(notification);
+            
+            if (type === 'error') {
+                console.error(`UI Notification (Error): ${message}`);
+            } else if (type === 'info') {
+                 console.warn(`UI Notification (Info): ${message}`);
+            } else {
+                 console.log(`UI Notification (Success): ${message}`);
+            }
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, 5000);
+        }
+
+        /**
+         * Opens the modal for joining (VCF input).
+         * @param {number} clusterId - The ID of the cluster the user is joining.
+         */
+        function showModal(clusterId) {
+             // Check if user is authenticated before opening the modal
+             if (!userId) {
+                redirectToLogin();
+                return;
+            }
+            document.getElementById('modalClusterId').value = clusterId;
+            document.getElementById('inputModal').classList.remove('hidden');
+            document.getElementById('inputModal').classList.add('flex');
+        }
+
+        /**
+         * Opens the modal for confirming reset/leave.
+         * @param {number} clusterId - The ID of the cluster the user is leaving.
+         * @param {string} clusterName - The name of the cluster for display.
+         */
+        function showResetConfirmation(clusterId, clusterName) {
+            if (!userId) {
+                redirectToLogin();
+                return;
+            }
+            pendingResetClusterId = clusterId; // Store ID for handleReset
+            document.getElementById('resetClusterName').textContent = clusterName;
+            document.getElementById('resetModal').classList.remove('hidden');
+            document.getElementById('resetModal').classList.add('flex');
+        }
+
+        /**
+         * Closes a specified modal.
+         * @param {string} modalId - The ID of the modal to close ('inputModal' or 'resetModal').
+         */
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+            if (modalId === 'inputModal') {
+                document.getElementById('contactForm').reset();
+            } else if (modalId === 'resetModal') {
+                pendingResetClusterId = null; // Clear pending ID
+            }
+        }
+
+        /**
+         * Renders the cluster cards based on the current state (from cache and membership).
+         */
+        function renderClusters() {
+            try {
+                console.log("Rendering cluster cards...");
+                
+                const grid = document.getElementById('clusterGrid');
+                if (!grid) {
+                     console.error("CRITICAL: 'clusterGrid' element not found!");
+                     showNotification("Fatal Error: Cannot find the card display area.", 'error');
+                     return; 
+                }
+
+                grid.innerHTML = ''; // Clear existing cards
+
+                categories.forEach(category => {
+                    const clusterId = category.id;
+                    const state = clusterStatusCache[clusterId] || { 
+                        cohort_id: `Cluster_${clusterId}`, // Default ID structure
+                        is_full: false, 
+                        current_members: 0,
+                        vcf_uploaded: false, // Default VCF status
+                        vcf_file_name: null, // Default VCF file name
+                    };
+                    
+                    // Check the 'user_is_member' status from the API result
+                    const userIsMember = userClusterMemberships[clusterId]?.user_is_member; 
+                    const remaining = MAX_COHORT_SIZE - state.current_members;
+                    
+                    // Combined status for download readiness
+                    const isDownloadReady = state.is_full && state.vcf_uploaded && state.vcf_file_name;
+
+                    let buttonText = 'Join Cluster';
+                    let buttonAction = `showModal(${clusterId})`;
+                    let buttonClass = 'join-btn';
+                    let secondaryButtonHTML = ''; // Button for Leave/Reset
+
+                    if (!isAuthReady) {
+                        buttonText = 'Loading...';
+                        buttonAction = '';
+                        buttonClass = 'bg-gray-400 cursor-not-allowed';
+                    } else if (!userId) {
+                        // User is not logged in
+                        buttonText = 'Log in to Join';
+                        buttonAction = 'redirectToLogin()';
+                        buttonClass = 'login-prompt-btn'; 
+                    } else if (userIsMember && isDownloadReady) {
+                        // Scenario 1: Cohort is full, VCF uploaded, AND user is a member -> Download is available
+                        buttonText = 'Download Contacts (VCF Ready)';
+                        const fileNameToUse = state.vcf_file_name || state.cohort_id; 
+                        buttonAction = `downloadContacts('${fileNameToUse}')`;
+                        buttonClass = 'download-btn hover:bg-green-700';
+                        
+                        // User can still choose to leave the cohort if they want to join a different one
+                        secondaryButtonHTML = `
+                            <button 
+                                class="w-full text-sm mt-2 text-red-600 bg-red-100 font-semibold py-1 rounded-lg hover:bg-red-200 transition-colors duration-150" 
+                                onclick="showResetConfirmation(${clusterId}, '${category.name}')" 
+                            >
+                                Leave Cohort / Reset
+                            </button>
+                        `;
+
+                    } else if (userIsMember && state.is_full && !isDownloadReady) {
+                         // Scenario 1b: Cohort is full, but VCF is not uploaded yet (transient state)
+                        buttonText = 'Processing VCF... (Wait)';
+                        buttonAction = '';
+                        buttonClass = 'full-btn';
+                        
+                        // Add reset button
+                        secondaryButtonHTML = `
+                            <button 
+                                class="w-full text-sm mt-2 text-red-600 bg-red-100 font-semibold py-1 rounded-lg hover:bg-red-200 transition-colors duration-150" 
+                                onclick="showResetConfirmation(${clusterId}, '${category.name}')" 
+                            >
+                                Leave Cohort / Reset
+                            </button>
+                        `;
+                    } else if (userIsMember && !state.is_full) {
+                        // Scenario 2: User is a member, waiting for cohort to fill 
+                        buttonText = `Joined! (${remaining} spots left)`;
+                        buttonAction = ''; // Cannot rejoin
+                        buttonClass = 'full-btn'; // Greyed-out for members waiting
+                        
+                        // Add reset button
+                        secondaryButtonHTML = `
+                            <button 
+                                class="w-full text-sm mt-2 text-red-600 bg-red-100 font-semibold py-1 rounded-lg hover:bg-red-200 transition-colors duration-150" 
+                                onclick="showResetConfirmation(${clusterId}, '${category.name}')" 
+                            >
+                                Leave Cohort / Reset
+                            </button>
+                        `;
+                    } else if (state.is_full && !userIsMember) {
+                        // Scenario 3: Cohort is full, but the user is not a member. 
+                        buttonText = 'Cluster Full (Wait for next)';
+                        buttonAction = ''; 
+                        buttonClass = 'full-btn'; 
+                    } else {
+                        // Scenario 4: Cohort is active/open (Authenticated Non-member)
+                        buttonText = `Join Cluster (${remaining} spots open)`;
+                        buttonAction = `showModal(${clusterId})`;
+                        buttonClass = 'join-btn'; 
+                    }
+
+                    const cardHTML = `
+                        <div class="card bg-white p-6 rounded-xl space-y-4">
+                            <h3 class="text-xl font-semibold text-blue-600">${category.name}</h3>
+                            <p class="text-gray-500 text-sm h-16 line-clamp-3">
+                                ${category.details}
+                            </p>
+                            <button 
+                                class="${buttonClass} w-full text-white font-semibold py-2 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-150" 
+                                onclick="${buttonAction}" 
+                                data-cluster-id="${clusterId}"
+                                ${!isAuthReady && buttonAction === '' ? 'disabled' : ''}
+                            >
+                                ${buttonText}
+                            </button>
+                            ${secondaryButtonHTML} 
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', cardHTML);
+                });
+                
+                console.log("renderClusters finished.");
+
+            } catch (error) {
+                console.error("CRITICAL RENDER FAILURE:", error);
+                showNotification(`Fatal rendering error: ${error.message}. Check console for details.`, 'error');
+            }
+        }
+        
+        // --- 3. CORE LOGIC (Node.js API Call Assumptions) ---
+
+        /**
+         * Checks the current status for all 10 categories on page load.
+         */
+        async function checkAllClusterStatuses() {
+            if (!userId) {
+                console.log("Skipping status check: User not logged in.");
+                return;
+            }
+            
+            showNotification('Checking cluster membership status...', 'info');
+
+            const statusChecks = categories.map(async (category) => {
+                const clusterId = category.id;
+                
+                // Use exponential backoff for robustness
+                const MAX_RETRIES = 3;
+                for (let i = 0; i < MAX_RETRIES; i++) {
+                    try {
+                        const response = await fetch(`/api/cohort-status?cluster_id=${clusterId}&user_id=${userId}`, {
+                            method: 'GET',
+                        });
+
+                        const result = await response.json();
+
+                        if (!response.ok || !result.success) {
+                            throw new Error(result.message || 'Unknown status check error');
+                        }
+                        
+                        // Update the global state caches to include vcf_file_name and status
+                        clusterStatusCache[clusterId] = {
+                            cohort_id: result.cohort_id,
+                            is_full: result.is_full,
+                            current_members: result.current_members,
+                            vcf_uploaded: result.vcf_uploaded || false,
+                            vcf_file_name: result.vcf_file_name || null, 
+                        };
+
+                        // Update membership cache based on server response
+                        if (result.user_is_member) {
+                            userClusterMemberships[clusterId] = { ...clusterStatusCache[clusterId], user_is_member: true };
+                        } else {
+                             delete userClusterMemberships[clusterId];
+                        }
+                        return; // Success, exit retry loop
+
+                    } catch (error) {
+                        console.warn(`Status check failed for Cluster ${clusterId} (Attempt ${i + 1}/${MAX_RETRIES}):`, error.message);
+                        if (i === MAX_RETRIES - 1) {
+                            console.error(`Status check ultimately failed for Cluster ${clusterId}.`);
+                            return;
+                        }
+                        // Exponential backoff wait
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    }
+                }
+            });
+
+            await Promise.all(statusChecks);
+            console.log("All cluster statuses checked. Rendering final state.");
+            renderClusters(); // Render once all checks are complete
+        }
+
+        /**
+         * Handles the form submission to join a cluster via the backend API.
+         */
+        async function handleFormSubmission(event) {
+            event.preventDefault();
+
+            if (!userId) {
+                redirectToLogin();
+                closeModal('inputModal');
+                return;
+            }
+
+            const clusterId = document.getElementById('modalClusterId').value;
+            const displayProfession = document.getElementById('displayProfession').checked; 
+
+            const joinData = {
+                p_cluster_id: parseInt(clusterId),
+                p_display_profession: displayProfession,
+                p_user_id: userId,
+            };
+            
+            closeModal('inputModal');
+            showNotification(`Attempting to join cluster ${clusterId}...`, 'info');
+            
+            // Disable all buttons to prevent double-click while joining
+            document.querySelectorAll('.card button').forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch('/api/join-cluster', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(joinData)
+                });
+
+                const result = await response.json(); 
+                
+                if (!response.ok || !result.success) {
+                    const errorMessage = result.message || 'Server error during cluster join.';
+                    console.error(`API Call Failed: ${errorMessage}`);
+                    showNotification(errorMessage, 'error');
+                    
+                    // Re-check statuses to ensure button states are accurate after an error
+                    await checkAllClusterStatuses(); 
+                    return;
+                }
+                
+                // --- SUCCESS: Update Client State ---
+                const { cohort_id, is_full, current_members } = result;
+                
+                clusterStatusCache[clusterId] = {
+                    cohort_id: cohort_id,
+                    is_full: is_full,
+                    current_members: current_members,
+                    vcf_uploaded: false, // Assume false initially after joining
+                    vcf_file_name: null, // Assume null initially after joining
+                };
+                
+                userClusterMemberships[clusterId] = { ...clusterStatusCache[clusterId], user_is_member: true };
+                
+                renderClusters();
+                
+                if (is_full) {
+                    showNotification(`Success! Cohort ${cohort_id} is now FULL. Checking VCF status...`, 'success');
+                    // Rerun status check to confirm VCF upload status
+                    await checkAllClusterStatuses(); 
+                } else {
+                    const remaining = MAX_COHORT_SIZE - current_members;
+                    showNotification(`Successfully joined ${cohort_id}! Waiting for ${remaining.toLocaleString()} more members.`, 'success');
+                }
+
+            } catch (error) {
+                console.error('Error joining cluster (Network/Parse error).', error);
+                showNotification('An internal error occurred. Check console for details.', 'error');
+            }
+        }
+
+        /**
+         * Handles the confirmation of the reset/leave action and calls the API.
+         */
+        async function handleReset() {
+            if (!pendingResetClusterId || !userId) {
+                console.error("Reset triggered without valid cluster ID or user ID.");
+                closeModal('resetModal');
+                return;
+            }
+
+            const clusterId = pendingResetClusterId;
+            closeModal('resetModal');
+            
+            showNotification(`Attempting to leave cluster ${clusterId}...`, 'info');
+            
+            // Disable buttons during API call
+            document.querySelectorAll('.card button').forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch('/api/reset-cluster', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        p_cluster_id: parseInt(clusterId),
+                        p_user_id: userId,
+                    })
+                });
+
+                const result = await response.json(); 
+                
+                if (!response.ok || !result.success) {
+                    const errorMessage = result.message || 'Server error during cluster reset.';
+                    console.error(`API Reset Call Failed: ${errorMessage}`);
+                    showNotification(errorMessage, 'error');
+                    await checkAllClusterStatuses(); // Re-check to restore state
+                    return;
+                }
+                
+                // --- SUCCESS: Update Client State ---
+                delete userClusterMemberships[clusterId];
+                pendingResetClusterId = null; // Clear state
+                
+                // Force a status refresh, the server will tell us the new current_members count
+                await checkAllClusterStatuses();
+                
+                showNotification(`Successfully left Cluster ${clusterId}. You can now join a new one.`, 'success');
+
+            } catch (error) {
+                console.error('Error leaving cluster (Network/Parse error).', error);
+                showNotification('An internal error occurred while leaving the cluster. Check console.', 'error');
+            }
+        }
+
+        /**
+         * Initiates the download of the VCF file for a completed cohort.
+         * @param {string} fileName - The full name of the VCF file in storage (e.g., 'Cluster_Contacts_C_1_1234.vcf').
+         */
+        async function downloadContacts(fileName) { 
+            if (!userId) {
+                redirectToLogin();
+                return;
+            }
+
+            showNotification(`Requesting contact file: ${fileName}...`, 'info');
+
+            try {
+                const response = await fetch(`/api/download-contacts?file_name=${fileName}`, {
+                    method: 'GET',
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        throw new Error(errorJson.message || 'Server error during contact file retrieval.');
+                    } catch {
+                         throw new Error(errorText || 'Failed to retrieve file. It may not be fully generated yet.');
+                    }
+                }
+
+                const contentType = response.headers.get("Content-Type");
+
+                if (contentType && contentType.includes('text/vcard')) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = fileName; 
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showNotification('Download started successfully!', 'success');
+                } else {
+                    throw new Error('The server did not return a valid VCF file format (expected text/vcard).');
+                }
+
+            } catch (error) {
+                console.error('Download failed.', error);
+                showNotification(error.message || 'Download failed. The file may not be fully generated yet.', 'error');
+            }
+        }
+
+        // --- 4. SUPABASE INITIALIZATION (Client-side Silent Auth) ---
+        async function initializeSupabase() {
+            console.log("Supabase initialization sequence started.");
+            
+            if (!window.supabase || !window.supabase.createClient) {
+                 console.error("FATAL: Supabase library not found on global window object.");
+                 isAuthReady = true;
+                 renderClusters();
+                 return;
+            }
+            
+            try {
+                // Initialize the client
+                supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+                // Attempt to retrieve the session token (silent authentication)
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    throw error;
+                }
+
+                if (session && session.user) {
+                    userId = session.user.id;
+                    console.log(`User Authenticated. ID: ${userId.substring(0, 8)}...`); 
+                } else {
+                    console.log("No active session found. Running as Guest.");
+                }
+
+            } catch (error) {
+                console.error("Supabase Initialization Failed (Fatal).", error);
+                showNotification("App failed to initialize. See console for details.", 'error');
+                
+            } finally {
+                // Mark authentication check as complete
+                isAuthReady = true; 
+                
+                // CRITICAL: After auth check, load the state from the server for members/guests
+                if (userId) {
+                    await checkAllClusterStatuses(); 
+                } else {
+                    // Render immediately if guest to show the "Log in to Join" buttons
+                    renderClusters(); 
+                }
+            }
+        }
+
+        // --- 5. INITIALIZATION ---
+
+        // Expose required functions to the global scope for onclick handlers
+        window.redirectToLogin = redirectToLogin; 
+        window.downloadContacts = downloadContacts;
+        window.showModal = showModal;
+        window.closeModal = closeModal;
+        window.showResetConfirmation = showResetConfirmation; // New function
+        window.handleReset = handleReset; // New function
+        
+        // Add event listener for join form submission
+        document.getElementById('contactForm').addEventListener('submit', handleFormSubmission);
+        
+        // Start the application sequence
+        initializeSupabase();
+
+    </script>
+</body>
+</html>
