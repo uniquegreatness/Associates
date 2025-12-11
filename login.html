@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEARR Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* light gray background */
+        }
+        /* CSS to ensure views are hidden/shown correctly */
+        .hidden-view {
+            display: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-sm bg-white rounded-xl shadow-2xl p-6 sm:p-8 border border-blue-100">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold text-blue-700">NEARR Dashboard</h1>
+            <p class="text-gray-500 mt-1" id="pageSubtitle">Sign in to view your leaderboard rank.</p>
+        </div>
+
+        <div id="message" class="hidden p-3 mb-4 rounded-lg text-sm font-medium" role="alert"></div>
+
+        <div id="loginView">
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="space-y-4">
+                    
+                    <div>
+                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                        <input type="email" id="email" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                               placeholder="you@example.com">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
+                            <a href="#" onclick="showView('forgot')" class="text-xs font-medium text-blue-600 hover:text-blue-800 transition duration-150">
+                                Forgot Password?
+                            </a>
+                        </div>
+                        <input type="password" id="password" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                               placeholder="********">
+                    </div>
+
+                    <button type="submit" id="loginButton"
+                            class="w-full py-3 mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full text-lg transition duration-200 shadow-md">
+                        Sign In
+                    </button>
+                </div>
+            </form>
+
+            <p class="text-center text-sm text-gray-500 mt-6">
+                Not registered? You can only join through the waitlist.
+                <a href="/newwaitlist.html" class="text-blue-600 hover:text-blue-800 font-semibold underline">
+                    Go to Waitlist
+                </a>
+            </p>
+        </div>
+        
+        <div id="forgotView" class="hidden-view">
+            <p class="text-gray-600 mb-4">Enter your email address to receive a password reset link.</p>
+            
+            <form id="forgotPasswordForm" onsubmit="handlePasswordReset(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label for="resetEmail" class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                        <input type="email" id="resetEmail" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                               placeholder="your@email.com">
+                    </div>
+
+                    <button type="submit" id="resetButton"
+                            class="w-full py-3 mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-full text-lg transition duration-200 shadow-md">
+                        Send Reset Link
+                    </button>
+                    
+                    <button type="button" onclick="showView('login')"
+                            class="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-full text-lg transition duration-200">
+                        Back to Login
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        </div>
+
+    <script>
+        // --- Supabase Client Initialization ---
+        // NOTE: These values are placeholders; the server will replace them with the actual config
+        const SUPABASE_URL = '__SUPABASE_URL_INJECTION__'; 
+        const SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
+        
+        // Ensure supabase object is globally available from the CDN script tag
+        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+        if (!supabaseClient) {
+            console.error("FATAL: Supabase client failed to initialize. Check CDN script.");
+        }
+        // ----------------------------------------
+
+        const loginView = document.getElementById('loginView');
+        const forgotView = document.getElementById('forgotView');
+        const loginForm = document.getElementById('loginForm');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        const loginButton = document.getElementById('loginButton');
+        const resetButton = document.getElementById('resetButton');
+        const messageDiv = document.getElementById('message');
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        const emailInput = document.getElementById('email');
+        const resetEmailInput = document.getElementById('resetEmail');
+        
+        // Removed logDebug function
+
+        /**
+         * Switches the active view (Login or Forgot Password).
+         * @param {'login' | 'forgot'} viewName 
+         */
+        function showView(viewName) {
+            messageDiv.classList.add('hidden');
+            loginButton.disabled = false;
+            if (resetButton) resetButton.disabled = false;
+            
+            if (viewName === 'login') {
+                forgotView.classList.add('hidden-view');
+                loginView.classList.remove('hidden-view');
+                pageSubtitle.textContent = 'Sign in to view your leaderboard rank.';
+                forgotPasswordForm.classList.remove('hidden-view');
+            } else if (viewName === 'forgot') {
+                loginView.classList.add('hidden-view');
+                forgotView.classList.remove('hidden-view');
+                pageSubtitle.textContent = 'Reset your password.';
+                
+                // Pre-populate reset email if login email was filled
+                if (emailInput.value) {
+                    resetEmailInput.value = emailInput.value;
+                }
+            }
+        }
+
+
+        /**
+         * Utility function to display messages
+         */
+        function displayMessage(text, isError = false) {
+            messageDiv.textContent = text;
+            messageDiv.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            if (isError) {
+                messageDiv.classList.add('bg-red-100', 'text-red-800');
+                console.error(`UI Message (Error): ${text}`);
+            } else {
+                messageDiv.classList.add('bg-green-100', 'text-green-800');
+                console.log(`UI Message (Info): ${text}`);
+            }
+        }
+        
+        /**
+         * Handles the LOGIN form submission and redirects to the intended destination.
+         */
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            if (!supabaseClient) {
+                displayMessage('Supabase service is not available.', true);
+                return;
+            }
+            
+            const email = emailInput.value;
+            const password = document.getElementById('password').value;
+            
+            console.log('Attempting sign-in...');
+            loginButton.disabled = true;
+            loginButton.textContent = 'Signing In...';
+            messageDiv.classList.add('hidden');
+
+            const { error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                const errorMessage = error.message.includes('Invalid login credentials') 
+                    ? 'Error: Invalid email or password.' 
+                    : error.message;
+
+                displayMessage(errorMessage, true);
+                console.error('Login Error:', error); 
+            } else {
+                displayMessage('Login successful! Redirecting...', false); 
+                
+                // --- REDIRECT LOGIC ---
+                const intendedDestination = sessionStorage.getItem('intended_destination');
+                console.log(`Session Storage Intended Destination: ${intendedDestination}`);
+
+                // Use intended destination or default to /cohort.html
+                const redirectPath = intendedDestination || '/cohort.html'; 
+                console.log(`Final Redirect Path: ${redirectPath}`);
+                
+                // Clear the item so the login page doesn't keep redirecting there unnecessarily
+                if (intendedDestination) {
+                    sessionStorage.removeItem('intended_destination');
+                }
+                
+                window.location.href = redirectPath;
+            }
+            
+            loginButton.disabled = false;
+            loginButton.textContent = 'Sign In';
+        }
+
+        /**
+         * Handles the FORGOT PASSWORD form submission.
+         */
+        async function handlePasswordReset(event) {
+            event.preventDefault();
+            const email = resetEmailInput.value;
+
+            if (!email) {
+                displayMessage('Please enter your email address.', true);
+                return;
+            }
+
+            if (!supabaseClient) {
+                displayMessage('Supabase service is not available.', true);
+                return;
+            }
+
+            console.log('Attempting password reset for:', email);
+            resetButton.disabled = true;
+            resetButton.textContent = 'Sending...';
+            displayMessage('Sending password reset link...', false);
+
+            // Set redirectTo to the new page where the user will update their password
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/update-password.html` 
+            });
+
+            if (error) {
+                console.error('Password Reset Supabase Error:', error);
+            }
+            
+            // Display secure success message whether the user exists or not
+            displayMessage(`If an account is registered with ${email}, a password reset link has been sent to your inbox.`, false);
+            forgotPasswordForm.classList.add('hidden-view');
+
+            resetButton.disabled = false;
+            resetButton.textContent = 'Send Reset Link';
+        }
+
+
+        /**
+         * Check if the user is already logged in and redirect them to their intended page.
+         */
+        async function checkExistingSession() {
+            if (!supabaseClient) {
+                console.error('Cannot check session: Supabase client is null.');
+                return;
+            }
+            
+            console.log('Checking for existing session...');
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            
+            if (session) {
+                console.log('Session found. Preparing redirect.');
+                // --- REDIRECT LOGIC ---
+                const intendedDestination = sessionStorage.getItem('intended_destination');
+                console.log(`Session Storage Intended Destination on Load: ${intendedDestination}`);
+
+                // Use intended destination or default to /cohort.html
+                const redirectPath = intendedDestination || '/cohort.html';
+                console.log(`Final Redirect Path on Load: ${redirectPath}`);
+                
+                // Clear the item after using it
+                if (intendedDestination) {
+                    sessionStorage.removeItem('intended_destination');
+                }
+                
+                window.location.href = redirectPath;
+                // --- END REDIRECT LOGIC ---
+            } else {
+                console.log('No active session. Showing login form.');
+                // NEW: If no session, check the hash to see if we should show the forgot view.
+                if (window.location.hash === '#forgot') {
+                    // Check if we came from an admin page which might need a different redirect later
+                    // We don't store the current path, but we show the view.
+                    showView('forgot');
+                }
+            }
+        }
+
+        // Run session check on page load
+        checkExistingSession();
+    </script>
+
+</body>
+</html>
