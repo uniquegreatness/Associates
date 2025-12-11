@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Cluster Contact Exchange</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Define the primary color palette based on a bright blue */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        :root {
+            --primary-blue: #3b82f6; /* Tailwind blue-500 */
+            --light-blue: #eff6ff; /* Tailwind blue-50 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-blue);
+            color: #1f2937; /* Dark text for high contrast */
+        }
+        .card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px rgba(59, 130, 246, 0.15);
+        }
+        /* Style for highlighted referral card */
+        .card-highlight {
+            border: 2px solid #f59e0b; /* Amber/Yellow border */
+            transform: scale(1.02);
+            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+        }
+        .join-btn {
+            background-color: var(--primary-blue);
+            transition: background-color 0.2s ease;
+        }
+        .join-btn:hover {
+            background-color: #2563eb; /* Tailwind blue-600 */
+        }
+        .full-btn {
+            background-color: #6b7280; /* Tailwind gray-500 */
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        .login-prompt-btn {
+            background-color: #f59e0b; /* Tailwind amber-500 */
+            transition: background-color 0.2s ease;
+        }
+        .login-prompt-btn:hover {
+             background-color: #d97706; /* Tailwind amber-600 */
+        }
+        /* Ensure the clamp works for card descriptions */
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;  
+            overflow: hidden;
+        }
+        .download-btn {
+            background-color: #10b981; /* Tailwind emerald-500 */
+            transition: background-color 0.2s ease;
+        }
+        .download-btn:hover {
+            background-color: #059669; /* Tailwind emerald-600 */
+        }
+        /* Custom class for the Member Action Button container */
+        .member-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr; /* 3 buttons for now */
+            gap: 8px;
+        }
+        .action-btn {
+            padding: 8px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        /* Styling for the new member action buttons */
+        .share-btn { background-color: #f59e0b; color: white; }
+        .share-btn:hover { background-color: #d97706; }
+        .stats-btn { background-color: #3b82f6; color: white; }
+        .stats-btn:hover { background-color: #2563eb; }
+        /* Style for the popularity tags in the stats modal */
+        .popularity-tag {
+            padding: 2px 6px;
+            border-radius: 9999px; /* Full rounded corners */
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+        .pop-most { background-color: #d1fae5; color: #065f46; } /* Green */
+        .pop-avg { background-color: #fef3c7; color: #b45309; } /* Amber */
+        .pop-less { background-color: #fee2e2; color: #991b1b; } /* Red */
+    </style>
+</head>
+<body class="min-h-screen pb-4">
+
+    <div id="notificationArea" class="fixed top-4 right-4 z-50 w-full max-w-xs space-y-2">
+        </div>
+
+    <header class="bg-white shadow-lg sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <h1 class="text-2xl font-bold text-blue-600">NEAR Network</h1>
+                <nav>
+                    </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4 text-center">
+            Find Your Cohort
+        </h2>
+        <p class="text-center text-lg text-gray-500 mb-10 max-w-3xl mx-auto">
+            Join a cluster and connect mutually with 5 others who share your interests. Your contact details will only be exchanged once the cohort is full.
+        </p>
+        
+        <div id="clusterGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div id="loadingClusters" class="col-span-full text-center py-12 text-gray-500">
+                <i data-lucide="loader" class="w-8 h-8 mx-auto animate-spin text-blue-500"></i>
+                <p class="mt-3 text-lg font-medium">Loading Interest Clusters...</p>
+            </div>
+            </div>
+    </main>
+    
+    <div id="inputModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-6">
+            <h3 class="text-2xl font-bold text-gray-800 border-b pb-3">Final Step: Define Your VCF Display</h3>
+            
+            <form id="contactForm">
+                <input type="hidden" id="modalClusterId">
+                
+                <p class="text-sm text-gray-500 mb-4">
+                    Your profile data (Nickname, Profession, WhatsApp) will be fetched from the **`user_profiles`** table by the server. Please confirm how your name should appear in the shared contact file:
+                </p>
+
+                <div class="flex items-start p-4 border rounded-lg bg-blue-50">
+                    <div class="flex items-center h-5">
+                        <input id="displayProfession" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="displayProfession" class="font-bold text-gray-800">Display my Profession</label>
+                        <p class="text-gray-600 mt-1">
+                            <span class="font-semibold">Checked:</span> Name will be **[Nickname (Profession)]**.<br>
+                            <span class="font-semibold">Unchecked:</span> Name will be **[Nickname NEARR]** (Note the space).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal('inputModal')" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit" class="join-btn px-4 py-2 text-sm font-medium text-white rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Confirm Join Cluster
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="statsModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-2xl font-bold text-gray-800" id="statsModalTitle">Cluster Statistics: Loading...</h3>
+                <button type="button" onclick="closeModal('statsModal')" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-grow">
+                <div id="statsModalContent" class="space-y-8">
+                    
+                    <div id="statsSummary" class="bg-gray-50 p-4 rounded-xl shadow-inner">
+                        <h4 class="font-bold text-lg mb-4 text-blue-600">Demographic Overview</h4>
+                        <div id="statsPlaceholder" class="text-gray-500 text-center py-4">
+                            Loading statistical data...
+                        </div>
+                        
+                        <div id="statsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm hidden">
+                            <div class="space-y-2">
+                                <p><span class="font-semibold text-gray-700">Age Range:</span> <span id="stat_age">N/A</span></p>
+                                <p><span class="font-semibold text-gray-700">Gender Breakdown:</span></p>
+                                <ul id="stat_gender" class="ml-4 list-disc text-gray-600">
+                                    </ul>
+                                <p><span class="font-semibold text-gray-700">Geographic Mix:</span></p>
+                                <ul id="stat_country" class="ml-4 list-disc text-gray-600">
+                                    </ul>
+                            </div>
+                            
+                            <div>
+                                <p class="font-semibold text-gray-700 mb-2">Profession Mix (Top 5):</p>
+                                <ul id="stat_profession" class="space-y-1">
+                                    </ul>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-bold text-lg mb-2 text-gray-800">Current Members (<span id="memberCount">0</span>/<span id="maxCount">5</span>)</h4>
+                        <div class="overflow-x-auto rounded-xl border border-gray-200">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nickname</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Looking For</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available For</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="memberTableBody" class="bg-white divide-y divide-gray-200">
+                                    </tbody>
+                            </table>
+                        </div>
+                        <p id="memberLoading" class="text-center text-sm text-gray-500 mt-4">Loading member list...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t flex justify-end">
+                <button type="button" onclick="closeModal('statsModal')" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // --- 1. CONFIGURATION AND DATA ---
+
+        // Global variables provided by the environment (required for Supabase integration)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // These keys are expected to be injected by the hosting environment
+        const supabaseUrl = '__SUPABASE_URL_INJECTION__';
+        const supabaseAnonKey = '__SUPABASE_ANON_KEY_INJECTION__';
+
+        let supabase; // Global instance for the client
+        let userId = null;
+        let userReferralCode = null;
+        let isAuthReady = false; // Tracks if the initial Supabase session check is complete
+
+        // Viewer's Country - Set to a placeholder. It will be determined dynamically upon successful authentication.
+        let userCountry = "Loading Country..."; 
+        
+        // ** DYNAMIC CLUSTER DATA **
+        // Global array to hold clusters fetched from Supabase
+        let dynamicClusters = []; 
+        
+        // The Fixed Capacity Cohort Size 
+        const MAX_COHORT_SIZE = 5;
+        
+        // ** STATE TRACKING **
+        // Tracks user's membership status for quick access: { cluster_id: { ..., user_is_member: true } }
+        let userClusterMemberships = {}; 
+        // Tracks the overall cohort status: { cluster_id: { cohort_id: 'C_1_2', is_full: false, current_members: 3, vcf_uploaded: false, vcf_file_name: null } }
+        let clusterStatusCache = {}; 
+        
+        // ** REFERRAL STATE TRACKING **
+        let highlightedClusterId = null; // Cluster ID from referral link, used for UI highlight
+
+
+        /**
+         * Fetches all clusters from the dynamic_clusters Supabase table.
+         * Populates the global dynamicClusters array.
+         */
+        async function fetchClustersFromSupabase() {
+            try {
+                if (!supabase) throw new Error("Supabase client is not initialized.");
+                
+                // Select ID, name, and details from the new dynamic_clusters table
+                const { data, error } = await supabase
+                    .from('dynamic_clusters')
+                    .select('id, name, details, max_members')
+                    .order('id', { ascending: true }); // Order by ID to keep a consistent display order
+
+                if (error) {
+                    console.error('Supabase Error fetching dynamic clusters:', error);
+                    showNotification(`Error loading clusters: ${error.message}`, 'error');
+                    // Fallback: Use empty array if fetch fails, but allow app to continue
+                    dynamicClusters = []; 
+                } else {
+                    dynamicClusters = data;
+                    console.log(`Successfully loaded ${dynamicClusters.length} clusters from Supabase.`);
+                }
+
+            } catch (err) {
+                console.error('Fatal Error in fetchClustersFromSupabase:', err);
+                dynamicClusters = []; // Ensure it's empty on fatal error
+                showNotification('Fatal error during initial cluster fetch.', 'error');
+            }
+        }
+
+
+        /**
+         * Fetches the customized message template from Supabase for the given cluster.
+         * Assumes a table named 'referral_message_templates' with column 'template_content'.
+         * @param {number} clusterId - The ID of the cluster.
+         * @returns {Promise<string>} - The message template containing the {{referral_link}} placeholder.
+         */
+        async function fetchClusterReferralMessage(clusterId) {
+            try {
+                if (!supabase) throw new Error("Supabase client is not initialized.");
+
+                // 1. Fetch the message template from the correct table and column (FIXED)
+                const { data, error } = await supabase
+                    .from('referral_message_templates') 
+                    .select('template_content')         
+                    .eq('cluster_id', clusterId)
+                    .single();
+                
+                // If there's an error and it's not just "no rows found" (PGRST116), log and notify.
+                if (error && error.code !== 'PGRST116') {
+                    console.error('Supabase Error fetching referral message:', error);
+                    showNotification(`Error fetching custom message: ${error.message}`, 'error');
+                }
+
+                // 2. Determine the raw template (either fetched or default fallback). Note data?.template_content
+                let rawTemplate = data?.template_content || "Join this unique interest cohort I'm in on NEAR Network! Get your unique link here: {{referral_link}}";
+
+                // 3. Find the Cluster Name for substitution (NOW USING DYNAMIC CLUSTERS)
+                const clusterName = dynamicClusters.find(c => c.id === clusterId)?.name || 'a unique interest';
+                
+                // 4. Replace the [Cluster Name] placeholder if present
+                if (rawTemplate.includes('[Cluster Name]')) {
+                    rawTemplate = rawTemplate.replace('[Cluster Name]', clusterName);
+                }
+                
+                // 5. Return the template. {{referral_link}} will be replaced in generateShareLink.
+                return rawTemplate;
+
+            } catch (err) {
+                console.error('Fatal Error in fetchClusterReferralMessage:', err);
+                // Secondary network fallback in case of fatal error
+                return "Hey, check out this great cluster on NEAR Network! Get your unique link here: {{referral_link}}";
+            }
+        }
+        
+        // --- 2. UI MANIPULATION AND HELPERS ---
+
+        /**
+         * Redirects the user to the login page, saving the current page as the intended destination.
+         */
+        function redirectToLogin() {
+            // Save the current full URL (path + query parameters) before redirecting
+            sessionStorage.setItem('intended_destination', window.location.pathname + window.location.search);
+            console.log(`Saved intended destination to: ${sessionStorage.getItem('intended_destination')}`);
+
+            showNotification("You must be logged in to join or download contacts. Redirecting to login...", 'info');
+            
+            // Wait a moment for the user to read the message, then redirect
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 1500);
+        }
+
+        /**
+         * Displays a notification message.
+         * @param {string} message - The message content.
+         * @param {string} type - 'success', 'error', or 'info'.
+         */
+        function showNotification(message, type) {
+            const area = document.getElementById('notificationArea');
+            const colorMap = {
+                'success': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400' },
+                'error': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400' },
+                'info': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-400' },
+            };
+            const colors = colorMap[type] || colorMap['info'];
+
+            const notification = document.createElement('div');
+            notification.className = `${colors.bg} ${colors.text} p-4 rounded-lg border-l-4 ${colors.border} shadow-lg transition-opacity duration-300`;
+            notification.textContent = message;
+
+            area.prepend(notification);
+            
+            if (type === 'error') {
+                console.error(`UI Notification (Error): ${message}`);
+            } else if (type === 'info') {
+                 console.warn(`UI Notification (Info): ${message}`);
+            } else {
+                 console.log(`UI Notification (Success): ${message}`);
+            }
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, 5000);
+        }
+
+        /**
+         * Opens a generic modal by ID.
+         * @param {string} modalId - The ID of the modal element.
+         * @param {number|null} clusterId - The ID of the cluster to operate on (if needed).
+         */
+        function openModal(modalId, clusterId = null) {
+            if (!userId) {
+                redirectToLogin();
+                return;
+            }
+            if (clusterId && document.getElementById('modalClusterId')) {
+                document.getElementById('modalClusterId').value = clusterId;
+            }
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+        
+        /**
+         * Opens the VCF input modal.
+         * @param {number} clusterId - The ID of the cluster the user is joining.
+         */
+        function showModal(clusterId) {
+             openModal('inputModal', clusterId);
+        }
+
+        /**
+         * Closes a generic modal by ID.
+         * @param {string} modalId - The ID of the modal element.
+         */
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+                // Only reset the contactForm if it's the VCF modal
+                if (modalId === 'inputModal') {
+                    document.getElementById('contactForm').reset();
+                }
+            }
+        }
+        
+        /**
+         * Generates the unique share link for a cluster, fetches the message (now from Supabase), and copies the combined text to the clipboard.
+         * @param {number} clusterId - The ID of the cluster to share.
+         */
+        async function generateShareLink(clusterId) {
+            if (!userId) {
+                redirectToLogin();
+                return;
+            }
+            
+            if (!userReferralCode) {
+                 showNotification("Cannot share: Your referral code is not available yet.", 'error');
+                 return;
+            }
+
+            showNotification('Generating customized share link...', 'info');
+
+            try {
+                // 1. Fetch the customized message template
+                let messageTemplate = await fetchClusterReferralMessage(clusterId);
+
+                // 2. Construct the full referral URL
+                const baseUrl = window.location.origin;
+                // The URL path must be to this page, potentially clearing existing params
+                const shareUrl = `${baseUrl}${window.location.pathname}?cluster_id=${clusterId}&ref_code=${userReferralCode}`;
+                
+                // 3. Combine the message and URL (replaces the {{referral_link}} placeholder)
+                const finalShareText = messageTemplate.replace('{{referral_link}}', shareUrl);
+                
+                // 4. Copy combined text to clipboard
+                const tempInput = document.createElement('textarea');
+                tempInput.value = finalShareText;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempInput);
+                
+                showNotification('Customized share message and link copied to clipboard!', 'success');
+                console.log(`Generated and copied text:\n\n${finalShareText}`);
+
+            } catch (err) {
+                console.error('Failed to generate or copy share text: ', err);
+                showNotification('Failed to copy link. Please check console.', 'error');
+            }
+        }
+
+        // --- 3. STATISTICAL UTILITY FUNCTIONS (Client-side aggregation) ---
+
+        /**
+         * Helper function to calculate gender distribution from a raw list of members.
+         * @param {Array} members - The array of member objects from cohort_members.
+         * @returns {Object} - Object containing male_pct, female_pct, and other_pct.
+         */
+        function calculateGenderDistribution(members) {
+            const total = members.length;
+            if (total === 0) return { male_pct: 0, female_pct: 0, other_pct: 0 };
+
+            let maleCount = 0;
+            let femaleCount = 0;
+            
+            members.forEach(member => {
+                // Normalize gender string for robust counting
+                const gender = member.gender ? String(member.gender).toLowerCase() : '';
+                if (gender === 'male') {
+                    maleCount++;
+                } else if (gender === 'female') {
+                    femaleCount++;
+                }
+                // Other genders/N/A are counted by difference
+            });
+
+            // Calculate percentages and fix to 0 decimal places
+            const male_pct = ((maleCount / total) * 100).toFixed(0);
+            const female_pct = ((femaleCount / total) * 100).toFixed(0);
+            const otherCount = total - maleCount - femaleCount;
+            const other_pct = ((otherCount / total) * 100).toFixed(0);
+
+            return { male_pct, female_pct, other_pct };
+        }
+
+        /**
+         * Helper function to calculate the age range from a raw list of members.
+         * @param {Array} members - The array of member objects from cohort_members.
+         * @returns {string} - Formatted age range (e.g., "25 - 45 years" or "N/A").
+         */
+        function calculateAgeRange(members) {
+            if (members.length === 0) return 'N/A';
+
+            const ages = members
+                .map(m => parseInt(m.age, 10))
+                .filter(age => !isNaN(age) && age > 0);
+
+            if (ages.length === 0) return 'N/A';
+
+            const minAge = Math.min(...ages);
+            const maxAge = Math.max(...ages);
+
+            if (minAge === maxAge) return `${minAge} years old`;
+            return `${minAge} - ${maxAge} years`;
+        }
+
+        /**
+         * Helper function to calculate the top 5 professions.
+         * @param {Array} members - The array of member objects from cohort_members.
+         * @returns {Array} - Array of top 5 profession objects: [{name: string, count: number, pct: string}]
+         */
+        function calculateProfessionMix(members) {
+            const total = members.length;
+            if (total === 0) return [];
+
+            const professionCounts = {};
+            members.forEach(member => {
+                // Use 'Unspecified' for missing professions
+                const profession = member.profession ? String(member.profession).trim() : 'Unspecified';
+                professionCounts[profession] = (professionCounts[profession] || 0) + 1;
+            });
+
+            const professionList = Object.entries(professionCounts).map(([name, count]) => ({
+                name: name,
+                count: count,
+                pct: ((count / total) * 100).toFixed(0) // Percentage fixed to 0 decimal places
+            }));
+
+            // Sort by count descending and take top 5
+            return professionList
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5);
+        }
+
+        /**
+         * Processes the demographic data and renders the statistics summary.
+         * @param {Object} stats - Structured statistics from the API (optional, used for placeholder data).
+         * @param {Array} cohortMembers - The detailed list of members (used for all client-side calculations).
+         */
+        function processAndRenderStats(stats, cohortMembers) {
+            const memberCount = cohortMembers.length;
+            const ageSpan = document.getElementById('stat_age');
+            const genderList = document.getElementById('stat_gender');
+            const countryList = document.getElementById('stat_country');
+            const professionList = document.getElementById('stat_profession');
+            const statsGrid = document.getElementById('statsGrid');
+            
+            // Clear previous stats
+            genderList.innerHTML = '';
+            countryList.innerHTML = '';
+            professionList.innerHTML = '';
+            
+            // 1. Age Range (CALCULATED CLIENT-SIDE)
+            ageSpan.textContent = calculateAgeRange(cohortMembers);
+            
+            // 2. Gender (RECALCULATED CLIENT-SIDE)
+            const genderDistribution = calculateGenderDistribution(cohortMembers);
+            
+            if (genderDistribution.male_pct > 0) {
+                genderList.insertAdjacentHTML('beforeend', `<li>Male: ${genderDistribution.male_pct}%</li>`);
+            }
+            if (genderDistribution.female_pct > 0) {
+                genderList.insertAdjacentHTML('beforeend', `<li>Female: ${genderDistribution.female_pct}%</li>`);
+            }
+            if (genderDistribution.other_pct > 0) {
+                 // Covers 'Other' and 'N/A' gender values from the member list
+                genderList.insertAdjacentHTML('beforeend', `<li>Other / N/A: ${genderDistribution.other_pct}%</li>`);
+            }
+            if (memberCount === 0 || (genderDistribution.male_pct === 0 && genderDistribution.female_pct === 0 && genderDistribution.other_pct === 0)) {
+                genderList.insertAdjacentHTML('beforeend', `<li>No gender data available.</li>`);
+            }
+
+
+            // 3. Country (CALCULATED CLIENT-SIDE - Personalized view)
+            let viewerCountryCount = 0;
+            cohortMembers.forEach(member => {
+                const country = member.country ? String(member.country).trim() : '';
+                // Check if the member's country matches the viewing user's personalized country
+                if (country.toLowerCase() === userCountry.toLowerCase()) {
+                    viewerCountryCount++;
+                }
+            });
+            let totalOthersCount = memberCount - viewerCountryCount; // Remaining members are 'Abroad'
+            
+            const viewerCountryPct = memberCount > 0 ? ((viewerCountryCount / memberCount) * 100).toFixed(0) : 0;
+            const abroadPct = memberCount > 0 ? ((totalOthersCount / memberCount) * 100).toFixed(0) : 0;
+
+            // Display the viewer's country as the specific category
+            countryList.insertAdjacentHTML('beforeend', `<li>${userCountry}: ${viewerCountryPct}%</li>`);
+            // Display all other countries as Abroad
+            countryList.insertAdjacentHTML('beforeend', `<li>Abroad: ${abroadPct}%</li>`);
+            // *************************************************************************
+
+            // 4. Profession Mix (CALCULATED CLIENT-SIDE - Top 5)
+            const topProfessions = calculateProfessionMix(cohortMembers);
+            
+            if (topProfessions.length > 0) {
+                // NOTE: We are generating mock popularity tags since the client doesn't have the global data to determine 'Most/Less Popular'
+                // For simplicity, we assign a class based on rank: 1st/2nd = Most, 3rd = Average, 4th/5th = Less
+                topProfessions.forEach((p, index) => {
+                    let popClass = '';
+                    let popularityText = '';
+                    if (index < 2) { 
+                        popClass = 'pop-most';
+                        popularityText = 'Top Mix';
+                    } else if (index === 2) {
+                         popClass = 'pop-avg';
+                         popularityText = 'Mid Mix';
+                    } else {
+                        popClass = 'pop-less';
+                        popularityText = 'Lower Mix';
+                    }
+                    
+                    const li = `
+                        <li class="flex items-center">
+                            <span class="text-gray-900 font-medium">${p.name} (${p.pct}%)</span>
+                            <span class="popularity-tag ${popClass}">${popularityText}</span>
+                        </li>
+                    `;
+                    professionList.insertAdjacentHTML('beforeend', li);
+                });
+            } else {
+                 professionList.insertAdjacentHTML('beforeend', `<li class="text-gray-500">No profession data available.</li>`);
+            }
+
+            // Show the grid now
+            document.getElementById('statsPlaceholder').classList.add('hidden');
+            statsGrid.classList.remove('hidden');
+        }
+
+        /**
+         * Fetches and displays statistics and member list for a specific cluster.
+         * @param {number} clusterId - The ID of the cluster.
+         * @param {string} clusterName - The name of the cluster.
+         */
+        async function viewClusterStats(clusterId, clusterName) {
+            if (!userId) {
+                redirectToLogin();
+                return;
+            }
+            
+            // Reset and show modal
+            document.getElementById('statsModalTitle').textContent = `Cluster Statistics: ${clusterName}`;
+            document.getElementById('statsPlaceholder').classList.remove('hidden');
+            document.getElementById('statsGrid').classList.add('hidden');
+            document.getElementById('memberTableBody').innerHTML = '';
+            document.getElementById('memberLoading').textContent = 'Loading member list...';
+            document.getElementById('memberLoading').classList.remove('hidden');
+            document.getElementById('memberCount').textContent = '...';
+            
+            openModal('statsModal');
+            
+            // --- Fetch Data ---
+            try {
+                const response = await fetch(`/api/cluster-stats?cluster_id=${clusterId}&user_id=${userId}&user_country=${userCountry}`, {
+                    method: 'GET',
+                });
+                
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                     const errorMsg = result.message || "Failed to fetch cluster statistics.";
+                     document.getElementById('statsPlaceholder').textContent = `Error: ${errorMsg}`;
+                     document.getElementById('memberLoading').textContent = 'Error loading members.';
+                     throw new Error(errorMsg);
+                }
+
+                const { cohort_members, cluster_stats } = result;
+
+                // 1. Update Stats Summary - PASSING THE DETAILED MEMBER LIST FOR CLIENT-SIDE AGGREGATION
+                const currentMemberCount = cohort_members.length;
+                processAndRenderStats(cluster_stats, cohort_members); 
+                
+                // 2. Update Member List
+                const tableBody = document.getElementById('memberTableBody');
+                tableBody.innerHTML = ''; // Clear loading content
+                
+                document.getElementById('memberCount').textContent = currentMemberCount;
+                // Since MAX_COHORT_SIZE is global, we can use it. If dynamicClusters included max_members, we could use that here.
+                document.getElementById('maxCount').textContent = MAX_COHORT_SIZE; 
+
+                if (currentMemberCount === 0) {
+                     document.getElementById('memberLoading').textContent = 'No other members have joined yet.';
+                     document.getElementById('memberLoading').classList.remove('hidden');
+                } else {
+                    cohort_members.forEach(member => {
+                        // START: USER REQUESTED DATA FIELD CHANGES
+                        // friend_reasons and services are expected to be arrays from the user_profiles table
+                        const lookingFor = (member.friend_reasons && Array.isArray(member.friend_reasons) ? member.friend_reasons.join(', ') : member.friend_reasons) || 'N/A';
+                        const availableFor = (member.services && Array.isArray(member.services) ? member.services.join(', ') : member.services) || 'N/A';
+
+                        const row = `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${member.nickname}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${member.gender || 'N/A'}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${member.age || 'N/A'}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${member.country || 'N/A'}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${lookingFor}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${availableFor}</td>
+                            </tr>
+                        `;
+                        // END: USER REQUESTED DATA FIELD CHANGES
+                        tableBody.insertAdjacentHTML('beforeend', row);
+                    });
+                    document.getElementById('memberLoading').classList.add('hidden');
+                }
+
+            } catch (error) {
+                console.error('Error fetching cluster stats:', error);
+                showNotification(`Could not load statistics for ${clusterName}.`, 'error');
+            }
+        }
+
+
+        /**
+         * Renders the cluster cards based on the current state (from dynamicClusters and membership).
+         */
+        function renderClusters() {
+            try {
+                console.log("Rendering cluster cards...");
+                
+                const grid = document.getElementById('clusterGrid');
+                const loadingElement = document.getElementById('loadingClusters');
+
+                if (!grid) {
+                     console.error("CRITICAL: 'clusterGrid' element not found!");
+                     showNotification("Fatal Error: Cannot find the card display area.", 'error');
+                     return; 
+                }
+
+                grid.innerHTML = ''; // Clear existing cards
+
+                if (loadingElement) {
+                     loadingElement.classList.add('hidden'); // Hide loading spinner
+                }
+
+
+                dynamicClusters.forEach(category => {
+                    const clusterId = category.id;
+                    const clusterName = category.name; // Added for tooltips
+                    // Note: category.max_members is available but we stick to the global MAX_COHORT_SIZE for now as requested.
+                    // const maxMembers = category.max_members || MAX_COHORT_SIZE; 
+                    
+                    const state = clusterStatusCache[clusterId] || { 
+                        cohort_id: `Cluster_${clusterId}`, 
+                        is_full: false, 
+                        current_members: 0,
+                        vcf_uploaded: false, 
+                        vcf_file_name: null, 
+                    };
+                    
+                    const userIsMember = userClusterMemberships[clusterId]?.user_is_member; 
+                    const remaining = MAX_COHORT_SIZE - state.current_members;
+                    const isDownloadReady = state.is_full && state.vcf_uploaded && state.vcf_file_name;
+
+                    let primaryButtonHTML = '';
+                    let actionButtonsHTML = '';
+                    let cardClass = "card bg-white p-6 rounded-xl space-y-4";
+                    
+                    // Add highlighting for referral links
+                    if (highlightedClusterId && category.id === highlightedClusterId) {
+                        cardClass += " card-highlight";
+                        if (!userIsMember && userId) {
+                            showNotification(`You were invited to the '${category.name}' cluster!`, 'info');
+                        }
+                    }
+
+                    if (!isAuthReady) {
+                        primaryButtonHTML = `<button class="bg-gray-400 cursor-not-allowed w-full text-white font-semibold py-2 rounded-lg shadow-md" disabled>Loading...</button>`;
+                    } else if (!userId) {
+                        // Guest User
+                        primaryButtonHTML = `<button class="login-prompt-btn w-full text-white font-semibold py-2 rounded-lg shadow-md" onclick="redirectToLogin()">Log in to Join</button>`;
+                    } else if (userIsMember) {
+                        // Authenticated Member (Show Action Buttons)
+                        
+                        // Action Buttons: Share & Stats
+                        actionButtonsHTML = `
+                            <div class="member-actions mt-3">
+                                <button class="action-btn stats-btn" onclick="viewClusterStats(${clusterId}, '${clusterName}')">
+                                    <i data-lucide="bar-chart-2" class="w-4 h-4 mr-1"></i> Stats
+                                </button>
+                                <button class="action-btn share-btn" onclick="generateShareLink(${clusterId})">
+                                    <i data-lucide="share-2" class="w-4 h-4 mr-1"></i> Share
+                                </button>
+                                <div></div>
+                            </div>
+                        `;
+                        
+                        // Primary Button depends on cohort status
+                        if (isDownloadReady) {
+                            // Cohort is full and VCF is ready
+                            const fileNameToUse = state.vcf_file_name || state.cohort_id; 
+                            primaryButtonHTML = `<button class="download-btn hover:bg-green-700 w-full text-white font-semibold py-2 rounded-lg shadow-md" onclick="downloadContacts('${fileNameToUse}')">Download Contacts (VCF Ready)</button>`;
+                        } else if (state.is_full && !isDownloadReady) {
+                            // Cohort is full, but VCF is processing (Note: We agreed not to check vcf_uploaded, but keeping for user clarity)
+                            primaryButtonHTML = `<button class="full-btn w-full text-white font-semibold py-2 rounded-lg shadow-md" disabled>Processing VCF... (Wait)</button>`;
+                        } else {
+                            // Cohort is still filling up
+                            primaryButtonHTML = `<button class="full-btn w-full text-white font-semibold py-2 rounded-lg shadow-md" disabled>Joined! (${remaining} spots left)</button>`;
+                        }
+
+                    } else if (state.is_full && !userIsMember) {
+                        // Authenticated Non-member: Cohort Full
+                        primaryButtonHTML = `<button class="full-btn w-full text-white font-semibold py-2 rounded-lg shadow-md" disabled>Cluster Full (Wait for next)</button>`;
+                    } else {
+                        // Authenticated Non-member: Cohort Open
+                        primaryButtonHTML = `<button class="join-btn w-full text-white font-semibold py-2 rounded-lg shadow-md" onclick="showModal(${clusterId})">Join Cluster (${remaining} spots open)</button>`;
+                    }
+                    
+                    const cardHTML = `
+                        <div class="${cardClass}" data-cluster-id="${clusterId}">
+                            <h3 class="text-xl font-semibold text-blue-600">${category.name}</h3>
+                            <p class="text-gray-500 text-sm h-16 line-clamp-3">
+                                ${category.details}
+                            </p>
+                            ${primaryButtonHTML}
+                            ${actionButtonsHTML}
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', cardHTML);
+                });
+                
+                // Initialize Lucide icons after rendering cards
+                lucide.createIcons();
+                
+                console.log("renderClusters finished.");
+
+            } catch (error) {
+                console.error("CRITICAL RENDER FAILURE:", error);
+                showNotification(`Fatal rendering error: ${error.message}. Check console for details.`, 'error');
+            }
+        }
+        
+        // --- 4. CORE LOGIC (Node.js API Call Assumptions) ---
+
+        /**
+         * Fetches the viewing user's profile data (country and referral code).
+         * Pinpointed Fix 1: Ensures userCountry is fetched/determined after authentication.
+         * MOCK IMPLEMENTATION: Simulates fetching from the user_profiles table and determines country dynamically.
+         * @param {string} currentUserId - The ID of the currently logged-in user.
+         */
+        async function fetchUserProfile(currentUserId) {
+            // MOCK: Generate a varied country based on the user ID for testing the geographic mix personalization.
+            // This is a simple client-side mock. In a real app, this would be determined by a GEO-IP API call 
+            // on the server during user sign-in/profile creation and saved to the profile.
+            const hash = currentUserId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            
+            let determinedCountry;
+            if (hash % 3 === 0) {
+                determinedCountry = 'Canada';
+            } else if (hash % 3 === 1) {
+                determinedCountry = 'Germany';
+            } else {
+                determinedCountry = 'South Africa';
+            }
+            
+            // Setting the global variables
+            userCountry = determinedCountry; 
+            userReferralCode = currentUserId.substring(0, 8).toUpperCase(); // Using truncated ID as MOCK code
+            
+            console.log(`MOCK User Profile Loaded: Country: ${userCountry}, Ref Code: ${userReferralCode}`);
+        }
+
+        /**
+         * Checks the current status for all clusters on page load.
+         * Note: Now iterates over dynamicClusters.
+         */
+        async function checkAllClusterStatuses() {
+            if (!userId) {
+                console.log("Skipping status check: User not logged in.");
+                return;
+            }
+            
+            showNotification('Checking cluster membership status...', 'info');
+
+            const statusChecks = dynamicClusters.map(async (category) => {
+                const clusterId = category.id;
+                
+                // Use exponential backoff for robustness
+                const MAX_RETRIES = 3;
+                for (let i = 0; i < MAX_RETRIES; i++) {
+                    try {
+                        const response = await fetch(`/api/cohort-status?cluster_id=${clusterId}&user_id=${userId}`, {
+                            method: 'GET',
+                        });
+
+                        const result = await response.json();
+
+                        if (!response.ok || !result.success) {
+                            throw new Error(result.message || 'Unknown status check error');
+                        }
+                        
+                        // Update the global state caches to include vcf_file_name
+                        clusterStatusCache[clusterId] = {
+                            cohort_id: result.cohort_id,
+                            is_full: result.is_full,
+                            current_members: result.current_members,
+                            vcf_uploaded: result.vcf_uploaded || false,
+                            vcf_file_name: result.vcf_file_name || null, 
+                        };
+
+                        // Update membership cache based on server response
+                        if (result.user_is_member) {
+                            userClusterMemberships[clusterId] = { ...clusterStatusCache[clusterId], user_is_member: true };
+                            // TODO: If the response included user profile data (e.g., ref_code), update userReferralCode here.
+                        } else {
+                             delete userClusterMemberships[clusterId];
+                        }
+                        return; // Success, exit retry loop
+
+                    } catch (error) {
+                        console.warn(`Status check failed for Cluster ${clusterId} (Attempt ${i + 1}/${MAX_RETRIES}):`, error.message);
+                        if (i === MAX_RETRIES - 1) {
+                            console.error(`Status check ultimately failed for Cluster ${clusterId}.`);
+                            return;
+                        }
+                        // Exponential backoff wait
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    }
+                }
+            });
+
+            await Promise.all(statusChecks);
+            console.log("All cluster statuses checked. Rendering final state.");
+            renderClusters(); // Render once all checks are complete
+        }
+
+        /**
+         * Handles the form submission to join a cluster via the backend API.
+         */
+        async function handleFormSubmission(event) {
+            event.preventDefault();
+
+            if (!userId) {
+                redirectToLogin();
+                closeModal('inputModal');
+                return;
+            }
+
+            const clusterId = document.getElementById('modalClusterId').value;
+            const displayProfession = document.getElementById('displayProfession').checked; 
+            
+            // --- REFERRAL LOGIC INTEGRATION: Get p_ref_code from session ---
+            const refCode = sessionStorage.getItem('referral_ref_code');
+            
+            const joinData = {
+                p_cluster_id: parseInt(clusterId),
+                p_display_profession: displayProfession,
+                p_user_id: userId,
+                p_ref_code: refCode, // Pass the referral code to the backend
+            };
+            
+            closeModal('inputModal');
+            showNotification(`Attempting to join cluster ${clusterId}...`, 'info');
+            
+            // Disable all buttons to prevent double-click while joining
+            document.querySelectorAll('.card button').forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch('/api/join-cluster', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(joinData)
+                });
+
+                const result = await response.json(); 
+                
+                if (!response.ok || !result.success) {
+                    const errorMessage = result.message || 'Server error during cluster join.';
+                    console.error(`API Call Failed: ${errorMessage}`);
+                    showNotification(errorMessage, 'error');
+                    
+                    await checkAllClusterStatuses(); 
+                    return;
+                }
+                
+                // --- SUCCESS: Clear Referral Session Data & Update Client State ---
+                // We clear this only on successful join to prevent the new user from accidentally joining another cohort with the same ref_code
+                sessionStorage.removeItem('referral_ref_code');
+                sessionStorage.removeItem('referral_cluster_id');
+                highlightedClusterId = null; 
+
+                const { cohort_id, is_full, current_members } = result;
+                
+                clusterStatusCache[clusterId] = {
+                    cohort_id: cohort_id,
+                    is_full: is_full,
+                    current_members: current_members,
+                    vcf_uploaded: false, 
+                    vcf_file_name: null,
+                };
+                
+                userClusterMemberships[clusterId] = { ...clusterStatusCache[clusterId], user_is_member: true };
+                
+                renderClusters();
+                
+                if (is_full) {
+                    showNotification(`Success! Cohort ${cohort_id} is now FULL. Checking VCF status...`, 'success');
+                    await checkAllClusterStatuses(); 
+                } else {
+                    const remaining = MAX_COHORT_SIZE - current_members;
+                    showNotification(`Successfully joined ${cohort_id}! Waiting for ${remaining.toLocaleString()} more members.`, 'success');
+                }
+
+            } catch (error) {
+                console.error('Error joining cluster (Network/Parse error).', error);
+                showNotification('An internal error occurred. Check console for details.', 'error');
+            } finally {
+                 // Re-enable buttons by re-rendering based on status
+                 await checkAllClusterStatuses(); 
+            }
+        }
+
+        /**
+         * Initiates the download of the VCF file for a completed cohort.
+         * @param {string} fileName - The full name of the VCF file in storage (e.g., 'Cluster_Contacts_C_1_1234.vcf').
+         */
+        async function downloadContacts(fileName) { 
+            if (!userId) {
+                redirectToLogin();
+                return;
+            }
+
+            showNotification(`Requesting contact file: ${fileName}...`, 'info');
+
+            try {
+                const response = await fetch(`/api/download-contacts?file_name=${fileName}`, {
+                    method: 'GET',
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        throw new Error(errorJson.message || 'Server error during contact file retrieval.');
+                    } catch {
+                         throw new Error(errorText || 'Failed to retrieve file. It may not be fully generated yet.');
+                    }
+                }
+
+                const contentType = response.headers.get("Content-Type");
+
+                if (contentType && contentType.includes('text/vcard')) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = fileName; 
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showNotification('Download started successfully!', 'success');
+                } else {
+                    throw new Error('The server did not return a valid VCF file format (expected text/vcard).');
+                }
+
+            } catch (error) {
+                console.error('Download failed.', error);
+                showNotification(error.message || 'Download failed. The file may not be fully generated yet.', 'error');
+            }
+        }
+        
+        /**
+         * Handles referral parameters: reads from URL, persists to sessionStorage, and sets UI state.
+         */
+        function handleReferralParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clusterIdFromUrl = urlParams.get('cluster_id');
+            const refCodeFromUrl = urlParams.get('ref_code');
+
+            // 1. If parameters exist in the URL, prioritize storing them for persistence through login/redirect
+            if (clusterIdFromUrl && refCodeFromUrl) {
+                sessionStorage.setItem('referral_cluster_id', clusterIdFromUrl);
+                sessionStorage.setItem('referral_ref_code', refCodeFromUrl);
+                console.log(`URL Referral Params captured and saved to session: Cluster ID ${clusterIdFromUrl}, Ref Code ${refCodeFromUrl.substring(0, 8)}...`);
+            } else if (urlParams.get('cluster_id') || urlParams.get('ref_code')) {
+                console.warn("Incomplete referral link detected in URL. Skipping session storage of incomplete link.");
+            }
+            
+            // 2. Read the final state from sessionStorage (which persists across login redirect)
+            const storedClusterId = sessionStorage.getItem('referral_cluster_id');
+            
+            if (storedClusterId) {
+                highlightedClusterId = parseInt(storedClusterId);
+                console.log(`Setting highlighted cluster ID from session storage: ${highlightedClusterId}`);
+            }
+        }
+
+        // --- 5. SUPABASE INITIALIZATION (Client-side Silent Auth) ---
+        async function initializeSupabase() {
+            console.log("Supabase initialization sequence started.");
+            
+            if (!window.supabase || !window.supabase.createClient) {
+                 console.error("FATAL: Supabase library not found on global window object.");
+                 isAuthReady = true;
+                 // Proceed to render, even with no clusters
+                 renderClusters(); 
+                 return;
+            }
+            
+            try {
+                // Initialize the client
+                supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+                
+                // CRITICAL NEW STEP: Load the cluster data first
+                await fetchClustersFromSupabase(); 
+
+                // Attempt to retrieve the session token (silent authentication)
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    throw error;
+                }
+
+                if (session && session.user) {
+                    userId = session.user.id;
+                    console.log(`User Authenticated. ID: ${userId.substring(0, 8)}...`); 
+                    
+                    // --- REAL/MOCK: Fetch User's Profile Data (Country, Referral Code) ---
+                    await fetchUserProfile(userId);
+
+                } else {
+                    console.log("No active session found. Running as Guest.");
+                }
+
+            } catch (error) {
+                console.error("Supabase Initialization Failed (Fatal).", error);
+                showNotification("App failed to initialize. See console for details.", 'error');
+                
+            } finally {
+                isAuthReady = true; 
+                
+                // CRITICAL: After auth check, load the state from the server for members/guests
+                if (userId) {
+                    await checkAllClusterStatuses(); 
+                } else {
+                    renderClusters(); // Render immediately if guest
+                }
+            }
+        }
+
+        // --- 6. INITIALIZATION ---
+
+        // Stage 1: Handle referral parameters immediately
+        handleReferralParams();
+
+        // Expose required functions to the global scope for onclick handlers
+        window.redirectToLogin = redirectToLogin; 
+        window.downloadContacts = downloadContacts;
+        window.showModal = showModal;
+        window.closeModal = closeModal;
+        window.generateShareLink = generateShareLink; 
+        window.viewClusterStats = viewClusterStats;
+        
+        // Add event listener for form submission
+        document.getElementById('contactForm').addEventListener('submit', handleFormSubmission);
+        
+        // Start the application sequence
+        initializeSupabase();
+
+    </script>
+</body>
+</html>
