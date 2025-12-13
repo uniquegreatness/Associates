@@ -40,7 +40,7 @@ app.use('/api', apiRoutes);
 
 
 // =================================================================
-// 3. Frontend Routes (HTML Pages - CORRECTED PATH)
+// 3. Frontend Routes (HTML Pages - FIXED PATHS)
 // =================================================================
 
 // Helper function to inject config and serve HTML
@@ -51,17 +51,24 @@ const servePage = (templateFileName, req, res) => {
 };
 
 // --- Main Application Pages ---
-// We use the actual file names that exist in the root directory.
 app.get('/', (req, res) => servePage('index.html', req, res));
 app.get('/index.html', (req, res) => servePage('index.html', req, res));
 
-// --- Authentication Pages (Using actual template names from the root) ---
+// --- Cohort & Dynamic Cluster View Routes (FIXED) ---
+// 1. Static URL (e.g., /cohort.html)
+app.get('/cohort.html', (req, res) => servePage('cohort_template.html', req, res));
+
+// 2. Dynamic URL (e.g., /C_123). This is usually the main way clusters are shared.
+app.get('/C_:clusterId', (req, res) => servePage('cohort_template.html', req, res));
+
+// --- Authentication Pages ---
 app.get('/login.html', (req, res) => servePage('login_template.html', req, res));
 app.get('/update-password.html', (req, res) => servePage('login_template.html', req, res)); 
 
-// --- Other Utility/Admin Pages ---
+// --- Other Utility/Admin Pages (FIXED) ---
 app.get('/admin.html', (req, res) => servePage('admin.html', req, res));
 app.get('/settings.html', (req, res) => servePage('settings.html', req, res)); 
+app.get('/dashboard.html', (req, res) => servePage('dashboard.html', req, res));
 
 // --- Catch-all for undefined routes ---
 app.use((req, res) => {
