@@ -70,6 +70,10 @@ app.get('/admin.html', (req, res) => servePage('admin.html', req, res));
 app.get('/settings.html', (req, res) => servePage('settings.html', req, res)); 
 app.get('/dashboard.html', (req, res) => servePage('dashboard.html', req, res));
 
+// --- LEADERBOARD FIX: Add route for leaderboard.html ---
+app.get('/leaderboard.html', (req, res) => servePage('leaderboard.html', req, res));
+
+
 // --- Catch-all for undefined routes ---
 app.use((req, res) => {
     res.status(404).send('404 Not Found');
