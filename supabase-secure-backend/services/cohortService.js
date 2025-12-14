@@ -165,10 +165,16 @@ async function getCohortStatus(cluster_id, user_id) {
             is_full = true;
         }
 
+        // *** START CRITICAL FIX: Pre-calculate spots_left for frontend compatibility ***
+        const spots_left = Math.max(0, max_members - calculated_member_count); 
+        // *** END CRITICAL FIX ***
+
         return {
             success: true,
             cohort_id,
             is_full,
+            // CRITICAL FIX: Add the spots_left field here
+            spots_left: spots_left,
             current_members: calculated_member_count, // Uses the fresh calculated count for the active cohort
             user_is_member, // FIXED: Now uses the robust check from Step 2
             vcf_uploaded,
@@ -189,3 +195,4 @@ async function getCohortStatus(cluster_id, user_id) {
 module.exports = {
     getCohortStatus,
 };
+
