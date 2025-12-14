@@ -6,6 +6,10 @@ const { supabaseAdmin } = require('../config/supabase'); // Use Admin client for
 /**
  * Retrieves the current status of a cluster and its active cohort, handling synchronization and counting.
  * This is the critical service function that ensures cluster_metadata is consistent with dynamic_clusters.
+ * * * FIX IMPLEMENTED:
+ * 1. Correctly calculates 'current_members' from cluster_cohort_members (the source of truth).
+ * 2. Correctly determines 'user_is_member' and 'user_has_downloaded' by querying the active cohort.
+ * 3. Includes 'user_has_downloaded' for the client-side download state logic.
  * * @param {number} cluster_id - The ID of the cluster.
  * @param {string} user_id - The ID of the user checking the status.
  * @returns {Object} Status object including cohort state, membership, and metadata.
@@ -17,7 +21,9 @@ async function getCohortStatus(cluster_id, user_id) {
     const supabase = supabaseAdmin; 
 
     try {
-        let cohort_id, current_members = 0, is_full = false, user_is_member = false, vcf_uploaded = false, max_members = 5, cluster_name = '', vcf_file_name = null;
+        let cohort_id, is_full = false, user_is_member = false, vcf_uploaded = false, max_members = 5, cluster_name = '', vcf_file_name = null;
+        let user_has_downloaded = false; // New flag for client logic
+        let calculated_member_count = 0;
         let clusterMeta;
 
         // Step 1: Get Metadata from cluster_metadata (the state table)
@@ -33,10 +39,9 @@ async function getCohortStatus(cluster_id, user_id) {
         if (existingMeta) {
             clusterMeta = existingMeta;
         } else {
-            // --- CRITICAL FIX: SYNCHRONIZATION LOGIC ---
+            // --- CRITICAL FIX: SYNCHRONIZATION LOGIC (Kept as provided) ---
             console.log(`[DB] Metadata missing for Cluster ID ${cluster_id}. Attempting synchronization from dynamic_clusters.`);
 
-            // 1. Check dynamic_clusters for the definition (the source of truth for existence)
             const { data: dynamicCluster, error: dynamicError } = await supabase
                 .from('dynamic_clusters')
                 .select('id, name, max_members')
@@ -47,11 +52,9 @@ async function getCohortStatus(cluster_id, user_id) {
             if (dynamicError) throw dynamicError;
 
             if (!dynamicCluster) {
-                // Not found in either table. This is a genuine "not found" error.
                 return { success: false, message: `Cluster ID ${cluster_id} not found in dynamic_clusters.` };
             }
             
-            // 2. Found in dynamic_clusters, so create a default row in cluster_metadata
             const initialMetadata = {
                 cluster_id: dynamicCluster.id,
                 cluster_name: dynamicCluster.name,
@@ -59,7 +62,6 @@ async function getCohortStatus(cluster_id, user_id) {
                 vcf_uploaded: false,
                 vcf_download_count: 0,
                 active_cohort_id: null,
-                // NOTE: cluster_category_id is required by schema, defaulting to 1
                 cluster_category_id: 1, 
                 current_members: 0, 
                 is_ready_for_deletion: false, 
@@ -91,42 +93,38 @@ async function getCohortStatus(cluster_id, user_id) {
 
         if (target_cohort_id) {
             
-            // Step 2a: Check Cohort Count (Correctly filtered by active cohort ID)
-            const { count: calculated_member_count, error: membersError } = await supabase
+            // Step 2a: Check Cohort Count and User Membership in ONE query (More efficient)
+            // Query cluster_cohort_members: Filters by active cohort and includes the user's row if they exist.
+            const { data: membersData, error: membersError } = await supabase
                 .from('cluster_cohort_members') 
-                .select('user_id', { count: 'exact' }) 
+                // We only select the user_id and the download status to keep the payload minimal
+                .select('user_id, vcf_downloaded_at') 
                 .eq('cluster_id', cluster_id)
                 .eq('cohort_id', target_cohort_id); 
 
             if (membersError) throw membersError;
             
-            current_members = calculated_member_count || 0;
-            is_full = current_members >= max_members;
+            // FIX: Use the actual count from the source of truth (cluster_cohort_members)
+            calculated_member_count = membersData.length;
+            is_full = calculated_member_count >= max_members;
 
-            // Step 2b: Check Membership (FIX: Must also filter by active cohort ID)
-            const { data: userMembership, error: userMemberError } = await supabase
-                .from('cluster_cohort_members') 
-                .select('user_id') 
-                .eq('cluster_id', cluster_id)
-                // --- FIX APPLIED: Ensure membership is only checked for the active cohort ---
-                .eq('cohort_id', target_cohort_id)
-                // ----------------------------------------------------------------------------
-                .eq('user_id', user_id)
-                .limit(1)
-                .maybeSingle();
-
-            if (userMemberError) throw userMemberError;
+            // FIX: Determine user status from the fetched data
+            const userEntry = membersData.find(m => m.user_id === user_id);
             
-            user_is_member = !!userMembership; 
+            user_is_member = !!userEntry;
+            
+            // FIX: Determine download status
+            user_has_downloaded = !!userEntry?.vcf_downloaded_at;
+            
             cohort_id = target_cohort_id;
             
-            // --- NEW FIX: PROACTIVE STATE PERSISTENCE ---
+            // --- PROACTIVE STATE PERSISTENCE (Kept as provided) ---
             // If the calculated count doesn't match the persisted count, update the DB.
-            if (persisted_member_count !== current_members) {
+            if (persisted_member_count !== calculated_member_count) {
                  const { error: countUpdateError } = await supabase
                     .from('cluster_metadata')
                     .update({ 
-                        current_members: current_members,
+                        current_members: calculated_member_count,
                         last_updated: new Date().toISOString()
                     })
                     .eq('cluster_id', cluster_id);
@@ -134,7 +132,7 @@ async function getCohortStatus(cluster_id, user_id) {
                 if (countUpdateError) {
                     console.error(`Warning: Failed to update current_members count for cluster ${cluster_id}`, countUpdateError.message);
                 } else {
-                     console.log(`Updated cluster_metadata.current_members for ${cluster_id} to ${current_members}.`);
+                     console.log(`Updated cluster_metadata.current_members for ${cluster_id} to ${calculated_member_count}.`);
                 }
             }
 
@@ -142,7 +140,7 @@ async function getCohortStatus(cluster_id, user_id) {
         } else {
             // Cluster is open (No active cohort ID yet)
             cohort_id = `C_OPEN_${cluster_id}`;
-            current_members = 0;
+            calculated_member_count = 0;
             is_full = false;
         }
 
@@ -155,13 +153,14 @@ async function getCohortStatus(cluster_id, user_id) {
             success: true,
             cohort_id,
             is_full,
-            current_members,
+            current_members: calculated_member_count, // FIXED: Now uses the fresh calculated count
             user_is_member, 
             vcf_uploaded,
             vcf_file_name,
             max_members,
             cluster_name,
-            vcf_downloads_count, 
+            vcf_download_count: vcf_downloads_count, // Renamed in client to vcf_download_count
+            user_has_downloaded: user_has_downloaded, // NEW: Added for client logic
             message: "Cohort status retrieved successfully deep. "
         };
 
