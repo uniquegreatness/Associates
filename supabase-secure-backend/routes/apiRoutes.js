@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 // --- NEW IMPORT: Import the specific controller function from the new file ---
-// CORRECTED PATH: Now pointing to 'clusterControllers' (plural)
+// PATH FIXED: Pointing to 'clusterControllers' (plural), which is in the parent directory '../controllers/'
 const { handleCohortStatus } = require('../controllers/clusterControllers');
 
 // =================================================================
