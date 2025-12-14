@@ -91,7 +91,7 @@ async function getCohortStatus(cluster_id, user_id) {
 
         if (target_cohort_id) {
             
-            // Step 2: Check Membership and Count
+            // Step 2a: Check Cohort Count (Correctly filtered by active cohort ID)
             const { count: calculated_member_count, error: membersError } = await supabase
                 .from('cluster_cohort_members') 
                 .select('user_id', { count: 'exact' }) 
@@ -103,11 +103,14 @@ async function getCohortStatus(cluster_id, user_id) {
             current_members = calculated_member_count || 0;
             is_full = current_members >= max_members;
 
-            // Check membership by fetching a single row with user_id
+            // Step 2b: Check Membership (FIX: Must also filter by active cohort ID)
             const { data: userMembership, error: userMemberError } = await supabase
                 .from('cluster_cohort_members') 
                 .select('user_id') 
                 .eq('cluster_id', cluster_id)
+                // --- FIX APPLIED: Ensure membership is only checked for the active cohort ---
+                .eq('cohort_id', target_cohort_id)
+                // ----------------------------------------------------------------------------
                 .eq('user_id', user_id)
                 .limit(1)
                 .maybeSingle();
@@ -137,7 +140,7 @@ async function getCohortStatus(cluster_id, user_id) {
 
 
         } else {
-            // Cluster is open
+            // Cluster is open (No active cohort ID yet)
             cohort_id = `C_OPEN_${cluster_id}`;
             current_members = 0;
             is_full = false;
