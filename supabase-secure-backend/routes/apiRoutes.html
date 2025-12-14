@@ -1,0 +1,876 @@
+// routes/apiRoutes.js
+const express = require('express');
+const router = express.Router();
+const { supabaseAdmin } = require('../config/supabase'); 
+const { requireAdminAuth } = require('../middleware/authMiddleware');
+const { 
+    generateVcfContent, 
+    calculateClusterStats, 
+    extractClusterIdFromFileName 
+} = require('../utils/cohortUtils');
+const { getCohortStatus } = require('../services/cohortService');
+
+// Use Admin client for all server-side operations
+const supabase = supabaseAdmin; 
+
+/**
+ * Endpoint 1: Authenticate a user token (Standard Supabase Auth)
+ * Used by the client after receiving a token from the auth flow.
+ */
+router.post('/auth/token-sign-in', async (req, res) => {
+    const { token } = req.body;
+
+    if (!token) {
+        return res.status(400).json({ success: false, message: 'Token is required' });
+    }
+
+    try {
+        // Use the Admin API to get user info from the JWT
+        const { data: { user }, error: authError } = await supabase.auth.admin.getUser(token);
+
+        if (authError || !user) {
+            console.error('Token validation failed:', authError?.message);
+            return res.status(401).json({ success: false, message: 'Invalid token' });
+        }
+        
+        // Return the user object (safe subset of info)
+        return res.json({ success: true, user: { 
+            id: user.id, 
+            email: user.email, 
+            user_metadata: user.user_metadata 
+        } });
+
+    } catch (e) {
+        console.error('Error during token sign-in:', e.message);
+        return res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+});
+
+// =================================================================
+//  FRONTEND INTEGRATION ENDPOINTS (Added to fix Frontend Disconnects)
+// =================================================================
+
+/**
+ * FIX: LEADERBOARD ENDPOINT (Matches leaderboard.html fetch of /api/secure-data)
+ * Includes 'gender' and 'referral_code' which were missing in the original route.
+ */
+router.get('/secure-data', async (req, res) => {
+    try {
+        const { data: leaderboardData, error } = await supabase
+            .from('user_profiles')
+            .select('user_id, nickname, referrals, country, gender, referral_code') // ADDED gender, referral_code
+            .order('referrals', { ascending: false }) 
+            .limit(100); 
+
+        if (error) throw error;
+
+        // Frontend expects a direct array for this specific call
+        return res.json(leaderboardData); 
+    } catch (error) {
+        console.error('Leaderboard /secure-data Error:', error.message);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * FIX: COHORT STATUS (Matches cohort_template.html query params)
+ * Route: /api/cohort-status?cluster_id=X&user_id=Y
+ */
+router.get('/cohort-status', async (req, res) => {
+    const { cluster_id, user_id } = req.query;
+
+    if (!user_id || !cluster_id) {
+         return res.status(400).json({ success: false, message: 'user_id and cluster_id required.' });
+    }
+
+    const clusterIdNum = parseInt(cluster_id, 10);
+    const result = await getCohortStatus(clusterIdNum, user_id);
+    
+    if (result.success) {
+        return res.json(result);
+    } else {
+        return res.status(500).json(result);
+    }
+});
+
+/**
+ * FIX: JOIN CLUSTER (Matches cohort_template.html JSON body)
+ * Route: /api/join-cluster
+ */
+router.post('/join-cluster', async (req, res) => {
+    // Frontend uses 'p_' prefixes in the body
+    const { p_cluster_id, p_user_id, p_display_profession, p_ref_code } = req.body; 
+    
+    // Fallback to standard keys if p_ keys aren't present
+    const user_id = p_user_id || req.body.user_id;
+    const cluster_id = p_cluster_id || req.body.cluster_id;
+
+    if (!user_id || !cluster_id) {
+        return res.status(400).json({ success: false, message: 'User ID and Cluster ID required.' });
+    }
+    
+    const clusterIdNum = parseInt(cluster_id, 10);
+
+    try {
+        const status = await getCohortStatus(clusterIdNum, user_id);
+        
+        if (status.user_is_member) {
+            return res.json({ success: true, message: 'Already a member.' });
+        }
+        if (status.is_full) {
+            return res.status(409).json({ success: false, message: 'Cluster is full.' });
+        }
+        
+        // Fetch email for the record
+        const { data: { user } } = await supabase.auth.admin.getUserById(user_id);
+        const email = user?.email || 'no-email@provided.com';
+
+        const newMember = {
+            cluster_id: clusterIdNum,
+            cohort_id: status.cohort_id,
+            user_id: user_id,
+            email: email,
+            cluster_name: status.cluster_name
+        };
+
+        const { error: insertError } = await supabase
+            .from('cluster_cohort_members')
+            .insert([newMember]);
+
+        if (insertError) throw insertError;
+
+        // Update display profession preference if provided
+        if (p_display_profession !== undefined) {
+             await supabase.from('user_profiles').update({ display_profession: p_display_profession }).eq('user_id', user_id);
+        }
+
+        const updatedStatus = await getCohortStatus(clusterIdNum, user_id);
+        
+        return res.json({ 
+            success: true, 
+            cohort_id: updatedStatus.cohort_id,
+            is_full: updatedStatus.is_full,
+            current_members: updatedStatus.current_members,
+            vcf_uploaded: updatedStatus.vcf_uploaded,
+            vcf_file_name: updatedStatus.vcf_file_name
+        });
+
+    } catch (error) {
+        console.error(`Join Error:`, error.message);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+/**
+ * FIX: CLUSTER STATS (Matches cohort_template.html query params)
+ * Route: /api/cluster-stats?cluster_id=X&user_country=Y
+ */
+router.get('/cluster-stats', async (req, res) => {
+    const { cluster_id, user_country } = req.query;
+    const clusterIdNum = parseInt(cluster_id, 10);
+
+    try {
+        // Need to find the active cohort to get stats
+        const { data: meta } = await supabase.from('cluster_metadata').select('active_cohort_id').eq('cluster_id', clusterIdNum).single();
+        
+        if (!meta || !meta.active_cohort_id) {
+             return res.json({ success: false, message: 'No active cohort found.' });
+        }
+
+        const { data: members, error } = await supabase
+            .from('cluster_cohort_members') 
+            .select(`user_profiles (age, gender, country, profession, display_profession, friend_reasons, services)`)
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', meta.active_cohort_id); 
+            
+        if (error) throw error;
+        
+        // Fetch list for the table (excluding sensitive info)
+        const { data: memberList } = await supabase
+            .from('cluster_cohort_members')
+            .select(`user_profiles (nickname, gender, age, country, friend_reasons, services)`)
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', meta.active_cohort_id);
+
+        const flatMembers = members.map(m => m.user_profiles);
+        const stats = calculateClusterStats(flatMembers, user_country);
+        const flatList = memberList.map(m => m.user_profiles);
+
+        return res.json({ success: true, cluster_stats: stats, cohort_members: flatList });
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+/**
+ * FIX: USER DOWNLOAD (Matches cohort_template.html)
+ * Route: /api/download-contacts?file_name=X&user_id=Y&cluster_id=Z
+ */
+router.get('/download-contacts', async (req, res) => {
+    const { file_name, user_id, cluster_id } = req.query;
+
+    if (!user_id || !file_name) return res.status(400).send("Missing parameters.");
+
+    try {
+        // Verify user is actually a member before allowing download
+        const status = await getCohortStatus(parseInt(cluster_id), user_id);
+        if (!status.user_is_member) {
+            return res.status(403).json({message: "You must be a member to download."});
+        }
+
+        // Generate Signed URL
+        const { data, error } = await supabase.storage
+            .from('vcf_files')
+            .createSignedUrl(file_name, 60);
+
+        if (error || !data) throw new Error("Could not generate download link.");
+
+        // Fetch file content and stream to user
+        const fileResponse = await fetch(data.signedUrl);
+        if (!fileResponse.ok) throw new Error("Storage file not found.");
+        
+        const fileBuffer = await fileResponse.arrayBuffer();
+        
+        res.setHeader('Content-Type', 'text/vcard');
+        res.setHeader('Content-Disposition', `attachment; filename="${file_name}"`);
+        res.send(Buffer.from(fileBuffer));
+
+    } catch (error) {
+        console.error("Download Error:", error);
+        res.status(500).json({ message: "Failed to retrieve file." });
+    }
+});
+
+/**
+ * FIX: TRACK DOWNLOAD (Matches cohort_template.html)
+ * Route: /api/track-download
+ */
+router.post('/track-download', async (req, res) => {
+    const { cluster_id, user_id } = req.body;
+    
+    try {
+        const { data, error } = await supabase
+            .from('cluster_metadata')
+            .update({ 
+                vcf_download_count: supabase.select_cast('vcf_download_count + 1'),
+                last_downloaded_at: new Date().toISOString()
+            })
+            .eq('cluster_id', cluster_id)
+            .select('vcf_download_count')
+            .single();
+
+        return res.json({ 
+            success: true, 
+            vcf_download_count: data ? data.vcf_download_count : 0 
+        });
+
+    } catch (e) {
+        console.error("Tracking Error:", e);
+        return res.status(500).json({ success: false });
+    }
+});
+
+// =================================================================
+//  ORIGINAL REST ENDPOINTS (Kept for Admin/Backward Compatibility)
+// =================================================================
+
+/**
+ * Endpoint 2: Get Cluster Status (Membership, VCF Upload State)
+ */
+router.get('/cohorts/:cluster_id/status', async (req, res) => {
+    const { cluster_id } = req.params;
+    const { user_id } = req.query; // User ID must be passed from the client
+
+    if (!user_id) {
+         return res.status(400).json({ success: false, message: 'user_id query parameter is required.' });
+    }
+
+    const clusterIdNum = parseInt(cluster_id, 10);
+    if (isNaN(clusterIdNum)) {
+        return res.status(400).json({ success: false, message: 'Invalid cluster ID format.' });
+    }
+
+    const result = await getCohortStatus(clusterIdNum, user_id);
+    
+    if (result.success) {
+        return res.json(result);
+    } else {
+        // Use 404 if the message explicitly says 'not found'
+        if (result.message.includes('not found')) {
+             return res.status(404).json(result);
+        }
+        return res.status(500).json(result);
+    }
+});
+
+/**
+ * Endpoint 3: Join a Cluster
+ * CRITICAL: This operation must be atomic and check for capacity before insertion.
+ */
+router.post('/cohorts/:cluster_id/join', async (req, res) => {
+    const { cluster_id } = req.params;
+    const { user_id, user_email } = req.body; 
+
+    if (!user_id || !user_email) {
+        return res.status(400).json({ success: false, message: 'user_id and user_email are required.' });
+    }
+    
+    const clusterIdNum = parseInt(cluster_id, 10);
+    if (isNaN(clusterIdNum)) {
+        return res.status(400).json({ success: false, message: 'Invalid cluster ID format.' });
+    }
+
+    try {
+        // Step 1: Get the current status and check capacity
+        const status = await getCohortStatus(clusterIdNum, user_id);
+        
+        if (!status.success) {
+            return res.status(404).json({ success: false, message: status.message });
+        }
+
+        if (status.user_is_member) {
+            console.warn(`User ${user_id.substring(0, 8)}... attempted to join cluster ${clusterIdNum} but is already a member.`);
+            return res.json({ success: true, message: 'Already a member.' });
+        }
+        
+        if (status.is_full) {
+            return res.status(409).json({ success: false, message: 'Cluster is full or VCF uploaded. Cannot join.' });
+        }
+        
+        if (!status.cohort_id) {
+             return res.status(500).json({ success: false, message: 'Could not determine active cohort ID.' });
+        }
+        
+        // Step 2: Attempt to insert the new member (uses RLS bypass via Admin)
+        const newMember = {
+            cluster_id: clusterIdNum,
+            cohort_id: status.cohort_id,
+            user_id: user_id,
+            email: user_email,
+            // Include dynamic_clusters.name in the log for clarity
+            cluster_name: status.cluster_name || `Cluster ${clusterIdNum}`, 
+            // set joined_at timestamp automatically by DB
+        };
+
+        const { error: insertError } = await supabase
+            .from('cluster_cohort_members')
+            .insert([newMember]);
+
+        if (insertError) {
+             // Handle unique constraint violation (should be covered by status check, but good for safety)
+            if (insertError.code === '23505') { 
+                return res.json({ success: true, message: 'Already a member.' });
+            }
+            throw insertError;
+        }
+
+        // Step 3: Recalculate and update the member count immediately
+        const updatedStatus = await getCohortStatus(clusterIdNum, user_id);
+        
+        console.log(`User ${user_id.substring(0, 8)}... successfully joined cluster ${clusterIdNum}. New count: ${updatedStatus.current_members}`);
+
+        // Check if the cluster is now full (to trigger VCF generation logic on the client)
+        const isNowFull = updatedStatus.current_members >= status.max_members;
+        
+        return res.json({ 
+            success: true, 
+            message: 'Successfully joined cluster.', 
+            is_full: isNowFull,
+            current_members: updatedStatus.current_members,
+            max_members: status.max_members
+        });
+
+    } catch (error) {
+        console.error(`Error joining cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Database operation failed: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 4: Leave a Cluster
+ */
+router.post('/cohorts/:cluster_id/leave', async (req, res) => {
+    const { cluster_id } = req.params;
+    const { user_id } = req.body; 
+
+    if (!user_id) {
+        return res.status(400).json({ success: false, message: 'user_id is required.' });
+    }
+    
+    const clusterIdNum = parseInt(cluster_id, 10);
+    if (isNaN(clusterIdNum)) {
+        return res.status(400).json({ success: false, message: 'Invalid cluster ID format.' });
+    }
+
+    try {
+        // Check if VCF is already uploaded (if so, prevent leaving unless admin)
+        const status = await getCohortStatus(clusterIdNum, user_id);
+        
+        if (!status.success) {
+            return res.status(404).json({ success: false, message: status.message });
+        }
+        
+        if (status.vcf_uploaded) {
+            // Non-admin users cannot leave once the cohort is 'locked' by VCF upload
+            console.warn(`User ${user_id.substring(0, 8)}... attempted to leave cluster ${clusterIdNum} but VCF is already uploaded.`);
+            return res.status(403).json({ success: false, message: 'Cannot leave after VCF has been generated and uploaded.' });
+        }
+
+        // Attempt to delete the member row (uses RLS bypass via Admin)
+        const { count, error: deleteError } = await supabase
+            .from('cluster_cohort_members')
+            .delete({ count: 'exact' })
+            .eq('cluster_id', clusterIdNum)
+            .eq('user_id', user_id);
+
+        if (deleteError) {
+            throw deleteError;
+        }
+        
+        if (count === 0) {
+            return res.json({ success: true, message: 'User was not a member.' });
+        }
+
+        // Recalculate and update the member count immediately
+        const updatedStatus = await getCohortStatus(clusterIdNum, user_id);
+        
+        console.log(`User ${user_id.substring(0, 8)}... successfully left cluster ${clusterIdNum}. New count: ${updatedStatus.current_members}`);
+        
+        return res.json({ 
+            success: true, 
+            message: 'Successfully left cluster.',
+            current_members: updatedStatus.current_members,
+        });
+
+    } catch (error) {
+        console.error(`Error leaving cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Database operation failed: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 5: GET the Global Leaderboard Data.
+ * Fetches and ranks users based on the 'referrals' column in 'user_profiles'.
+ * Resolves the client-side error: "Failed to fetch leaderboard data."
+ */
+router.get('/leaderboard', async (req, res) => {
+    try {
+        // Fetch profiles, ordering by the 'referrals' score and limiting the result.
+        // The 'referrals' column is used as the NRT (NEARR Tokens) score.
+        const { data: leaderboardData, error } = await supabase
+            .from('user_profiles')
+            .select('user_id, nickname, referrals, country') // Select essential fields
+            .order('referrals', { ascending: false }) // Rank by referrals descending
+            .limit(100); // Limit to top 100 entries (or suitable number)
+
+        if (error) {
+            console.error('Supabase Leaderboard Fetch Error:', error.message);
+            throw new Error('Database query failed.');
+        }
+
+        // Return the fetched data
+        return res.json({ 
+            success: true, 
+            leaderboard: leaderboardData
+        });
+
+    } catch (error) {
+        console.error('Error fetching leaderboard data:', error.message);
+        // Respond with a 500 status on internal error
+        return res.status(500).json({ 
+            success: false, 
+            message: `Failed to retrieve leaderboard data: ${error.message}` 
+        });
+    }
+});
+
+
+// =================================================================
+//                      ADMIN/SECURE ENDPOINTS (requireAdminAuth)
+// =================================================================
+
+/**
+ * Endpoint 6: Download VCF (Admin Only) (was 5)
+ */
+router.get('/cohorts/:cluster_id/download-vcf', requireAdminAuth, async (req, res) => {
+    const { cluster_id } = req.params;
+    const clusterIdNum = parseInt(cluster_id, 10);
+
+    try {
+        // Step 1: Get metadata to find the file name
+        const { data: meta, error: metaError } = await supabase
+            .from('cluster_metadata') 
+            .select('vcf_file_name, vcf_uploaded, cluster_name') 
+            .eq('cluster_id', clusterIdNum)
+            .maybeSingle();
+
+        if (metaError) throw metaError;
+        if (!meta || !meta.vcf_uploaded || !meta.vcf_file_name) {
+            return res.status(404).json({ success: false, message: 'VCF file not uploaded or metadata missing.' });
+        }
+
+        const fileName = meta.vcf_file_name;
+        
+        // Step 2: Generate the public signed URL for download
+        const { data, error: urlError } = await supabase.storage
+            .from('vcf_files') // Assuming this is your storage bucket name
+            .createSignedUrl(fileName, 60); // URL expires in 60 seconds
+
+        if (urlError) throw urlError;
+        
+        // Step 3: Increment download count
+         const { error: countError } = await supabase
+            .from('cluster_metadata')
+            .update({ 
+                vcf_download_count: supabase.select_cast('vcf_download_count + 1'), // Safely increment in Supabase
+                last_downloaded_at: new Date().toISOString()
+            })
+            .eq('cluster_id', clusterIdNum);
+            
+        if (countError) {
+             console.error(`Warning: Failed to increment VCF download count for cluster ${clusterIdNum}:`, countError.message);
+             // Continue execution despite warning
+        }
+        
+        // Return the signed URL to the client
+        return res.json({ 
+            success: true, 
+            download_url: data.signedUrl, 
+            filename: fileName,
+            message: `Signed URL generated for VCF download for ${meta.cluster_name}.` 
+        });
+
+    } catch (error) {
+        console.error(`Error generating VCF download URL for cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Server error during VCF download preparation: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 7: Check VCF Upload Status (Admin Only, used by client-side admin tools) (was 6)
+ */
+router.get('/cohorts/:cluster_id/vcf-upload-status', requireAdminAuth, async (req, res) => {
+    const { cluster_id } = req.params;
+    const clusterIdNum = parseInt(cluster_id, 10);
+    
+    try {
+         const { data, error } = await supabase
+            .from('cluster_metadata') 
+            .select('vcf_uploaded, vcf_file_name, vcf_download_count, current_members, max_members') 
+            .eq('cluster_id', clusterIdNum)
+            .maybeSingle();
+
+        if (error) throw error;
+        
+        if (!data) {
+            return res.status(404).json({ success: false, message: 'Cluster metadata not found.' });
+        }
+
+        return res.json({ 
+            success: true, 
+            status: data.vcf_uploaded ? 'uploaded' : 'pending',
+            vcf_file_name: data.vcf_file_name,
+            vcf_download_count: data.vcf_download_count,
+            current_members: data.current_members,
+            max_members: data.max_members,
+        });
+
+    } catch (error) {
+        console.error(`Error checking VCF upload status for cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 8: Get Combined Member List (Admin Only) (was 7)
+ * Combines data from 'cluster_cohort_members' and 'user_profiles'
+ */
+router.get('/cohorts/:cluster_id/members', requireAdminAuth, async (req, res) => {
+    const { cluster_id } = req.params;
+    const clusterIdNum = parseInt(cluster_id, 10);
+    
+    try {
+        // Step 1: Find the active cohort ID
+        // Note: req.user.id is available from requireAdminAuth middleware
+        const status = await getCohortStatus(clusterIdNum, req.user.id); 
+        if (!status.success || !status.cohort_id) {
+             return res.status(404).json({ success: false, message: status.message || 'Active cohort not found.' });
+        }
+        
+        const active_cohort_id = status.cohort_id;
+        
+        // Step 2: Fetch members and their profile data (JOIN via RLS bypass)
+        const { data: members, error } = await supabase
+            .from('cluster_cohort_members') 
+            .select(`
+                user_id, 
+                email, 
+                joined_at,
+                user_profiles (
+                    nickname, 
+                    age, 
+                    gender, 
+                    country, 
+                    profession, 
+                    display_profession,
+                    whatsapp_number,
+                    friend_reasons,
+                    services
+                )
+            `)
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', active_cohort_id); 
+
+        if (error) throw error;
+
+        // Flatten the data structure for easier consumption
+        const combinedMembers = members.map(member => ({
+            ...member.user_profiles, // Updated to use 'user_profiles'
+            user_id: member.user_id,
+            email: member.email,
+            joined_at: member.joined_at,
+        }));
+        
+        return res.json({ success: true, members: combinedMembers });
+
+    } catch (error) {
+        console.error(`Error fetching combined member list for cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 9: Get Cluster Statistics (Admin Only) (was 8)
+ */
+router.get('/cohorts/:cluster_id/stats', requireAdminAuth, async (req, res) => {
+    const { cluster_id } = req.params;
+    const { user_country } = req.query; // User's country for Local/Abroad mix calculation
+
+    try {
+        const clusterIdNum = parseInt(cluster_id, 10);
+        // Note: req.user.id is available from requireAdminAuth middleware
+        const status = await getCohortStatus(clusterIdNum, req.user.id); 
+        if (!status.success || !status.cohort_id) {
+             return res.status(404).json({ success: false, message: 'Active cohort not found.' });
+        }
+        
+        // Fetch only the profile data needed for stats calculation
+        const { data: members, error } = await supabase
+            .from('cluster_cohort_members') 
+            .select(`
+                user_profiles (
+                    age, gender, country, profession, display_profession, friend_reasons, services
+                )
+            `)
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', status.cohort_id); 
+            
+        if (error) throw error;
+        
+        // Flatten the data structure
+        const combinedMembers = members.map(member => member.user_profiles);
+
+        // Calculate statistics using the utility function
+        const stats = calculateClusterStats(combinedMembers, user_country);
+
+        return res.json({ success: true, stats: stats });
+
+    } catch (error) {
+        console.error(`Error calculating cluster stats for ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 10: Request VCF Upload URL (Admin Only) (was 9)
+ * Step 1 of the VCF generation process: generates VCF content and signs an upload URL.
+ */
+router.post('/cohorts/:cluster_id/vcf-upload-request', requireAdminAuth, async (req, res) => {
+    const { cluster_id } = req.params;
+    const clusterIdNum = parseInt(cluster_id, 10);
+    
+    try {
+        // Step 1: Check status and get cohort ID
+        const status = await getCohortStatus(clusterIdNum, req.user.id);
+        if (!status.success || !status.cohort_id) {
+             return res.status(404).json({ success: false, message: 'Active cohort not found for VCF generation.' });
+        }
+        
+        // Step 2: Fetch only the profile data required for VCF
+        const { data: members, error } = await supabase
+            .from('cluster_cohort_members') 
+            .select(`
+                user_profiles (
+                    nickname, 
+                    profession, 
+                    display_profession,
+                    whatsapp_number
+                )
+            `)
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', status.cohort_id); 
+            
+        if (error) throw error;
+        
+        const combinedContacts = members.map(member => member.user_profiles);
+        
+        if (combinedContacts.length === 0) {
+            return res.status(400).json({ success: false, message: 'Cannot generate VCF: No members found in the cohort.' });
+        }
+
+        // Step 3: Generate VCF content string
+        const vcfContent = generateVcfContent(combinedContacts);
+
+        // Step 4: Create a unique file name
+        // Format: Cluster_Contacts_C_{cluster_id}_{uuid}.vcf
+        const uuid = Math.random().toString(36).substring(2, 10);
+        const fileName = `Cluster_Contacts_C_${clusterIdNum}_${uuid}.vcf`;
+        
+        // Step 5: Generate a signed upload URL (Supabase storage)
+        const { data: uploadData, error: uploadUrlError } = await supabase.storage
+            .from('vcf_files')
+            .createSignedUploadUrl(fileName);
+
+        if (uploadUrlError) throw uploadUrlError;
+        
+        // Return the VCF content and the signed URL
+        return res.json({ 
+            success: true, 
+            upload_url: uploadData.signedUrl,
+            file_path: fileName,
+            vcf_content: vcfContent,
+            message: 'VCF content and signed upload URL generated.'
+        });
+
+    } catch (error) {
+        console.error(`Error requesting VCF upload URL for cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Server error during VCF request: ${error.message}` });
+    }
+});
+
+
+/**
+ * Endpoint 11: Commit VCF Upload (Admin Only) (was 10)
+ * Step 2 of the VCF generation process: updates metadata after successful upload.
+ */
+router.post('/cohorts/:cluster_id/vcf-commit', requireAdminAuth, async (req, res) => {
+    const { cluster_id } = req.params;
+    const { file_name } = req.body; 
+
+    if (!file_name) {
+        return res.status(400).json({ success: false, message: 'file_name is required in the body.' });
+    }
+    
+    const clusterIdNum = parseInt(cluster_id, 10);
+    if (isNaN(clusterIdNum)) {
+        return res.status(400).json({ success: false, message: 'Invalid cluster ID format.' });
+    }
+    
+    // Optional check: Ensure the cluster_id in the URL matches the file_name 
+    const fileClusterId = extractClusterIdFromFileName(file_name);
+    if (fileClusterId !== clusterIdNum) {
+        console.warn(`VCF Commit Mismatch: URL ID ${clusterIdNum} does not match file ID ${fileClusterId}`);
+        // Continue execution but log the warning
+    }
+
+    try {
+        // Update cluster_metadata to mark VCF as uploaded and store the filename
+        const { data: updatedMeta, error: updateError } = await supabase
+            .from('cluster_metadata')
+            .update({
+                vcf_uploaded: true,
+                vcf_file_name: file_name,
+                current_members: supabase.select_cast('current_members'), // ensure no race condition on count
+                last_updated: new Date().toISOString(),
+            })
+            .eq('cluster_id', clusterIdNum)
+            .select('cluster_id')
+            .single();
+
+        if (updateError) throw updateError;
+        
+        console.log(`VCF committed successfully for cluster ${clusterIdNum} with file: ${file_name}`);
+
+        return res.json({ 
+            success: true, 
+            message: 'VCF file name committed to database. Cluster status locked.' 
+        });
+
+    } catch (error) {
+        console.error(`Error committing VCF upload for cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Database commit failed: ${error.message}` });
+    }
+});
+
+/**
+ * Endpoint 12: Get Member List for Display (Not Admin-gated, but sensitive data excluded) (was 11)
+ */
+router.get('/cohorts/:cluster_id/members/display', async (req, res) => {
+    const { cluster_id } = req.params;
+    const clusterIdNum = parseInt(cluster_id, 10);
+    const { user_id } = req.query; // Used for membership check
+
+    if (!user_id) {
+         return res.status(400).json({ success: false, message: 'user_id query parameter is required.' });
+    }
+
+    try {
+        // Step 1: Check if the requesting user is a member of the cohort 
+        const status = await getCohortStatus(clusterIdNum, user_id);
+        if (!status.success || !status.cohort_id) {
+             return res.status(404).json({ success: false, message: status.message || 'Active cohort not found.' });
+        }
+        
+        // User must be a member to see the list
+        if (!status.user_is_member) {
+            return res.status(403).json({ success: false, message: 'Access denied. You must be a member of this cluster to view the member list.' });
+        }
+
+        const active_cohort_id = status.cohort_id;
+        
+        // Step 2: Fetch members and their public profile data 
+        // CRITICAL: We only select public fields here (nickname, gender, country, profession, interests)
+        const { data: members, error } = await supabase
+            .from('cluster_cohort_members') 
+            .select(`
+                user_id, 
+                joined_at,
+                user_profiles (
+                    nickname, 
+                    gender, 
+                    country, 
+                    profession, 
+                    display_profession,
+                    friend_reasons,
+                    services
+                )
+            `)
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', active_cohort_id); 
+
+        if (error) throw error;
+
+        // Flatten the data structure
+        const combinedMembers = members.map(member => ({
+            ...member.user_profiles, // Updated to use 'user_profiles'
+            user_id: member.user_id,
+            joined_at: member.joined_at,
+        }));
+        
+        return res.json({ success: true, members: combinedMembers });
+
+    } catch (error) {
+        console.error(`Error fetching display member list for cluster ${cluster_id}:`, error.message);
+        return res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+    }
+});
+
+
+module.exports = router;
