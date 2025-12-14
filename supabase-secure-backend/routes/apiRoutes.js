@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 // --- NEW IMPORT: Import the specific controller function from the new file ---
-const { handleCohortStatus } = require('../controllers/clusterController');
+// CORRECTED PATH: Now pointing to 'clusterControllers' (plural)
+const { handleCohortStatus } = require('../controllers/clusterControllers');
 
 // =================================================================
 // 1. AUTH ROUTES
@@ -50,8 +51,7 @@ router.use('/', tokenSignIn);
 router.use('/', secureDataLeaderboard);
 
 // --- NEW ROUTE MOUNTING: Use a distinct endpoint for the new, fixed logic ---
-// We map the new logic to '/api/cohort-status-accurate' to avoid collision 
-// with the existing 'getCohortStatusFix' route and allow testing.
+// This new route maps to the clusterControllers.js logic.
 router.get('/api/cohort-status-accurate', handleCohortStatus); 
 
 router.use('/', getCohortStatusFix); // Existing route retained
