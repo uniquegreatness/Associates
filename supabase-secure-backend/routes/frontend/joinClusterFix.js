@@ -31,7 +31,8 @@ router.post('/join-cluster', async (req, res) => {
         const status = await getCohortStatus(clusterIdNum, user_id);
         
         if (status.user_is_member) {
-            // Include existing VCF stats in success message
+            // FIX: Ensure all status data is returned for consistency, matching the structure 
+            // the frontend expects to update its cache.
             return res.json({ 
                 success: true, 
                 message: 'Already a member.',
@@ -47,7 +48,6 @@ router.post('/join-cluster', async (req, res) => {
             cluster_id: clusterIdNum,
             cohort_id: status.cohort_id,
             user_id: user_id,
-            // REMOVED 'email' and 'cluster_name' here as they are not columns in this table.
         };
 
         const { error: insertError } = await supabase
@@ -64,36 +64,31 @@ router.post('/join-cluster', async (req, res) => {
         }
 
         // 3. Update user profile's preference (this targets a different table: user_profiles)
-        // This is separate from the cluster membership insert and is assumed to be correct.
         if (p_display_profession !== undefined) {
              await supabase.from('user_profiles').update({ display_profession: p_display_profession }).eq('user_id', user_id);
         }
         
         // 4. Optionally process referral code (if available)
-        // This logic is usually separate but included here for completeness if needed.
         if (p_ref_code) {
-             // In a real app, you would process the p_ref_code here (e.g., track referral in a referral table)
              console.log(`Tracking referral code ${p_ref_code} for user ${user_id} joining cluster ${cluster_id}.`);
         }
 
         // 5. Fetch and return the updated status
+        // IMPORTANT: The status will now reflect the user as a member
         const updatedStatus = await getCohortStatus(clusterIdNum, user_id);
         
+        // FIX: Use spread operator to include ALL properties returned by getCohortStatus,
+        // which ensures fields like 'user_is_member: true', 'max_members', etc., are present 
+        // for the frontend to correctly transition the button state.
         return res.json({ 
             success: true, 
-            cohort_id: updatedStatus.cohort_id,
-            is_full: updatedStatus.is_full,
-            current_members: updatedStatus.current_members,
-            vcf_uploaded: updatedStatus.vcf_uploaded,
-            vcf_file_name: updatedStatus.vcf_file_name,
-            vcf_download_count: updatedStatus.vcf_download_count,
-            user_has_downloaded: updatedStatus.user_has_downloaded,
-            max_members: updatedStatus.max_members,
+            ...updatedStatus,
+            // Explicitly ensure user_is_member is true for immediate cache update
+            user_is_member: true, 
         });
 
     } catch (error) {
         console.error(`Join Error:`, error.message);
-        // The original error should now be resolved, leaving only expected server errors.
         return res.status(500).json({ success: false, message: `Server error during join: ${error.message}` });
     }
 });
