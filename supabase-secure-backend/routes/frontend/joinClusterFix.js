@@ -6,68 +6,153 @@ const { getCohortStatus } = require('../../services/cohortService');
 const supabase = supabaseAdmin; 
 
 /**
- * CONCEPTUAL: VCF Generation and DB Update
- * In a real-world scenario, this function would:
- * 1. Fetch all 5 user profiles associated with the cohort_id.
- * 2. Generate the .vcf file content (e.g., using a vcf library).
- * 3. Upload the VCF file to Supabase Storage.
- * 4. Update the 'cluster_cohorts' table to set vcf_uploaded = true 
- * and vcf_file_name = [filename].
- * * For this exercise, we simulate the status update.
+ * Utility function to generate VCF content string from contacts array.
+ * This implementation creates a VCF 3.0 string based on the fetched profile data.
+ * @param {Array<Object>} contacts - Array of contact objects (user_id, nickname, profession, whatsapp_number, display_profession)
+ * @returns {string} The complete VCF file content.
  */
-async function generateVCFAndUpload(clusterId, cohortId) {
-    // Determine the max members for this cluster
-    const { data: clusterData, error: clusterError } = await supabase
-        .from('dynamic_clusters')
-        .select('max_members')
-        .eq('id', clusterId)
-        .single();
-    
-    const maxMembers = clusterData?.max_members || 5;
+function generateVcfContent(contacts) {
+    let vcfContent = '';
 
-    // Check if the cohort is indeed full before proceeding
-    const { count: currentMembers, error: countError } = await supabase
-        .from('cluster_cohort_members')
-        .select('*', { count: 'exact' })
-        .eq('cohort_id', cohortId);
+    contacts.forEach(contact => {
+        // Use display_profession (which might be null/undefined) or fallback to profession, or a default
+        const profession = contact.display_profession || contact.profession || 'Professional Contact';
+        const name = contact.nickname || `User ${contact.user_id.substring(0, 8)}`;
+        const phone = contact.whatsapp_number || '';
+
+        vcfContent += 'BEGIN:VCARD\n';
+        vcfContent += 'VERSION:3.0\n';
         
-    if (countError || currentMembers < maxMembers) {
-        console.warn(`VCF Trigger attempted but cohort ${cohortId} is not full yet. Count: ${currentMembers}/${maxMembers}`);
-        return { vcf_uploaded: false, vcf_file_name: null };
-    }
+        // FN: Formatted Name (Including profession for clarity)
+        vcfContent += `FN:${name} (${profession})\n`;
+        
+        // N: Structured Name (Surname;Given;Middle;Prefix;Suffix) - Using FN content for simplicity
+        vcfContent += `N:${name};;;\n`; 
+        
+        // TITLE: Profession/Title
+        vcfContent += `TITLE:${profession}\n`;
+        
+        // TEL: Telephone Number (TYPE=CELL for mobile)
+        if (phone) {
+            // Clean phone number for VCF standards
+            const cleanPhone = phone.replace(/[^0-9+]/g, ''); 
+            vcfContent += `TEL;TYPE=CELL:${cleanPhone}\n`;
+        }
+        vcfContent += 'END:VCARD\n';
+    });
 
-    console.log(`Cohort ${cohortId} is full (${currentMembers}/${maxMembers}). Initiating VCF generation and upload simulation...`);
-
-    // --- REAL LOGIC STARTS HERE ---
-    const fileName = `cohort_${cohortId}_contacts.vcf`; 
-    
-    // Simulate VCF generation and upload (500ms delay)
-    // await new Promise(resolve => setTimeout(resolve, 500)); 
-
-    // Update the cluster_cohorts table with VCF status
-    const { error: updateError } = await supabase
-        .from('cluster_cohorts')
-        .update({ 
-            vcf_uploaded: true,
-            vcf_file_name: fileName,
-            is_full: true // Redundant, but ensures consistency
-        })
-        .eq('cohort_id', cohortId);
-
-    if (updateError) {
-        console.error(`Failed to update cluster_cohorts for VCF: ${updateError.message}`);
-        throw updateError;
-    }
-
-    console.log(`VCF status updated for ${cohortId}. File: ${fileName}`);
-    return { vcf_uploaded: true, vcf_file_name: fileName };
+    return vcfContent;
 }
 
 
 /**
- * FIX: JOIN CLUSTER API
- * The fix ensures that when the cluster reaches max capacity, 
- * the VCF status flags are immediately updated in the DB and returned to the client.
+ * Handles the logic for VCF generation, upload to Storage, and database status updates
+ * when a cohort reaches its maximum capacity.
+ * This merges the core logic from your extracted VCF block.
+ */
+async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, supabase) {
+    console.log(`COHORT ${cohortId} IS FULL (${maxMembers}/${maxMembers}). Triggering VCF exchange process.`);
+
+    let vcfUploadSuccessful = false;
+    let vcfContacts = [];
+    const vcfFileName = `Cluster_Contacts_${cohortId}.vcf`;
+
+    // 1. Robust Two-Step Fetch for VCF Data
+    const { data: cohortMembers, error: membersFetchError } = await supabase
+        .from('cluster_cohort_members')
+        .select('user_id, display_profession') // Fetches the user's specific profession choice for this cohort
+        .eq('cohort_id', cohortId);
+    
+    if (membersFetchError || !cohortMembers || cohortMembers.length === 0) {
+        console.error('VCF Error: Failed to get user IDs from cohort.', membersFetchError);
+    } else {
+        const userIds = cohortMembers.map(m => m.user_id);
+        
+        // Fetch full user profiles
+        const { data: profiles, error: profilesFetchError } = await supabase
+            .from('user_profiles')
+            .select('user_id, nickname, profession, whatsapp_number')
+            .in('user_id', userIds);
+        
+        if (profilesFetchError || !profiles || profiles.length === 0) {
+            console.error('VCF Error: Failed to fetch user profiles for VCF.', profilesFetchError);
+        } else {
+            // Combine cohort-specific profession with profile data
+            vcfContacts = cohortMembers.map(member => {
+                const profile = profiles.find(p => p.user_id === member.user_id);
+                return profile ? {
+                    ...profile,
+                    display_profession: member.display_profession 
+                } : null;
+            }).filter(c => c !== null); 
+        }
+    }
+    
+    // 2. Generate VCF and Upload
+    if (vcfContacts.length === maxMembers) { 
+        
+        const vcfContent = generateVcfContent(vcfContacts); 
+        const storagePath = `vcf_exchange/${vcfFileName}`;
+        
+        // Upload VCF to Supabase Storage (near_vcf_bucket assumed from your extracted code)
+        const { error: uploadError } = await supabase.storage
+            .from('near_vcf_bucket') 
+            .upload(storagePath, vcfContent, {
+                contentType: 'text/vcard',
+                upsert: true
+            });
+
+        if (uploadError) {
+            console.error('VCF Upload Error:', uploadError);
+        } else {
+            console.log(`VCF uploaded successfully for Cohort ID: ${cohortId}.`);
+            vcfUploadSuccessful = true; 
+        }
+    } else {
+         console.warn(`VCF generation skipped due to incorrect contact count: ${vcfContacts.length}/${maxMembers}. Expected ${maxMembers}.`);
+    }
+    
+    // 3. CRITICAL: Update Cohort Status and Metadata to PAUSE/FULL state
+    const cohortUpdatePayload = {
+        is_full: true,
+        vcf_uploaded: vcfUploadSuccessful,
+        vcf_file_name: vcfUploadSuccessful ? vcfFileName : null,
+    };
+    
+    // Update cluster_cohorts table
+    const { error: cohortUpdateError } = await supabase
+        .from('cluster_cohorts')
+        .update(cohortUpdatePayload)
+        .eq('cohort_id', cohortId);
+        
+    if (cohortUpdateError) {
+         console.error(`Failed to update cluster_cohorts status: ${cohortUpdateError.message}`);
+    }
+
+    // Update cluster_metadata table (as requested in the extracted logic)
+    if (vcfUploadSuccessful) {
+        console.log(`VCF succeeded. Updating cluster_metadata to PAUSE state for cluster ${clusterIdNum}.`);
+
+        const { error: metadataUpdateError } = await supabase
+            .from('cluster_metadata') 
+            .update({ 
+                vcf_uploaded: true,
+                vcf_file_name: vcfFileName,
+                vcf_download_count: 0,
+                last_updated: new Date().toISOString()
+            }) 
+            .eq('cluster_id', clusterIdNum); 
+        
+        if (metadataUpdateError) {
+             console.error(`Failed to update cluster_metadata status: ${metadataUpdateError.message}`);
+        }
+    }
+}
+
+
+/**
+ * POST /api/join-cluster
+ * The merged API endpoint.
  */
 router.post('/join-cluster', async (req, res) => {
     const { p_cluster_id, p_user_id, p_display_profession, p_ref_code } = req.body; 
@@ -96,11 +181,12 @@ router.post('/join-cluster', async (req, res) => {
             return res.status(409).json({ success: false, message: 'Cluster is full.' });
         }
         
-        // 2. Prepare the insert payload for cluster_cohort_members
+        // 2. Prepare and execute the insert payload for cluster_cohort_members
         const newMember = {
             cluster_id: clusterIdNum,
             cohort_id: status.cohort_id, // Use the cohort_id returned from getCohortStatus
             user_id: user_id,
+            display_profession: p_display_profession || status.user_profession // Store their chosen profession for this cohort
         };
 
         const { error: insertError } = await supabase
@@ -115,7 +201,7 @@ router.post('/join-cluster', async (req, res) => {
             throw insertError;
         }
 
-        // 3. Update user profile's preference
+        // 3. Update user profile's preference (for future cohorts/default)
         if (p_display_profession !== undefined) {
              await supabase.from('user_profiles').update({ display_profession: p_display_profession }).eq('user_id', user_id);
         }
@@ -125,7 +211,7 @@ router.post('/join-cluster', async (req, res) => {
              console.log(`Tracking referral code ${p_ref_code} for user ${user_id} joining cluster ${cluster_id}.`);
         }
 
-        // === FIX IMPLEMENTATION: Check for Full Status and Trigger VCF ===
+        // === HANDLE COHORT COMPLETION AND VCF GENERATION ===
         const { count: currentMembersAfterInsert } = await supabase
             .from('cluster_cohort_members')
             .select('*', { count: 'exact' })
@@ -134,16 +220,12 @@ router.post('/join-cluster', async (req, res) => {
         const maxMembers = status.max_members || 5; 
 
         if (currentMembersAfterInsert >= maxMembers) {
-            // This is the CRITICAL step for the last member:
-            // 4a. Trigger the VCF generation and database status update
-            await generateVCFAndUpload(clusterIdNum, status.cohort_id);
-            // 4b. Also, mark the cohort as full (the VCF function handles this, but ensuring here)
-            await supabase.from('cluster_cohorts').update({ is_full: true }).eq('cohort_id', status.cohort_id);
-            console.log(`Cluster ${clusterIdNum} is now full and VCF generation triggered.`);
+            // Trigger the robust VCF generation, upload, and database status updates
+            await handleCohortCompletionAndVCF(clusterIdNum, status.cohort_id, maxMembers, supabase);
         }
         // ===============================================================
 
-        // 5. Fetch and return the FINAL updated status (this will now include the VCF flags)
+        // 5. Fetch and return the FINAL updated status
         const updatedStatus = await getCohortStatus(clusterIdNum, user_id);
         
         return res.json({ 
