@@ -1,4 +1,3 @@
-// services/cohortService.js
 // Centralized database logic for managing cluster and cohort state.
 
 const { supabaseAdmin } = require('../config/supabase'); // Use Admin client for service operations
@@ -6,10 +5,12 @@ const { supabaseAdmin } = require('../config/supabase'); // Use Admin client for
 /**
  * Retrieves the current status of a cluster and its active cohort, handling synchronization and counting.
  * This is the critical service function that ensures cluster_metadata is consistent with dynamic_clusters.
- * * * FIX IMPLEMENTED:
- * 1. Correctly calculates 'current_members' from cluster_cohort_members (the source of truth).
- * 2. Correctly determines 'user_is_member' and 'user_has_downloaded' by querying the active cohort.
- * 3. Includes 'user_has_downloaded' for the client-side download state logic.
+ * * FIX IMPLEMENTED:
+ * 1. Separated the check for the user's membership status (user_is_member, user_has_downloaded) 
+ * from the check for the active cohort's member count.
+ * 2. User membership is now checked using ONLY cluster_id and user_id, ensuring correctness 
+ * even during cohort transitions.
+ * 3. The calculated member count for the *active* cohort is still used to update cluster_metadata.
  * * @param {number} cluster_id - The ID of the cluster.
  * @param {string} user_id - The ID of the user checking the status.
  * @returns {Object} Status object including cohort state, membership, and metadata.
@@ -22,7 +23,7 @@ async function getCohortStatus(cluster_id, user_id) {
 
     try {
         let cohort_id, is_full = false, user_is_member = false, vcf_uploaded = false, max_members = 5, cluster_name = '', vcf_file_name = null;
-        let user_has_downloaded = false; // New flag for client logic
+        let user_has_downloaded = false;
         let calculated_member_count = 0;
         let clusterMeta;
 
@@ -91,32 +92,47 @@ async function getCohortStatus(cluster_id, user_id) {
         let persisted_member_count = clusterMeta.current_members || 0; // The count currently in the DB
 
 
+        // =========================================================
+        // FIX IMPLEMENTATION: Robust User Membership Check
+        // =========================================================
+
+        // Step 2: Check User's Membership (Source of truth for client state: user_is_member, user_has_downloaded)
+        const { data: userMemberEntry, error: userMemberError } = await supabase
+            .from('cluster_cohort_members') 
+            .select('cohort_id, vcf_downloaded_at') 
+            // Crucially, we only filter by cluster_id and user_id (the PK) to find the user immediately.
+            .eq('cluster_id', cluster_id)
+            .eq('user_id', user_id)
+            .limit(1)
+            .maybeSingle();
+
+        if (userMemberError) throw userMemberError;
+
+        user_is_member = !!userMemberEntry;
+        user_has_downloaded = !!userMemberEntry?.vcf_downloaded_at;
+        
+        // =========================================================
+        // END FIX IMPLEMENTATION
+        // =========================================================
+
+
         if (target_cohort_id) {
             
-            // Step 2a: Check Cohort Count and User Membership in ONE query (More efficient)
-            // Query cluster_cohort_members: Filters by active cohort and includes the user's row if they exist.
-            const { data: membersData, error: membersError } = await supabase
+            // Step 3: Check Active Cohort Member Count (Source of truth for server state: current_members, is_full)
+            const { data: activeCohortMembers, error: activeCohortMembersError } = await supabase
                 .from('cluster_cohort_members') 
-                // We only select the user_id and the download status to keep the payload minimal
-                .select('user_id, vcf_downloaded_at') 
+                // We must filter by active_cohort_id here to only count members in the currently active cohort
+                .select('user_id') 
                 .eq('cluster_id', cluster_id)
                 .eq('cohort_id', target_cohort_id); 
 
-            if (membersError) throw membersError;
+            if (activeCohortMembersError) throw activeCohortMembersError;
             
-            // FIX: Use the actual count from the source of truth (cluster_cohort_members)
-            calculated_member_count = membersData.length;
+            // Calculate state based on the active cohort's membership
+            calculated_member_count = activeCohortMembers.length;
             is_full = calculated_member_count >= max_members;
-
-            // FIX: Determine user status from the fetched data
-            const userEntry = membersData.find(m => m.user_id === user_id);
-            
-            user_is_member = !!userEntry;
-            
-            // FIX: Determine download status
-            user_has_downloaded = !!userEntry?.vcf_downloaded_at;
-            
             cohort_id = target_cohort_id;
+
             
             // --- PROACTIVE STATE PERSISTENCE (Kept as provided) ---
             // If the calculated count doesn't match the persisted count, update the DB.
@@ -153,15 +169,15 @@ async function getCohortStatus(cluster_id, user_id) {
             success: true,
             cohort_id,
             is_full,
-            current_members: calculated_member_count, // FIXED: Now uses the fresh calculated count
-            user_is_member, 
+            current_members: calculated_member_count, // Uses the fresh calculated count for the active cohort
+            user_is_member, // FIXED: Now uses the robust check from Step 2
             vcf_uploaded,
             vcf_file_name,
             max_members,
             cluster_name,
-            vcf_download_count: vcf_downloads_count, // Renamed in client to vcf_download_count
-            user_has_downloaded: user_has_downloaded, // NEW: Added for client logic
-            message: "Cohort status retrieved successfully deep. "
+            vcf_download_count: vcf_downloads_count, 
+            user_has_downloaded: user_has_downloaded, // FIXED: Now uses the robust check from Step 2
+            message: "Cohort status retrieved successfully (deep fix implemented)."
         };
 
     } catch (error) {
