@@ -1,8 +1,13 @@
 /**
- * Cluster Controller Logic (clusterController.js)
+ * Cluster Controller Logic (clusterControllers.js)
  *
  * This file contains the API controller logic for fetching and calculating
  * the status of interest clusters, including the accurate spots_left counter.
+ *
+ * This controller uses the 'dynamic_clusters' table (for max_members) and
+ * 'user_clusters' (for member count and membership check), which align with
+ * the logic derived from the 'cluster_metadata' and 'cluster_cohort_members'
+ * tables in your schema.
  *
  * NOTE: This assumes your environment provides access to a pre-initialized
  * server-side Supabase client (`supabase`) configured with the SERVICE_ROLE_KEY
@@ -43,7 +48,7 @@ const supabase = {
 // -----------------------------------------------------------------------------
 
 /**
- * Express Route Handler for /api/cohort-status
+ * Express Route Handler for /api/cohort-status-accurate
  * Calculates and returns the correct spots_left value for a given cluster.
  *
  * @param {object} req - Express Request object
@@ -63,6 +68,8 @@ async function handleCohortStatus(req, res) {
 
     try {
         // 2. Fetch Max Members for the Cluster
+        // Using 'dynamic_clusters' as per the logic provided, although 'cluster_metadata'
+        // also has 'max_members' in the schema. Using the table name from the previous request.
         const { data: clusterData, error: clusterError } = await supabase
             .from('dynamic_clusters')
             .select('max_members')
@@ -77,7 +84,8 @@ async function handleCohortStatus(req, res) {
         const maxMembers = clusterData.max_members || 5; // Default to 5 if not set
 
         // 3. Count Current Members for the Cluster
-        // We use { count: 'exact' } which is crucial for accurate counting
+        // Using 'user_clusters' as per the logic provided, which corresponds to
+        // 'cluster_cohort_members' in your schema.
         const { count: currentMembers, error: countError } = await supabase
             .from('user_clusters')
             .select('*', { count: 'exact', head: true }) // head: true for performance
@@ -108,8 +116,8 @@ async function handleCohortStatus(req, res) {
         const isFull = memberCount >= maxMembers;
 
         // 6. Return the status object
-        // NOTE: You must replace the mock values (vcf_uploaded, etc.) with
-        // actual database lookups and logic in your production environment.
+        // NOTE: In a real environment, the vcf_* fields should be fetched from 
+        // the 'cluster_metadata' table using clusterId.
         return res.json({
             success: true,
             cohort_id: `Cluster_${clusterId}`, 
