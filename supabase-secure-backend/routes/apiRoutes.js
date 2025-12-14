@@ -1,6 +1,8 @@
-// routes/apiRoutes.js (UPDATED MAIN FILE)
 const express = require('express');
 const router = express.Router();
+
+// --- NEW IMPORT: Import the specific controller function from the new file ---
+const { handleCohortStatus } = require('../controllers/clusterController');
 
 // =================================================================
 // 1. AUTH ROUTES
@@ -11,7 +13,7 @@ const tokenSignIn = require('./auth/tokenSignIn');
 // 2. FRONTEND INTEGRATION ROUTES (Fixes/Simpler Routes)
 // =================================================================
 const secureDataLeaderboard = require('./frontend/secureDataLeaderboard');
-const getCohortStatusFix = require('./frontend/getCohortStatusFix');
+const getCohortStatusFix = require('./frontend/getCohortStatusFix'); // Existing route retained
 const joinClusterFix = require('./frontend/joinClusterFix');
 const getClusterStatsFix = require('./frontend/getClusterStatsFix');
 const downloadVCFStream = require('./frontend/downloadVCFStream');
@@ -46,7 +48,13 @@ router.use('/', tokenSignIn);
 
 // FRONTEND INTEGRATION
 router.use('/', secureDataLeaderboard);
-router.use('/', getCohortStatusFix);
+
+// --- NEW ROUTE MOUNTING: Use a distinct endpoint for the new, fixed logic ---
+// We map the new logic to '/api/cohort-status-accurate' to avoid collision 
+// with the existing 'getCohortStatusFix' route and allow testing.
+router.get('/api/cohort-status-accurate', handleCohortStatus); 
+
+router.use('/', getCohortStatusFix); // Existing route retained
 router.use('/', joinClusterFix);
 router.use('/', getClusterStatsFix);
 router.use('/', downloadVCFStream);
