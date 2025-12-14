@@ -8,9 +8,12 @@ const supabase = supabaseAdmin;
 /**
  * FIX: CLUSTER STATS (Matches cohort_template.html query params)
  * Route: /api/cluster-stats?cluster_id=X&user_country=Y
- * * FIX IMPLEMENTED: Replaced implicit PostgREST join (which relies on a foreign key) 
- * with a two-step query (1. Get member IDs, 2. Get member profiles) to bypass 
- * the 'relationship not found' error.
+ *
+ * * FIX IMPLEMENTED: 
+ * 1. Removed 'display_profession' from the user_profiles select, as confirmed not to exist.
+ * 2. Fetched 'display_profession' and 'user_id' from the cluster_cohort_members table.
+ * 3. Manually merged the profile data (from user_profiles) with the cohort-specific data 
+ * (display_profession from cluster_cohort_members) using the 'user_id' as the key.
  */
 router.get('/cluster-stats', async (req, res) => {
     const { cluster_id, user_country } = req.query;
@@ -26,35 +29,55 @@ router.get('/cluster-stats', async (req, res) => {
              return res.json({ success: false, message: 'No active cohort found.' });
         }
         
-        // Step 2: Get the list of user_id's that belong to this cohort
-        const { data: memberUserIdsData, error: memberIdError } = await supabase
-            .from('cluster_cohort_members') 
-            .select('user_id') // Crucial: Select only the user_id column
-            .eq('cluster_id', clusterIdNum)
-            .eq('cohort_id', meta.active_cohort_id);
+        const cohortId = meta.active_cohort_id;
 
-        if (memberIdError) throw memberIdError;
+        // Step 2: Get the list of user_id's and the cohort-specific field (display_profession)
+        const { data: memberCohortData, error: cohortDataError } = await supabase
+            .from('cluster_cohort_members') 
+            .select('user_id, display_profession') // FETCH display_profession from this table
+            .eq('cluster_id', clusterIdNum)
+            .eq('cohort_id', cohortId);
+
+        if (cohortDataError) throw cohortDataError;
         
-        const memberUserIds = memberUserIdsData.map(m => m.user_id).filter(id => id); // Filter out any null/undefined IDs
+        const memberUserIds = memberCohortData.map(m => m.user_id).filter(id => id); 
         
         if (memberUserIds.length === 0) {
              // Return success with empty stats/members if cohort is empty
              const stats = calculateClusterStats([], user_country);
              return res.json({ success: true, cluster_stats: stats, cohort_members: [] });
         }
+        
+        // Create a map for quick lookup of display_profession by user_id
+        const cohortMemberMap = memberCohortData.reduce((acc, member) => {
+            acc[member.user_id] = member.display_profession;
+            return acc;
+        }, {});
 
         // Step 3: Fetch all required profile details for these users directly from user_profiles
-        // We fetch all fields needed for both the stats calculation and the member list display.
+        // We filter using 'user_id' since that is the common key and remove the non-existent 'display_profession' column.
         const { data: profileDetails, error: profileError } = await supabase
             .from('user_profiles')
-            .select('nickname, age, gender, country, profession, display_profession, friend_reasons, services')
-            .in('id', memberUserIds); // Assuming the primary key of user_profiles is 'id'
+            .select('user_id, nickname, age, gender, country, profession, friend_reasons, services')
+            .in('user_id', memberUserIds); // Assuming cluster_cohort_members.user_id maps to user_profiles.user_id
 
         if (profileError) throw profileError;
+        
+        // Step 4: Manually merge the profile data with the cohort-specific data (display_profession)
+        const mergedMembers = profileDetails.map(profile => {
+            // Retrieve the display_profession from the map
+            const displayProfession = cohortMemberMap[profile.user_id];
+            
+            // Return a new object that includes all profile fields + the cohort-specific display_profession
+            return {
+                ...profile,
+                display_profession: displayProfession
+            };
+        });
 
-        // The data is now ready for processing
-        const flatMembers = profileDetails; // Used for stats calculation
-        const flatList = profileDetails; // Used for member list display (renamed for clarity)
+        // The merged data structure is now used for both stats calculation and member list display
+        const flatMembers = mergedMembers; 
+        const flatList = mergedMembers; 
 
         // Calculate and return results
         const stats = calculateClusterStats(flatMembers, user_country);
