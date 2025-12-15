@@ -88,6 +88,16 @@
             transition: opacity 0.3s, visibility 0.3s;
             z-index: 1000;
         }
+        
+        /* ********** DEBUG: VISUAL CONFIRMATION OF OVERLAY ********** */
+        .slide-panel-overlay.active {
+            visibility: visible;
+            opacity: 1;
+            /* TEMPORARY DEBUG BORDER */
+            border: 10px solid red; 
+        }
+        /* ************************************************************ */
+
 
         .slide-panel {
             position: fixed;
@@ -104,10 +114,6 @@
             overflow-y: auto;
         }
 
-        .slide-panel-overlay.active {
-            visibility: visible;
-            opacity: 1;
-        }
         .slide-panel-overlay.active .slide-panel {
             transform: translateX(0); 
         }
@@ -168,7 +174,11 @@
         // --- 1. SLIDE-OUT PANEL CONTROLS ---
 
         window.openCreateGroupPanel = function() {
+            // DEBUG: Log to confirm function execution
+            console.log("Attempting to open Create Group panel..."); 
+
             groupPanelOverlay.classList.add('active');
+            
             // Ensure the form content is loaded when the panel opens
             if (!formContentContainer.innerHTML || formContentContainer.innerHTML.includes('Loading creation form')) {
                 loadCreateFormContent();
@@ -190,9 +200,11 @@
                         window.initializeCreateGroupForm(); 
                     }
                 } else {
-                    formContentContainer.innerHTML = '<p>Error loading group creation form.</p>';
+                    console.error("Error fetching create-group-form.html. Status:", formResponse.status);
+                    formContentContainer.innerHTML = '<p>Error loading group creation form (File Missing or Server Error).</p>';
                 }
             } catch (error) {
+                console.error("Network error during form fetch:", error);
                 formContentContainer.innerHTML = '<p>Network error loading form content.</p>';
             }
         }
@@ -226,7 +238,6 @@
             container.innerHTML = '<div>Loading groups...</div>'; 
 
             try {
-                // Fetch groups from API endpoint
                 const response = await fetch('/api/groups');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -260,4 +271,5 @@
 
     </script>
 </body>
-<</html>
+</html>
+
