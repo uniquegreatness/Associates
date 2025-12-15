@@ -9,12 +9,33 @@
         /* Existing basic styles */
         .header-bar {
             display: flex;
+            /* CRITICAL FIX: Allow children to wrap if space is tight */
+            flex-wrap: nowrap; 
             justify-content: space-between;
             align-items: center;
             padding: 20px;
             background-color: #f8f8f8;
             border-bottom: 1px solid #eee;
         }
+        /* CRITICAL FIX: Ensure H1 doesn't consume all width on mobile */
+        .header-bar h1 {
+            /* Prevent the text from wrapping, forcing it to consume only minimum width */
+            white-space: nowrap; 
+            /* Shrink slightly less aggressively than the button container */
+            flex-shrink: 1; 
+            /* Set a minimum width so it doesn't disappear */
+            min-width: 50%;
+            margin: 0;
+            padding-right: 10px; /* Space between title and button */
+            font-size: 1.5em; /* Adjusted for mobile view, if necessary */
+        }
+        
+        /* Ensure the container holding the button can shrink/grow */
+        #navControlsContainer {
+            flex-shrink: 0; /* Prevent the button container from shrinking away entirely */
+            margin-left: auto; /* Push it to the right edge */
+        }
+
         .group-list-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -107,11 +128,11 @@
     <div class="header-bar">
         <h1>All Group Cohorts</h1>
         <div id="navControlsContainer">
-            </div>
+        </div>
     </div>
 
     <div class="group-list-container" id="groupListContainer">
-        </div>
+    </div>
 
     <div class="slide-panel-overlay" id="createGroupPanelOverlay">
         <div class="slide-panel">
@@ -142,10 +163,8 @@
         
         // --- 1. SLIDE-OUT PANEL CONTROLS ---
 
-        // Function called by the button in nav-buttons.html
         window.openCreateGroupPanel = function() {
             groupPanelOverlay.classList.add('active');
-            // Ensure the form content is loaded when the panel opens
             if (!formContentContainer.innerHTML || formContentContainer.innerHTML.includes('Loading creation form')) {
                 loadCreateFormContent();
             }
@@ -158,41 +177,30 @@
         // --- 2. MODULAR COMPONENT INJECTION (CACHE BUSTER) ---
         
         async function loadModularComponents() {
-            // Get current timestamp to bust cache
             const cacheBuster = Date.now();
             console.log("[DEBUG 1] Attempting to load nav-buttons.html with cache-buster.");
             
             try {
-                // 1. Fetch the file with cache-buster query parameter
                 const navResponse = await fetch(`nav-buttons.html?t=${cacheBuster}`);
                 
-                // 2. Check HTTP status explicitly (e.g., 404, 500)
                 if (!navResponse.ok) {
                     console.error(`[DEBUG 2] File Fetch Failed. Status: ${navResponse.status} (${navResponse.statusText})`);
-                    
-                    // CRITICAL FALLBACK: Ensure a button is ALWAYS visible for testing
                     navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()" style="background-color: red;">DEBUG FAILED: BUTTON (Status: '+ navResponse.status +')</button>';
                     return; 
                 }
 
-                // 3. Parse and Inject
                 const navHtml = await navResponse.text();
                 navControlsContainer.innerHTML = navHtml;
                 console.log("[DEBUG 3] Successfully loaded and injected nav-buttons.html.");
 
             } catch (error) {
-                // 4. Catch Network Errors
                 console.error("[DEBUG 4] NETWORK ERROR during nav-buttons fetch:", error.message, error);
-                
-                // CRITICAL FALLBACK: Ensure a button is ALWAYS visible for testing
                 navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()" style="background-color: darkred;">DEBUG FAILED: BUTTON (Network Error)</button>';
             }
         }
 
-        // Load the actual form fields into the slide-out panel
         async function loadCreateFormContent() {
             try {
-                // Use a cache-buster here too for reliability
                 const cacheBuster = Date.now();
                 const formResponse = await fetch(`create-group-form.html?t=${cacheBuster}`);
                 
