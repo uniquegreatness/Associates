@@ -146,7 +146,7 @@
         window.openCreateGroupPanel = function() {
             groupPanelOverlay.classList.add('active');
             // Ensure the form content is loaded when the panel opens
-            if (formContentContainer.innerHTML.includes('Loading creation form')) {
+            if (!formContentContainer.innerHTML || formContentContainer.innerHTML.includes('Loading creation form')) {
                 loadCreateFormContent();
             }
         }
@@ -155,19 +155,29 @@
             groupPanelOverlay.classList.remove('active');
         }
 
-        // --- 2. MODULAR COMPONENT INJECTION ---
+        // --- 2. MODULAR COMPONENT INJECTION (DEBUG ENABLED) ---
         
         async function loadModularComponents() {
+            console.log("[Debug] Attempting to load nav-buttons.html...");
             try {
-                // Load reusable buttons
+                // Load reusable buttons - Check if path is correct
                 const navResponse = await fetch('nav-buttons.html');
-                if (navResponse.ok) {
-                    navControlsContainer.innerHTML = await navResponse.text();
+                
+                if (!navResponse.ok) {
+                    console.error(`[Debug] Failed to fetch nav-buttons.html. Status: ${navResponse.status}`);
+                    // Fallback for immediate visibility
+                    navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()">CREATE GROUP (Fallback)</button>';
+                    return;
                 }
 
+                const navHtml = await navResponse.text();
+                navControlsContainer.innerHTML = navHtml;
+                console.log("[Debug] Successfully loaded and injected nav-buttons.html content.");
+
             } catch (error) {
-                console.error("Error loading modular components:", error);
-                navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()">CREATE GROUP</button>';
+                console.error("[Debug] Network or parse error during nav-buttons fetch:", error);
+                // Fallback for immediate visibility
+                navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()">CREATE GROUP (Fallback Error)</button>';
             }
         }
 
@@ -195,7 +205,6 @@
         function renderGroupCard(group) {
             const isFull = group.is_full;
             const statusClass = isFull ? 'status-full' : 'status-open';
-            // Note: Your backend should ideally calculate spots_left, but we can do it here too
             const spotsLeft = group.max_members - group.current_members;
             const statusText = isFull ? 'Group Full' : `${spotsLeft} Spots Left`;
             const typeText = `Type: ${group.vcf_type.toUpperCase()}`;
