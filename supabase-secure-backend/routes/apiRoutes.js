@@ -14,6 +14,10 @@ const secureDataLeaderboard = require('./frontend/secureDataLeaderboard');
 const getCohortStatusFix = require('./frontend/getCohortStatusFix');
 const joinClusterFix = require('./frontend/joinClusterFix');
 const getClusterStatsFix = require('./frontend/getClusterStatsFix');
+
+// 🛑 CRITICAL FIX: Correct the file path to point to the 'frontend' sub-directory.
+const clusterStatsV2 = require('./frontend/clusterStatsV2'); 
+
 const downloadVCFStream = require('./frontend/downloadVCFStream');
 const trackDownload = require('./frontend/trackDownload');
 
@@ -49,10 +53,12 @@ router.use('/', secureDataLeaderboard);
 router.use('/', getCohortStatusFix);
 router.use('/', joinClusterFix);
 router.use('/', getClusterStatsFix);
-const clusterStatsV2 = require('./clusterStatsV2');
-router.use('/', clusterStatsV2);
-// FIX: The clusterStatsV2 router must be explicitly mounted here to make it active.
+
+// Mount the corrected clusterStatsV2 router
 router.use('/', clusterStatsV2); 
+
+// 🛑 NOTE: Removed the duplicate 'router.use('/', clusterStatsV2);' line.
+
 router.use('/', downloadVCFStream);
 router.use('/', trackDownload);
 
@@ -73,3 +79,4 @@ router.use('/', commitVcfUpload);
 
 
 module.exports = router;
+
