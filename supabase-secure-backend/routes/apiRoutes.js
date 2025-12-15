@@ -49,6 +49,7 @@ router.use('/', secureDataLeaderboard);
 router.use('/', getCohortStatusFix);
 router.use('/', joinClusterFix);
 router.use('/', getClusterStatsFix);
+const clusterStatsV2 = require('./clusterStatsV2');
 router.use('/', downloadVCFStream);
 router.use('/', trackDownload);
 
