@@ -14,8 +14,10 @@ const supabase = supabaseAdmin;
  * 2. Fetched 'display_profession' and 'user_id' from the cluster_cohort_members table.
  * 3. Manually merged the profile data (from user_profiles) with the cohort-specific data 
  * (display_profession from cluster_cohort_members) using the 'user_id' as the key.
- * 4. CRITICAL FIX: Added defensive checks (using `|| ''`) for `friend_reasons` and `services` 
- * to prevent 'Cannot read properties of undefined (reading 'split')' errors in `calculateClusterStats`.
+ * 4. CRITICAL FIX (V2): Applied exhaustive defensive checks (using || '') to ALL string fields 
+ * that are likely processed by `calculateClusterStats`: 'profession', 'friend_reasons', 'services', 
+ * and the merged 'display_profession'. This guarantees that no null/undefined value reaches the 
+ * function that calls `.split()`.
  */
 router.get('/cluster-stats', async (req, res) => {
     const { cluster_id, user_country } = req.query;
@@ -66,17 +68,19 @@ router.get('/cluster-stats', async (req, res) => {
         if (profileError) throw profileError;
         
         // Step 4: Manually merge the profile data with the cohort-specific data (display_profession)
-        // CRITICAL FIX: Ensure string fields that are processed by calculateClusterStats 
-        // (like friend_reasons and services) are not null/undefined to prevent 'split' error.
         const mergedMembers = profileDetails.map(profile => {
-            // Retrieve the display_profession from the map
-            const displayProfession = cohortMemberMap[profile.user_id];
+            // Retrieve the display_profession from the map, defaulting to '' if not found
+            const displayProfession = cohortMemberMap[profile.user_id] || ''; 
             
             // Return a new object that includes all profile fields + the cohort-specific display_profession
+            // CRITICAL FIX: Ensure string fields that are split by calculateClusterStats 
+            // are coerced to an empty string if null/undefined.
             return {
                 ...profile,
-                display_profession: displayProfession,
-                // Apply null/undefined check for fields expected to be strings
+                display_profession: displayProfession, // Defensive check applied during lookup
+                
+                // Defensive checks for fields fetched from user_profiles:
+                profession: profile.profession || '',
                 friend_reasons: profile.friend_reasons || '', 
                 services: profile.services || ''
             };
