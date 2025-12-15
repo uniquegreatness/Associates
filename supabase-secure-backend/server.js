@@ -2,17 +2,14 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const fs = require('fs/promises'); // <-- NEW: Import for file reading
+const fs = require('fs/promises');
 const apiRoutes = require('./routes/apiRoutes');
-// const { injectSupabaseConfig } = require('./utils/cohortUtils'); // <-- Removed dependency on external injector
-const { supabaseUrl, supabaseAnonKey } = require('./config/supabase'); // <-- FIX: Added supabaseAnonKey import
+const { supabaseUrl, supabaseAnonKey } = require('./config/supabase');
 
 const app = express();
 const port = 3000;
 
 // --- CRITICAL PATH FIX: Determine the project root directory ---
-// Since server.js is inside 'supabase-secure-backend', and the HTML/static files 
-// are in the parent directory (the repository root), we define the root path:
 const PROJECT_ROOT = path.join(__dirname, '..');
 
 console.log(`[Config] Resolved PROJECT_ROOT (for HTML/Static Files): ${PROJECT_ROOT}`);
@@ -28,9 +25,47 @@ console.log(`[Server] Environment is set up.`);
 
 
 // =================================================================
-// 1. Static File Serving (CORRECTED PATH)
+// 1. Static File Serving: Modular HTML Fragments (CRITICAL FIX)
 // =================================================================
-// Serve static assets (CSS, JS, images, and the HTML files) from the PROJECT_ROOT
+// This handler ensures that simple, non-injected HTML files (like our components) 
+// are served reliably, bypassing potential conflicts with custom routes.
+app.get('/*.html', async (req, res, next) => {
+    const fileName = path.basename(req.path);
+    
+    // List of files that need server-side INJECTION (handled by servePage later)
+    const injectedFiles = [
+        'index.html', 'groups.html', 'cohort_template.html', 'login_template.html',
+        'update-password.html', 'admin.html', 'settings.html', 'dashboard.html',
+        'leaderboard.html'
+    ];
+    
+    // If the file is one of the main pages that requires config injection, skip this handler
+    if (injectedFiles.includes(fileName)) {
+        return next();
+    }
+    
+    // If it's a modular component (like nav-buttons.html or create-group-form.html)
+    try {
+        const filePath = path.join(PROJECT_ROOT, fileName);
+        await fs.access(filePath); // Check if file exists
+        
+        // Serve the raw HTML file content directly
+        res.sendFile(filePath);
+        console.log(`[Server] Served modular component: ${fileName}`);
+    } catch (error) {
+        // If file not found, pass to the next middleware (express.static)
+        if (error.code === 'ENOENT') {
+            return next();
+        }
+        console.error(`Error serving modular HTML fragment ${fileName}:`, error);
+        res.status(500).send(`Server Error serving component: ${fileName}`);
+    }
+});
+
+// =================================================================
+// 1. Static File Serving: General Assets
+// =================================================================
+// Serve all general static assets (CSS, JS, images, etc.) from the PROJECT_ROOT
 app.use(express.static(PROJECT_ROOT));
 
 
@@ -41,7 +76,7 @@ app.use('/api', apiRoutes);
 
 
 // =================================================================
-// 3. Frontend Routes (HTML Pages - FIXED PATHS and INJECTION)
+// 3. Frontend Routes (HTML Pages with SUPABASE INJECTION)
 // =================================================================
 
 /**
@@ -50,22 +85,22 @@ app.use('/api', apiRoutes);
  * @param {object} req The Express request object.
  * @param {object} res The Express response object.
  */
-const servePage = async (templateFileName, req, res) => { // <-- Made ASYNC
+const servePage = async (templateFileName, req, res) => {
     try {
         const filePath = path.join(PROJECT_ROOT, templateFileName);
-        let htmlContent = await fs.readFile(filePath, 'utf-8'); // <-- Reads the file
+        let htmlContent = await fs.readFile(filePath, 'utf-8');
 
-        // CRITICAL FIX: Replace the placeholders with actual configuration values
+        // Replace the placeholders with actual configuration values
         htmlContent = htmlContent.replace(
             '__SUPABASE_URL_INJECTION__', 
-            supabaseUrl || 'ERROR_SUPABASE_URL_MISSING' // Use a fallback for clear debugging
+            supabaseUrl || 'ERROR_SUPABASE_URL_MISSING'
         );
         htmlContent = htmlContent.replace(
             '__SUPABASE_ANON_KEY_INJECTION__', 
             supabaseAnonKey || 'ERROR_SUPABASE_ANON_KEY_MISSING'
         );
 
-        res.type('html').send(htmlContent); // <-- Sends the fixed content
+        res.type('html').send(htmlContent);
 
     } catch (error) {
         console.error(`Error serving ${templateFileName}:`, error);
@@ -76,25 +111,14 @@ const servePage = async (templateFileName, req, res) => { // <-- Made ASYNC
 // --- Main Application Pages ---
 app.get('/', async (req, res) => servePage('index.html', req, res));
 app.get('/index.html', async (req, res) => servePage('index.html', req, res));
-
-// --- NEW GROUPS DASHBOARD ROUTE ---
-app.get('/groups.html', async (req, res) => servePage('groups.html', req, res)); // <<< NEW LINE ADDED
-
-// --- Cohort & Dynamic Cluster View Routes (FIXED) ---
-// Note: All routes calling servePage must now be async.
+app.get('/groups.html', async (req, res) => servePage('groups.html', req, res));
 app.get('/cohort.html', async (req, res) => servePage('cohort_template.html', req, res));
 app.get('/C_:clusterId', async (req, res) => servePage('cohort_template.html', req, res));
-
-// --- Authentication Pages ---
 app.get('/login.html', async (req, res) => servePage('login_template.html', req, res));
 app.get('/update-password.html', async (req, res) => servePage('login_template.html', req, res)); 
-
-// --- Other Utility/Admin Pages (FIXED) ---
 app.get('/admin.html', async (req, res) => servePage('admin.html', req, res));
 app.get('/settings.html', async (req, res) => servePage('settings.html', req, res)); 
 app.get('/dashboard.html', async (req, res) => servePage('dashboard.html', req, res));
-
-// --- LEADERBOARD FIX: Add route for leaderboard.html ---
 app.get('/leaderboard.html', async (req, res) => servePage('leaderboard.html', req, res));
 
 
