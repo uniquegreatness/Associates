@@ -77,6 +77,9 @@ const servePage = async (templateFileName, req, res) => { // <-- Made ASYNC
 app.get('/', async (req, res) => servePage('index.html', req, res));
 app.get('/index.html', async (req, res) => servePage('index.html', req, res));
 
+// --- NEW GROUPS DASHBOARD ROUTE ---
+app.get('/groups.html', async (req, res) => servePage('groups.html', req, res)); // <<< NEW LINE ADDED
+
 // --- Cohort & Dynamic Cluster View Routes (FIXED) ---
 // Note: All routes calling servePage must now be async.
 app.get('/cohort.html', async (req, res) => servePage('cohort_template.html', req, res));
@@ -106,3 +109,4 @@ app.use((req, res) => {
 app.listen(port, () => {
     console.log(`[Server] Cohort Manager backend running at http://localhost:${port}`);
 });
+
