@@ -38,6 +38,28 @@
             border: 5px solid limegreen; 
             z-index: 10; /* Force it to the front */
             position: relative; /* Necessary for z-index to work */
+            /* TEMP FIX: Ensure it is not a dot */
+            min-width: 100px !important;
+        }
+
+        /* *************************************************************** */
+        /* ********** THE FINAL INJECTED CONTENT VISIBILITY FIX ********** */
+        /* *************************************************************** */
+        
+        /* Target the div *inside* the injection container */
+        #navControlsContainer #reusable-nav-controls {
+            /* Force the injected container to be visible and use its content size */
+            height: auto !important; 
+            width: auto !important;
+            min-width: 100px !important;
+        }
+
+        /* Target the button itself */
+        #navControlsContainer #reusable-nav-controls #createGroupBtn {
+             /* Force button to display */
+            display: inline-block !important; 
+            visibility: visible !important; 
+            opacity: 1 !important;
         }
         
         /* Temporarily make buttons huge and bordered for visibility */
@@ -46,6 +68,7 @@
             padding: 10px;
             border: 3px solid blue;
         }
+        /* *************************************************************** */
 
         .group-list-container {
             display: grid;
@@ -293,4 +316,3 @@
     </script>
 </body>
 </html>
-
