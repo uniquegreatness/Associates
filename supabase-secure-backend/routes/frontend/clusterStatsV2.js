@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-// IMPORTANT FIX: Changed path from '../config/supabase' to '../../config/supabase'
+// IMPORTANT FIX 1: Corrected path to config (from previous step)
 const { supabaseAdmin } = require('../../config/supabase'); 
-const { calculateClusterStats } = require('../utils/cohortUtils');
+// CRITICAL FIX 2: Corrected path to utils folder
+const { calculateClusterStats } = require('../../utils/cohortUtils');
 
 const supabase = supabaseAdmin; 
 
@@ -116,4 +117,3 @@ router.get('/cluster-stats-v2', async (req, res) => {
 });
 
 module.exports = router;
-
