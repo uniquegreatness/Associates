@@ -10,12 +10,17 @@ const supabase = supabaseAdmin;
  * NEW ROUTE: CLUSTER STATS V2
  * Route: /api/cluster-stats-v2?cluster_id=X&user_country=Y
  * * Purpose: This route is designed to be highly robust and defensively fetch all
- * required profile and cohort data, coercing potential null values to empty strings 
- * or comma-separated strings to prevent the original 'split is not a function' error 
- * within the utility function.
+ * required profile and cohort data, coercing potential null values to safe formats
+ * to prevent the original 'split is not a function' error within the utility function.
  */
 router.get('/cluster-stats-v2', async (req, res) => {
+    // CRITICAL FIX 1: Add input validation to prevent crashes from bad query params
     const { cluster_id, user_country } = req.query;
+    
+    if (!cluster_id || isNaN(parseInt(cluster_id, 10))) {
+        return res.status(400).json({ success: false, message: 'Invalid or missing cluster_id parameter.' });
+    }
+    
     const clusterIdNum = parseInt(cluster_id, 10);
 
     try {
@@ -72,22 +77,26 @@ router.get('/cluster-stats-v2', async (req, res) => {
             // Extract cohort-specific display_profession, safely defaulting to ''
             const displayProfession = cohortMemberMap[profile.user_id] || '';
             
-            // CRITICAL FIX: Coerce potential null array/text fields to safe strings.
-            // If it's an array (which might happen if the DB schema is text[]), join it to the expected comma-separated string format.
+            // CRITICAL FIX 2: Ensure array fields are safely converted to comma-separated strings
+            // or default to an empty string, as the current calculateClusterStats expects strings.
             const safeFriendReasons = Array.isArray(profile.friend_reasons) ? profile.friend_reasons.join(', ') : (profile.friend_reasons || '');
             const safeServices = Array.isArray(profile.services) ? profile.services.join(', ') : (profile.services || '');
 
             return {
                 user_id: profile.user_id,
                 nickname: profile.nickname || '',
-                age: profile.age, 
+                
+                // CRITICAL FIX 3: Ensure age is a number or null. If it's a null string from the DB,
+                // parseInt will return NaN, which crashes the stats calculator. 
+                age: (profile.age !== null && profile.age !== undefined) ? parseInt(profile.age, 10) : null,
+                
                 gender: profile.gender || '',
                 country: profile.country || '',
                 
                 // Fields expected to be split() must be strings
                 profession: profile.profession || '',
-                friend_reasons: safeFriendReasons, 
-                services: safeServices,
+                friend_reasons: safeFriendReasons, // Now a safe string
+                services: safeServices,           // Now a safe string
                 
                 display_profession: displayProfession 
             };
@@ -100,9 +109,11 @@ router.get('/cluster-stats-v2', async (req, res) => {
 
     } catch (error) {
         console.error("Error fetching cluster stats V2:", error);
-        const errorMessage = error.message || 'An unknown error occurred on the server.';
+        // CRITICAL FIX 4: Ensure the error message is always a string and not null
+        const errorMessage = (error.message || String(error)) || 'An unknown error occurred on the server.';
         return res.status(500).json({ success: false, message: errorMessage });
     }
 });
 
 module.exports = router;
+
