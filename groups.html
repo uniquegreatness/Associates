@@ -155,29 +155,35 @@
             groupPanelOverlay.classList.remove('active');
         }
 
-        // --- 2. MODULAR COMPONENT INJECTION (DEBUG ENABLED) ---
+        // --- 2. MODULAR COMPONENT INJECTION (AGGRESSIVE DEBUG) ---
         
         async function loadModularComponents() {
-            console.log("[Debug] Attempting to load nav-buttons.html...");
+            console.log("[DEBUG 1] Attempting to load nav-buttons.html...");
+            
             try {
-                // Load reusable buttons - Check if path is correct
+                // 1. Fetch the file
                 const navResponse = await fetch('nav-buttons.html');
                 
+                // 2. Check HTTP status explicitly (e.g., 404, 500)
                 if (!navResponse.ok) {
-                    console.error(`[Debug] Failed to fetch nav-buttons.html. Status: ${navResponse.status}`);
-                    // Fallback for immediate visibility
-                    navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()">CREATE GROUP (Fallback)</button>';
-                    return;
+                    console.error(`[DEBUG 2] File Fetch Failed. Status: ${navResponse.status} (${navResponse.statusText})`);
+                    
+                    // CRITICAL FALLBACK: Ensure a button is ALWAYS visible for testing
+                    navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()" style="background-color: red;">DEBUG FAILED: BUTTON (Status: '+ navResponse.status +')</button>';
+                    return; 
                 }
 
+                // 3. Parse and Inject
                 const navHtml = await navResponse.text();
                 navControlsContainer.innerHTML = navHtml;
-                console.log("[Debug] Successfully loaded and injected nav-buttons.html content.");
+                console.log("[DEBUG 3] Successfully loaded and injected nav-buttons.html.");
 
             } catch (error) {
-                console.error("[Debug] Network or parse error during nav-buttons fetch:", error);
-                // Fallback for immediate visibility
-                navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()">CREATE GROUP (Fallback Error)</button>';
+                // 4. Catch Network Errors (e.g., CORS, DNS, connection issues)
+                console.error("[DEBUG 4] NETWORK ERROR during nav-buttons fetch:", error.message, error);
+                
+                // CRITICAL FALLBACK: Ensure a button is ALWAYS visible for testing
+                navControlsContainer.innerHTML = '<button onclick="openCreateGroupPanel()" style="background-color: darkred;">DEBUG FAILED: BUTTON (Network Error)</button>';
             }
         }
 
@@ -187,15 +193,13 @@
                 const formResponse = await fetch('create-group-form.html');
                 if (formResponse.ok) {
                     formContentContainer.innerHTML = await formResponse.text();
-                    // Optional: Run initialization function defined in the form file
                     if (window.initializeCreateGroupForm) {
                         window.initializeCreateGroupForm(); 
                     }
                 } else {
-                    formContentContainer.innerHTML = '<p>Error loading group creation form.</p>';
+                    formContentContainer.innerHTML = '<p>Error loading group creation form (Status: '+ formResponse.status +').</p>';
                 }
             } catch (error) {
-                console.error("Error loading form content:", error);
                 formContentContainer.innerHTML = '<p>Network error loading form content.</p>';
             }
         }
@@ -258,7 +262,6 @@
         // --- 4. INITIALIZATION ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Load components and data simultaneously
             loadModularComponents();
             fetchAndDisplayGroups();
             
