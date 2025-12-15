@@ -81,7 +81,6 @@
             opacity: 0;
             transition: opacity 0.3s, visibility 0.3s;
             z-index: 1000;
-            /* REMOVED DEBUG BORDER */
         }
         
         .slide-panel-overlay.active {
@@ -94,7 +93,7 @@
             top: 0;
             right: 0;
             width: 400px; 
-            max-width: 90%; /* Ensures mobile compatibility */
+            max-width: 90%;
             height: 100%;
             background-color: #fff;
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
@@ -152,7 +151,7 @@
 
     <div class="header-bar">
         <h1>NEAR Network</h1>
-        <button id="createGroupBtn" onclick="openCreateGroupPanel()">CREATE GROUP</button>
+        <button id="createGroupBtn">CREATE GROUP</button>
     </div>
 
     <div class="group-list-container" id="groupListContainer">
@@ -162,7 +161,7 @@
         <div class="slide-panel">
             <h2>
                 Create New Group
-                <button class="close-btn" onclick="closeCreateGroupPanel()">&times;</button>
+                <button class="close-btn" id="closePanelBtn">&times;</button>
             </h2>
             
             <form id="createGroupForm">
@@ -208,17 +207,21 @@
             </div>
     </div>
     <script>
+        // Supabase keys (retained for database interaction, but not used for button click)
         window.SUPABASE_URL = '__SUPABASE_URL_INJECTION__';
         window.SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <script>
+        // Initialize Supabase client
         const supabase = window.supabase.createClient(
             window.SUPABASE_URL,
             window.SUPABASE_ANON_KEY
         );
 
+        const createGroupBtn = document.getElementById('createGroupBtn');
+        const closePanelBtn = document.getElementById('closePanelBtn');
         const groupPanelOverlay = document.getElementById('createGroupPanelOverlay');
         const createGroupForm = document.getElementById('createGroupForm');
         const formStatus = document.getElementById('formStatus');
@@ -226,7 +229,6 @@
         // --- 1. SLIDE-OUT PANEL CONTROLS ---
 
         window.openCreateGroupPanel = function() {
-            // No more loading logic needed! The form is already in the DOM.
             groupPanelOverlay.classList.add('active');
         }
 
@@ -239,7 +241,7 @@
         function handleFormSubmission(event) {
             event.preventDefault();
             formStatus.textContent = 'Submitting...';
-            formStatus.style.color = '#007bff'; // Blue during submission
+            formStatus.style.color = '#007bff'; 
 
             const formData = {
                 name: document.getElementById('groupName').value,
@@ -282,6 +284,7 @@
         }
         
         // --- 3. GROUP LIST LOGIC (Supabase) ---
+        // (functions removed for brevity in this response, but assumed to exist in the actual file)
 
         function renderGroupCard(group) {
             const isFull = group.is_full;
@@ -335,10 +338,16 @@
              window.location.href = `/C_${groupId}`; 
         }
 
-        // --- 4. INITIALIZATION ---
+        // --- 4. INITIALIZATION (Attach Event Listeners) ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Attach form submission listener immediately
+            // Attach event listener directly to the button element
+            createGroupBtn.addEventListener('click', window.openCreateGroupPanel);
+            
+            // Attach event listener to the close button
+            closePanelBtn.addEventListener('click', window.closeCreateGroupPanel);
+
+            // Attach form submission listener
             createGroupForm.addEventListener('submit', handleFormSubmission);
             
             fetchAndDisplayGroups();
@@ -347,3 +356,4 @@
     </script>
 </body>
 </html>
+
