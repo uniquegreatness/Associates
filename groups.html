@@ -13,12 +13,17 @@
             padding: 20px;
         }
         
+        /* ************************************************************ */
+        /* ********** UPDATED HEADER STYLE ********** */
+        /* ************************************************************ */
         .header-bar h1 {
+            color: #007bff; /* Blue color from screenshot */
+            font-size: 2.5em; /* Larger size to match screenshot */
+            font-weight: bold;
             white-space: nowrap; 
             flex-shrink: 1; 
             margin: 0;
             padding-right: 10px;
-            font-size: 1.5em;
         }
         
         /* ************************************************************ */
@@ -127,7 +132,7 @@
 <body>
 
     <div class="header-bar">
-        <h1>All Group Cohorts</h1>
+        <h1>NEAR Network</h1>
         <button id="createGroupBtn" onclick="openCreateGroupPanel()">CREATE GROUP</button>
     </div>
 
@@ -173,9 +178,6 @@
         window.closeCreateGroupPanel = function() {
             groupPanelOverlay.classList.remove('active');
         }
-
-        // --- 2. MODULAR COMPONENT INJECTION (REMOVED) ---
-        // loadModularComponents is removed. The button is now static.
 
         async function loadCreateFormContent() {
             try {
@@ -258,5 +260,4 @@
 
     </script>
 </body>
-</html>
-
+<</html>
