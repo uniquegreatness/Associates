@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Cohorts Dashboard</title>
+    <link rel="stylesheet" href="cohortcss.css"> 
+    <style>
+        /* Basic styles for the new page layout */
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #eee;
+        }
+        .group-list-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .group-card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .group-card:hover {
+            transform: translateY(-2px);
+        }
+        .group-card h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .group-status {
+            font-size: 0.9em;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        .status-open { background-color: #d4edda; color: #155724; }
+        .status-full { background-color: #f8d7da; color: #721c24; }
+        .status-direct { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <h1>All Group Cohorts</h1>
+        <button id="createGroupBtn" onclick="goToCreateGroupPage()">CREATE GROUP</button>
+    </div>
+
+    <div class="group-list-container" id="groupListContainer">
+        </div>
+
+    <script>
+        window.SUPABASE_URL = '__SUPABASE_URL_INJECTION__';
+        window.SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        const supabase = window.supabase.createClient(
+            window.SUPABASE_URL,
+            window.SUPABASE_ANON_KEY
+        );
+
+        // Function to navigate to the group creation page (which we need to create next)
+        function goToCreateGroupPage() {
+            // For now, let's log the action. We will create a 'create-group.html' page later.
+            console.log("Navigating to Group Creation Form...");
+            // window.location.href = 'create-group.html'; 
+            alert('Navigation to Group Creation Form goes here!');
+        }
+
+        // Function to render a single group card
+        function renderGroupCard(group) {
+            const isFull = group.is_full;
+            const statusClass = isFull ? 'status-full' : 'status-open';
+            const statusText = isFull ? 'Group Full' : `${group.spots_left} Spots Left`;
+            const typeText = `Type: ${group.vcf_type.toUpperCase()}`;
+            const paidText = group.is_paid ? ' | 💰 Paid' : '';
+            const incentiveText = group.is_incentivized ? ' | 🎁 Incentivized' : '';
+            
+            const cardHtml = `
+                <div class="group-card" data-group-id="${group.group_id}">
+                    <h3>${group.name}</h3>
+                    <p>${group.description || 'No description provided.'}</p>
+                    <p>Members: <strong>${group.current_members} / ${group.max_members}</strong></p>
+                    <span class="group-status ${statusClass}">${statusText}</span>
+                    <span class="group-status status-direct">${typeText}${paidText}${incentiveText}</span>
+                    <button onclick="viewGroupDetails(${group.group_id})">View Details</button>
+                </div>
+            `;
+            return cardHtml;
+        }
+
+        // Function to fetch and display all groups
+        async function fetchAndDisplayGroups() {
+            const container = document.getElementById('groupListContainer');
+            container.innerHTML = '<div>Loading groups...</div>'; 
+
+            try {
+                // Fetch data from the new API endpoint
+                const response = await fetch('/api/groups');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+
+                if (result.success && result.groups && result.groups.length > 0) {
+                    container.innerHTML = '';
+                    result.groups.forEach(group => {
+                        container.innerHTML += renderGroupCard(group);
+                    });
+                } else {
+                    container.innerHTML = '<div>No active groups found. Be the first to create one!</div>';
+                }
+
+            } catch (error) {
+                console.error("Error fetching groups:", error);
+                container.innerHTML = `<div>Error loading groups: ${error.message}</div>`;
+            }
+        }
+
+        // Function to handle viewing a specific group (links to cohort.html logic)
+        function viewGroupDetails(groupId) {
+             // Use the existing dynamic routing pattern (C_:clusterId)
+             window.location.href = `/C_${groupId}`; 
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', fetchAndDisplayGroups);
+
+    </script>
+</body>
+</html>
