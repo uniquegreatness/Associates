@@ -3,6 +3,11 @@ const express = require('express');
 const router = express.Router();
 
 // =================================================================
+// 0. NEW GROUP MANAGEMENT ROUTES (The new addition)
+// =================================================================
+const groupsRouter = require('./groupsRouter'); // <<< NEW IMPORT
+
+// =================================================================
 // 1. AUTH ROUTES
 // =================================================================
 const tokenSignIn = require('./auth/tokenSignIn');
@@ -14,10 +19,7 @@ const secureDataLeaderboard = require('./frontend/secureDataLeaderboard');
 const getCohortStatusFix = require('./frontend/getCohortStatusFix');
 const joinClusterFix = require('./frontend/joinClusterFix');
 const getClusterStatsFix = require('./frontend/getClusterStatsFix');
-
-// 🛑 CRITICAL FIX: Correct the file path to point to the 'frontend' sub-directory.
 const clusterStatsV2 = require('./frontend/clusterStatsV2'); 
-
 const downloadVCFStream = require('./frontend/downloadVCFStream');
 const trackDownload = require('./frontend/trackDownload');
 
@@ -28,7 +30,7 @@ const getCohortStatusLegacy = require('./legacy/getCohortStatusLegacy');
 const joinClusterLegacy = require('./legacy/joinClusterLegacy');
 const leaveClusterLegacy = require('./legacy/leaveClusterLegacy');
 const getLeaderboardLegacy = require('./legacy/getLeaderboardLegacy');
-const getDisplayMemberList = require('./legacy/getDisplayMemberList'); // Endpoint 12
+const getDisplayMemberList = require('./legacy/getDisplayMemberList'); 
 
 // =================================================================
 // 4. ADMIN ROUTES (Secure Endpoints)
@@ -45,6 +47,9 @@ const commitVcfUpload = require('./admin/commitVcfUpload');
 // ROUTE MOUNTING (The order here does not matter)
 // =================================================================
 
+// 🛑 NEW GROUP ROUTES MOUNTED HERE
+router.use('/groups', groupsRouter); // <<< MOUNTED AT /api/groups
+
 // AUTH
 router.use('/', tokenSignIn);
 
@@ -53,12 +58,7 @@ router.use('/', secureDataLeaderboard);
 router.use('/', getCohortStatusFix);
 router.use('/', joinClusterFix);
 router.use('/', getClusterStatsFix);
-
-// Mount the corrected clusterStatsV2 router
 router.use('/', clusterStatsV2); 
-
-// 🛑 NOTE: Removed the duplicate 'router.use('/', clusterStatsV2);' line.
-
 router.use('/', downloadVCFStream);
 router.use('/', trackDownload);
 
