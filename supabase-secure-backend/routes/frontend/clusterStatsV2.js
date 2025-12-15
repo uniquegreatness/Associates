@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-// IMPORTANT: Importing the Admin client and the utility function from your structure
-const { supabaseAdmin } = require('../config/supabase'); 
+// IMPORTANT FIX: Changed path from '../config/supabase' to '../../config/supabase'
+const { supabaseAdmin } = require('../../config/supabase'); 
 const { calculateClusterStats } = require('../utils/cohortUtils');
 
 const supabase = supabaseAdmin; 
