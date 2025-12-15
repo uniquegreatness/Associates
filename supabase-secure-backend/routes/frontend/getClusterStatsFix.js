@@ -14,6 +14,8 @@ const supabase = supabaseAdmin;
  * 2. Fetched 'display_profession' and 'user_id' from the cluster_cohort_members table.
  * 3. Manually merged the profile data (from user_profiles) with the cohort-specific data 
  * (display_profession from cluster_cohort_members) using the 'user_id' as the key.
+ * 4. CRITICAL FIX: Added defensive checks (using `|| ''`) for `friend_reasons` and `services` 
+ * to prevent 'Cannot read properties of undefined (reading 'split')' errors in `calculateClusterStats`.
  */
 router.get('/cluster-stats', async (req, res) => {
     const { cluster_id, user_country } = req.query;
@@ -64,6 +66,8 @@ router.get('/cluster-stats', async (req, res) => {
         if (profileError) throw profileError;
         
         // Step 4: Manually merge the profile data with the cohort-specific data (display_profession)
+        // CRITICAL FIX: Ensure string fields that are processed by calculateClusterStats 
+        // (like friend_reasons and services) are not null/undefined to prevent 'split' error.
         const mergedMembers = profileDetails.map(profile => {
             // Retrieve the display_profession from the map
             const displayProfession = cohortMemberMap[profile.user_id];
@@ -71,7 +75,10 @@ router.get('/cluster-stats', async (req, res) => {
             // Return a new object that includes all profile fields + the cohort-specific display_profession
             return {
                 ...profile,
-                display_profession: displayProfession
+                display_profession: displayProfession,
+                // Apply null/undefined check for fields expected to be strings
+                friend_reasons: profile.friend_reasons || '', 
+                services: profile.services || ''
             };
         });
 
@@ -86,7 +93,9 @@ router.get('/cluster-stats', async (req, res) => {
 
     } catch (error) {
         console.error("Error fetching cluster stats:", error);
-        return res.status(500).json({ success: false, message: error.message });
+        // Ensure the error response is useful
+        const errorMessage = error.message || 'An unknown error occurred on the server.';
+        return res.status(500).json({ success: false, message: errorMessage });
     }
 });
 
