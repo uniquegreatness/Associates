@@ -13,12 +13,10 @@
             padding: 20px;
         }
         
-        /* ************************************************************ */
-        /* ********** UPDATED HEADER STYLE ********** */
-        /* ************************************************************ */
+        /* UPDATED HEADER STYLE */
         .header-bar h1 {
-            color: #007bff; /* Blue color from screenshot */
-            font-size: 2.5em; /* Larger size to match screenshot */
+            color: #007bff;
+            font-size: 2.5em; 
             font-weight: bold;
             white-space: nowrap; 
             flex-shrink: 1; 
@@ -26,12 +24,8 @@
             padding-right: 10px;
         }
         
-        /* ************************************************************ */
-        /* ********** HARDCODED BUTTON STYLES ********** */
-        /* ************************************************************ */
-        
+        /* HARDCODED BUTTON STYLES */
         #createGroupBtn {
-            /* Standard Button Appearance */
             background-color: #007bff;
             color: white;
             padding: 8px 15px;
@@ -87,24 +81,20 @@
             opacity: 0;
             transition: opacity 0.3s, visibility 0.3s;
             z-index: 1000;
+            /* REMOVED DEBUG BORDER */
         }
         
-        /* ********** DEBUG: VISUAL CONFIRMATION OF OVERLAY ********** */
         .slide-panel-overlay.active {
             visibility: visible;
             opacity: 1;
-            /* TEMPORARY DEBUG BORDER */
-            border: 10px solid red; 
         }
-        /* ************************************************************ */
-
 
         .slide-panel {
             position: fixed;
             top: 0;
             right: 0;
             width: 400px; 
-            max-width: 90%;
+            max-width: 90%; /* Ensures mobile compatibility */
             height: 100%;
             background-color: #fff;
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
@@ -133,6 +123,29 @@
             cursor: pointer;
             color: #555;
         }
+        /* Form Specific Styles */
+        .form-field { margin-bottom: 15px; }
+        .form-field label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-field input[type="text"], 
+        .form-field input[type="number"],
+        .form-field select, 
+        .form-field textarea {
+            width: 100%; 
+            padding: 8px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 4px;
+        }
+        .submit-btn {
+            width: 100%; 
+            padding: 10px; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 1.1em;
+        }
     </style>
 </head>
 <body>
@@ -151,10 +164,48 @@
                 Create New Group
                 <button class="close-btn" onclick="closeCreateGroupPanel()">&times;</button>
             </h2>
-            <div id="createGroupFormContent">
-                <p>Loading creation form...</p>
+            
+            <form id="createGroupForm">
+                <h3>Group Details</h3>
+                
+                <div class="form-field">
+                    <label for="groupName">Group Name:</label>
+                    <input type="text" id="groupName" name="groupName" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="maxMembers">Maximum Members:</label>
+                    <input type="number" id="maxMembers" name="maxMembers" required min="2" max="50" value="10">
+                </div>
+
+                <div class="form-field">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description" rows="4"></textarea>
+                </div>
+
+                <div class="form-field">
+                    <label for="vcfType">VCF Type:</label>
+                    <select id="vcfType" name="vcfType">
+                        <option value="public">Public (Open Enrollment)</option>
+                        <option value="direct">Direct (Invite Only)</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <input type="checkbox" id="isPaid" name="isPaid">
+                    <label for="isPaid">Paid Group (Requires Fee)</label>
+                    <br>
+                    <input type="checkbox" id="isIncentivized" name="isIncentivized">
+                    <label for="isIncentivized">Incentivized Group (Offers Reward)</label>
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    Create Group
+                </button>
+                
+                <p id="formStatus" style="margin-top: 10px; text-align: center;"></p>
+            </form>
             </div>
-        </div>
     </div>
     <script>
         window.SUPABASE_URL = '__SUPABASE_URL_INJECTION__';
@@ -169,46 +220,67 @@
         );
 
         const groupPanelOverlay = document.getElementById('createGroupPanelOverlay');
-        const formContentContainer = document.getElementById('createGroupFormContent');
-        
+        const createGroupForm = document.getElementById('createGroupForm');
+        const formStatus = document.getElementById('formStatus');
+
         // --- 1. SLIDE-OUT PANEL CONTROLS ---
 
         window.openCreateGroupPanel = function() {
-            // DEBUG: Log to confirm function execution
-            console.log("Attempting to open Create Group panel..."); 
-
+            // No more loading logic needed! The form is already in the DOM.
             groupPanelOverlay.classList.add('active');
-            
-            // Ensure the form content is loaded when the panel opens
-            if (!formContentContainer.innerHTML || formContentContainer.innerHTML.includes('Loading creation form')) {
-                loadCreateFormContent();
-            }
         }
 
         window.closeCreateGroupPanel = function() {
             groupPanelOverlay.classList.remove('active');
         }
+        
+        // --- 2. FORM SUBMISSION LOGIC (Client-Side) ---
 
-        async function loadCreateFormContent() {
-            try {
-                const cacheBuster = Date.now();
-                const formResponse = await fetch(`create-group-form.html?t=${cacheBuster}`);
-                
-                if (formResponse.ok) {
-                    formContentContainer.innerHTML = await formResponse.text();
-                    if (window.initializeCreateGroupForm) {
-                        window.initializeCreateGroupForm(); 
-                    }
+        function handleFormSubmission(event) {
+            event.preventDefault();
+            formStatus.textContent = 'Submitting...';
+            formStatus.style.color = '#007bff'; // Blue during submission
+
+            const formData = {
+                name: document.getElementById('groupName').value,
+                max_members: parseInt(document.getElementById('maxMembers').value),
+                description: document.getElementById('description').value,
+                vcf_type: document.getElementById('vcfType').value,
+                is_paid: document.getElementById('isPaid').checked,
+                is_incentivized: document.getElementById('isIncentivized').checked,
+            };
+
+            // This fetch call requires the server-side endpoint (/api/create-group) to be implemented.
+            fetch('/api/create-group', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    formStatus.textContent = 'Group created successfully!';
+                    formStatus.style.color = 'green';
+                    
+                    setTimeout(() => {
+                        window.closeCreateGroupPanel();
+                        fetchAndDisplayGroups(); // Refresh the list
+                    }, 1000);
+
                 } else {
-                    console.error("Error fetching create-group-form.html. Status:", formResponse.status);
-                    formContentContainer.innerHTML = '<p>Error loading group creation form (File Missing or Server Error).</p>';
+                    formStatus.textContent = result.message || 'Error creating group.';
+                    formStatus.style.color = 'red';
                 }
-            } catch (error) {
-                console.error("Network error during form fetch:", error);
-                formContentContainer.innerHTML = '<p>Network error loading form content.</p>';
-            }
+            })
+            .catch(error => {
+                console.error("Fetch Error:", error);
+                formStatus.textContent = 'Network error. Could not reach the API endpoint.';
+                formStatus.style.color = 'red';
+            });
         }
-
+        
         // --- 3. GROUP LIST LOGIC (Supabase) ---
 
         function renderGroupCard(group) {
@@ -266,10 +338,12 @@
         // --- 4. INITIALIZATION ---
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Attach form submission listener immediately
+            createGroupForm.addEventListener('submit', handleFormSubmission);
+            
             fetchAndDisplayGroups();
         });
 
     </script>
 </body>
 </html>
-
