@@ -155,14 +155,16 @@
             groupPanelOverlay.classList.remove('active');
         }
 
-        // --- 2. MODULAR COMPONENT INJECTION (AGGRESSIVE DEBUG) ---
+        // --- 2. MODULAR COMPONENT INJECTION (CACHE BUSTER) ---
         
         async function loadModularComponents() {
-            console.log("[DEBUG 1] Attempting to load nav-buttons.html...");
+            // Get current timestamp to bust cache
+            const cacheBuster = Date.now();
+            console.log("[DEBUG 1] Attempting to load nav-buttons.html with cache-buster.");
             
             try {
-                // 1. Fetch the file
-                const navResponse = await fetch('nav-buttons.html');
+                // 1. Fetch the file with cache-buster query parameter
+                const navResponse = await fetch(`nav-buttons.html?t=${cacheBuster}`);
                 
                 // 2. Check HTTP status explicitly (e.g., 404, 500)
                 if (!navResponse.ok) {
@@ -179,7 +181,7 @@
                 console.log("[DEBUG 3] Successfully loaded and injected nav-buttons.html.");
 
             } catch (error) {
-                // 4. Catch Network Errors (e.g., CORS, DNS, connection issues)
+                // 4. Catch Network Errors
                 console.error("[DEBUG 4] NETWORK ERROR during nav-buttons fetch:", error.message, error);
                 
                 // CRITICAL FALLBACK: Ensure a button is ALWAYS visible for testing
@@ -190,7 +192,10 @@
         // Load the actual form fields into the slide-out panel
         async function loadCreateFormContent() {
             try {
-                const formResponse = await fetch('create-group-form.html');
+                // Use a cache-buster here too for reliability
+                const cacheBuster = Date.now();
+                const formResponse = await fetch(`create-group-form.html?t=${cacheBuster}`);
+                
                 if (formResponse.ok) {
                     formContentContainer.innerHTML = await formResponse.text();
                     if (window.initializeCreateGroupForm) {
@@ -264,8 +269,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadModularComponents();
             fetchAndDisplayGroups();
-            
-            // Pre-load the form content (hidden) so it's ready when the panel slides open
             loadCreateFormContent();
         });
 
