@@ -48,7 +48,7 @@ function generateVcfContent(contacts) {
 /**
  * Handles the logic for VCF generation, upload to Storage, and database status updates
  * when a cohort reaches its maximum capacity.
- * This merges the core logic from your extracted VCF block.
+ * @returns {string | null} The generated VCF filename if successful, otherwise null.
  */
 async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, supabase) {
     console.log(`COHORT ${cohortId} IS FULL (${maxMembers}/${maxMembers}). Triggering VCF exchange process.`);
@@ -56,6 +56,7 @@ async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, 
     let vcfUploadSuccessful = false;
     let vcfContacts = [];
     const vcfFileName = `Cluster_Contacts_${cohortId}.vcf`;
+    let returnedVcfFileName = null; // New variable to store the final filename
 
     // 1. Robust Two-Step Fetch for VCF Data
     const { data: cohortMembers, error: membersFetchError } = await supabase
@@ -107,6 +108,7 @@ async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, 
         } else {
             console.log(`VCF uploaded successfully for Cohort ID: ${cohortId}.`);
             vcfUploadSuccessful = true; 
+            returnedVcfFileName = vcfFileName; // Store the successful name
         }
     } else {
          console.warn(`VCF generation skipped due to incorrect contact count: ${vcfContacts.length}/${maxMembers}. Expected ${maxMembers}.`);
@@ -116,10 +118,10 @@ async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, 
     const cohortUpdatePayload = {
         is_full: true,
         vcf_uploaded: vcfUploadSuccessful,
-        vcf_file_name: vcfUploadSuccessful ? vcfFileName : null,
+        vcf_file_name: returnedVcfFileName, // Use the stored successful name
     };
     
-    // Update cluster_cohorts table
+    // Update cluster_cohorts table (Primary source of truth for VCF filename)
     const { error: cohortUpdateError } = await supabase
         .from('cluster_cohorts')
         .update(cohortUpdatePayload)
@@ -129,7 +131,7 @@ async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, 
          console.error(`Failed to update cluster_cohorts status: ${cohortUpdateError.message}`);
     }
 
-    // Update cluster_metadata table (as requested in the extracted logic)
+    // Update cluster_metadata table (To reflect the latest VCF availability for the entire cluster category)
     if (vcfUploadSuccessful) {
         console.log(`VCF succeeded. Updating cluster_metadata to PAUSE state for cluster ${clusterIdNum}.`);
 
@@ -137,7 +139,7 @@ async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, 
             .from('cluster_metadata') 
             .update({ 
                 vcf_uploaded: true,
-                vcf_file_name: vcfFileName,
+                vcf_file_name: returnedVcfFileName, // Use the stored successful name
                 vcf_download_count: 0,
                 last_updated: new Date().toISOString()
             }) 
@@ -147,6 +149,8 @@ async function handleCohortCompletionAndVCF(clusterIdNum, cohortId, maxMembers, 
              console.error(`Failed to update cluster_metadata status: ${metadataUpdateError.message}`);
         }
     }
+    
+    return returnedVcfFileName; // Return the VCF filename to the caller
 }
 
 
@@ -165,6 +169,8 @@ router.post('/join-cluster', async (req, res) => {
     }
     
     const clusterIdNum = parseInt(cluster_id, 10);
+    // Variable to hold the VCF name if it's generated during this API call
+    let generatedVcfFileName = null; 
 
     try {
         // 1. Check current status before attempting to join
@@ -221,17 +227,31 @@ router.post('/join-cluster', async (req, res) => {
 
         if (currentMembersAfterInsert >= maxMembers) {
             // Trigger the robust VCF generation, upload, and database status updates
-            await handleCohortCompletionAndVCF(clusterIdNum, status.cohort_id, maxMembers, supabase);
+            // CRITICAL FIX: Capture the returned VCF filename
+            generatedVcfFileName = await handleCohortCompletionAndVCF(clusterIdNum, status.cohort_id, maxMembers, supabase);
         }
         // ===============================================================
 
         // 5. Fetch and return the FINAL updated status
         const updatedStatus = await getCohortStatus(clusterIdNum, user_id);
         
+        // CRITICAL FIX: Ensure the VCF file name is included in the response, 
+        // overwriting any stale data from getCohortStatus if generation just completed
+        const finalResponseStatus = { 
+            ...updatedStatus, 
+            user_is_member: true, 
+        };
+        
+        if (generatedVcfFileName) {
+            finalResponseStatus.vcf_file_name = generatedVcfFileName;
+            finalResponseStatus.vcf_uploaded = true;
+            finalResponseStatus.is_full = true;
+        }
+
+
         return res.json({ 
             success: true, 
-            ...updatedStatus,
-            user_is_member: true, 
+            ...finalResponseStatus,
         });
 
     } catch (error) {
@@ -241,3 +261,4 @@ router.post('/join-cluster', async (req, res) => {
 });
 
 module.exports = router;
+
