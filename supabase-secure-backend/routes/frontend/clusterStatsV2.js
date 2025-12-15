@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { supabaseAdmin } = require('../../config/supabase'); 
-const { calculateClusterStats } = require('../../utils/cohortUtils');
+// IMPORTANT: Importing the Admin client and the utility function from your structure
+const { supabaseAdmin } = require('../config/supabase'); 
+const { calculateClusterStats } = require('../utils/cohortUtils');
 
 const supabase = supabaseAdmin; 
 
@@ -10,8 +11,8 @@ const supabase = supabaseAdmin;
  * Route: /api/cluster-stats-v2?cluster_id=X&user_country=Y
  * * Purpose: This route is designed to be highly robust and defensively fetch all
  * required profile and cohort data, coercing potential null values to empty strings 
- * before calling `calculateClusterStats`, which is the presumed source of the 
- * 'split' error.
+ * or comma-separated strings to prevent the original 'split is not a function' error 
+ * within the utility function.
  */
 router.get('/cluster-stats-v2', async (req, res) => {
     const { cluster_id, user_country } = req.query;
@@ -52,8 +53,7 @@ router.get('/cluster-stats-v2', async (req, res) => {
         
         // Map display_profession for merging
         const cohortMemberMap = memberCohortData.reduce((acc, member) => {
-            // Defensive check: display_profession might be null from DB even if boolean (if not set). 
-            // We coerce to a simple string representation if needed.
+            // Defensive check: display_profession might be null from DB even if boolean. 
             acc[member.user_id] = String(member.display_profession || ''); 
             return acc;
         }, {});
@@ -72,18 +72,19 @@ router.get('/cluster-stats-v2', async (req, res) => {
             // Extract cohort-specific display_profession, safely defaulting to ''
             const displayProfession = cohortMemberMap[profile.user_id] || '';
             
-            // Coerce potential null array/text fields to safe empty strings/arrays
+            // CRITICAL FIX: Coerce potential null array/text fields to safe strings.
+            // If it's an array (which might happen if the DB schema is text[]), join it to the expected comma-separated string format.
             const safeFriendReasons = Array.isArray(profile.friend_reasons) ? profile.friend_reasons.join(', ') : (profile.friend_reasons || '');
             const safeServices = Array.isArray(profile.services) ? profile.services.join(', ') : (profile.services || '');
 
             return {
                 user_id: profile.user_id,
                 nickname: profile.nickname || '',
-                age: profile.age, // Age can be null, but usually safe for stats calculation
+                age: profile.age, 
                 gender: profile.gender || '',
                 country: profile.country || '',
                 
-                // CRITICAL Defensive Checks for fields expected to be processed by .split()
+                // Fields expected to be split() must be strings
                 profession: profile.profession || '',
                 friend_reasons: safeFriendReasons, 
                 services: safeServices,
@@ -92,7 +93,7 @@ router.get('/cluster-stats-v2', async (req, res) => {
             };
         });
 
-        // Calculate and return results
+        // Step 5: Calculate and return results
         const stats = calculateClusterStats(flatMembers, user_country);
 
         return res.json({ success: true, cluster_stats: stats, cohort_members: flatMembers });
