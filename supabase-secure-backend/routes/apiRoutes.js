@@ -50,6 +50,9 @@ router.use('/', getCohortStatusFix);
 router.use('/', joinClusterFix);
 router.use('/', getClusterStatsFix);
 const clusterStatsV2 = require('./clusterStatsV2');
+router.use('/', clusterStatsV2);
+// FIX: The clusterStatsV2 router must be explicitly mounted here to make it active.
+router.use('/', clusterStatsV2); 
 router.use('/', downloadVCFStream);
 router.use('/', trackDownload);
 
