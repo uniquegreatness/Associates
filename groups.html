@@ -171,18 +171,17 @@
     
     <script>
         let supabase = null; 
-        let formContentLoaded = false; // Flag to prevent multiple fetches
+        let formContentLoaded = false; 
 
         const createGroupBtn = document.getElementById('createGroupBtn');
         const groupPanelOverlay = document.getElementById('createGroupPanelOverlay');
         const formContentContainer = document.getElementById('formContentContainer');
-        // Note: closePanelBtn, createGroupForm, and formStatus must be re-queried *after* content loads.
 
 
         // --- DYNAMIC CONTENT LOADING ---
 
         async function loadCreateFormContent() {
-            if (formContentLoaded) return; // Load only once
+            if (formContentLoaded) return; 
 
             try {
                 const response = await fetch('create-group-form.html');
@@ -194,7 +193,6 @@
                 formContentContainer.innerHTML = content;
                 formContentLoaded = true;
                 
-                // IMPORTANT: Attach listeners to the dynamically loaded elements
                 attachFormListeners();
 
             } catch (error) {
@@ -206,7 +204,7 @@
         // --- 1. SLIDE-OUT PANEL CONTROLS ---
 
         window.openCreateGroupPanel = function() {
-            loadCreateFormContent(); // Load content on panel open
+            loadCreateFormContent(); 
             groupPanelOverlay.classList.add('active');
         }
 
@@ -216,20 +214,49 @@
 
         // --- ATTACH LISTENERS TO DYNAMIC CONTENT ---
         function attachFormListeners() {
-            // Re-query the elements now that they are in the DOM
             const closePanelBtn = document.getElementById('closePanelBtn');
             const createGroupForm = document.getElementById('createGroupForm');
-            
+            const maxMembersInput = document.getElementById('maxMembers'); // Get input for check
+
+            // Listener for the Close Button
             if (closePanelBtn) {
                 closePanelBtn.addEventListener('click', window.closeCreateGroupPanel);
-            } else {
-                console.warn("Close button not found after loading form content.");
             }
-
+            
+            // Listener for the Form Submission
             if (createGroupForm) {
                 createGroupForm.addEventListener('submit', handleFormSubmission);
-            } else {
-                console.warn("Create group form not found after loading content.");
+            }
+
+            // Listener for the Free Group checkbox (to manage Paid Group checkbox)
+            const isPaidCheckbox = document.getElementById('isPaid');
+            const isFreeCheckbox = document.getElementById('isFree');
+            
+            if (isPaidCheckbox && isFreeCheckbox) {
+                isFreeCheckbox.addEventListener('change', (e) => {
+                    // When 'Free Group' is checked, 'Paid Group' must be unchecked (and vice-versa in the next listener)
+                    if (e.target.checked) {
+                        isPaidCheckbox.checked = false;
+                    }
+                });
+
+                isPaidCheckbox.addEventListener('change', (e) => {
+                    // When 'Paid Group' is checked, 'Free Group' must be unchecked
+                    if (e.target.checked) {
+                        isFreeCheckbox.checked = false;
+                    }
+                });
+            }
+
+
+            // Enforce Min. 2 in logic if HTML min attribute fails for any reason
+            if (maxMembersInput) {
+                maxMembersInput.addEventListener('input', (e) => {
+                    let val = parseInt(e.target.value);
+                    if (val < 2) {
+                        e.target.value = 2;
+                    }
+                });
             }
         }
         
@@ -238,8 +265,15 @@
         async function handleFormSubmission(event) {
             event.preventDefault();
             
-            // Re-query status element since it's dynamic
             const formStatus = document.getElementById('formStatus');
+            const maxMembersValue = parseInt(document.getElementById('maxMembers').value);
+            
+            // Final logic validation for Max Members
+            if (maxMembersValue < 2) {
+                if (formStatus) formStatus.textContent = 'Error: Maximum Members must be 2 or greater.';
+                if (formStatus) formStatus.style.color = 'red';
+                return;
+            }
 
             if (formStatus) {
                 formStatus.textContent = 'Submitting...';
@@ -251,12 +285,16 @@
                 return;
             }
 
+            const isPaidChecked = document.getElementById('isPaid').checked;
+            // Free Group checkbox is for presentation, the DB uses is_paid, so we invert it for 'isFree' if needed.
+            // Since the DB field is 'is_paid', we just send the value of the 'Paid Group' checkbox.
+            
             const formData = {
                 name: document.getElementById('groupName').value,
-                max_members: parseInt(document.getElementById('maxMembers').value),
+                max_members: maxMembersValue,
                 description: document.getElementById('description').value,
                 vcf_type: document.getElementById('vcfType').value,
-                is_paid: document.getElementById('isPaid').checked,
+                is_paid: isPaidChecked, 
                 is_incentivized: document.getElementById('isIncentivized').checked,
             };
 
@@ -273,17 +311,15 @@
                 if (formStatus) formStatus.textContent = 'Group created successfully!';
                 if (formStatus) formStatus.style.color = 'green';
                 
-                // Clear the form and close the panel after a delay
                 document.getElementById('createGroupForm').reset();
                 setTimeout(() => {
                     window.closeCreateGroupPanel();
-                    fetchAndDisplayGroups(); // Refresh the list
+                    fetchAndDisplayGroups(); 
                 }, 1000);
             }
         }
         
         // --- 3. GROUP LIST LOGIC (Supabase Direct) ---
-        // (Functionality is copied from previous working version)
 
         function renderGroupCard(group) {
             const groupId = group.id || group.group_id; 
@@ -291,8 +327,9 @@
             const statusClass = isFull ? 'status-full' : 'status-open';
             const spotsLeft = (group.max_members || 0) - (group.current_members || 0);
             const statusText = isFull ? 'Group Full' : `${spotsLeft} Spots Left`;
-            const typeText = `Type: ${group.vcf_type ? group.vcf_type.toUpperCase() : 'N/A'}`;
-            const paidText = group.is_paid ? ' | 💰 Paid' : '';
+            // Updated to show "Connection" instead of VCF
+            const typeText = `Connection: ${group.vcf_type ? group.vcf_type.toUpperCase() : 'N/A'}`; 
+            const paidText = group.is_paid ? ' | 💰 Paid' : ' | Free'; // Updated display for free/paid
             const incentiveText = group.is_incentivized ? ' | 🎁 Incentivized' : '';
             
             const cardHtml = `
@@ -319,7 +356,7 @@
 
             try {
                 const { data: groups, error } = await supabase
-                    .from('groups') // ASSUMING your table name is 'groups'
+                    .from('groups') 
                     .select('*'); 
 
                 if (error) {
@@ -347,7 +384,6 @@
         // --- 4. INITIALIZATION ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            // SAFELY INITIALIZE SUPABASE CLIENT
             const url = window.SUPABASE_URL;
             const key = window.SUPABASE_ANON_KEY;
             
@@ -355,13 +391,12 @@
                 supabase = window.supabase.createClient(url, key);
             }
             
-            // Attach event listener to the main button (it is static)
             createGroupBtn.addEventListener('click', window.openCreateGroupPanel);
             
-            // Initial group fetch
             fetchAndDisplayGroups();
         });
 
     </script>
 </body>
 </html>
+
