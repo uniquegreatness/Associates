@@ -1,7 +1,11 @@
 // middleware/authMiddleware.js
 // Contains reusable authentication and authorization middleware.
 
-const { supabaseAdmin } = require('../config/supabase');
+const { supabaseAdmin, supabaseUrl, supabaseAnonKey } = require('../config/supabase');
+const { createClient } = require('@supabase/supabase-js');
+
+// Supabase client for normal user token validation
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Express middleware to verify if the incoming request has a valid Admin bearer token.
@@ -23,11 +27,11 @@ async function requireAdminAuth(req, res, next) {
             return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
         }
 
-        // Optional: check if user has admin flag here
+        // Optional: check admin flag here if needed
         req.user = user;
         next();
     } catch (e) {
-        console.error('Admin Auth Check Fatal Error:', e.message);
+        console.error('Admin Auth Fatal Error:', e.message);
         return res.status(500).json({ success: false, message: 'Internal authentication error.' });
     }
 }
@@ -45,8 +49,10 @@ async function requireUserAuth(req, res, next) {
     const token = authHeader.split(' ')[1];
 
     try {
-        const { data: { user }, error } = await supabaseAdmin.auth.admin.getUser(token);
+        // Validate normal user token using public anon key
+        const { data: { user }, error } = await supabase.auth.getUser(token);
         if (error || !user) {
+            console.warn('User token validation failed:', error?.message);
             return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
         }
 
