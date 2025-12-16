@@ -216,40 +216,37 @@
         function attachFormListeners() {
             const closePanelBtn = document.getElementById('closePanelBtn');
             const createGroupForm = document.getElementById('createGroupForm');
-            const maxMembersInput = document.getElementById('maxMembers'); // Get input for check
+            const maxMembersInput = document.getElementById('maxMembers'); 
 
-            // Listener for the Close Button
             if (closePanelBtn) {
                 closePanelBtn.addEventListener('click', window.closeCreateGroupPanel);
             }
             
-            // Listener for the Form Submission
             if (createGroupForm) {
                 createGroupForm.addEventListener('submit', handleFormSubmission);
             }
 
-            // Listener for the Free Group checkbox (to manage Paid Group checkbox)
+            // Listeners for Paid/Free checkboxes (MUTUALLY EXCLUSIVE LOGIC)
             const isPaidCheckbox = document.getElementById('isPaid');
             const isFreeCheckbox = document.getElementById('isFree');
             
             if (isPaidCheckbox && isFreeCheckbox) {
+                // If 'Free Group' is checked, uncheck 'Paid Group'
                 isFreeCheckbox.addEventListener('change', (e) => {
-                    // When 'Free Group' is checked, 'Paid Group' must be unchecked (and vice-versa in the next listener)
                     if (e.target.checked) {
                         isPaidCheckbox.checked = false;
                     }
                 });
 
+                // If 'Paid Group' is checked, uncheck 'Free Group'
                 isPaidCheckbox.addEventListener('change', (e) => {
-                    // When 'Paid Group' is checked, 'Free Group' must be unchecked
                     if (e.target.checked) {
                         isFreeCheckbox.checked = false;
                     }
                 });
             }
 
-
-            // Enforce Min. 2 in logic if HTML min attribute fails for any reason
+            // Enforce Min. 2 input size (Client-side validation for usability)
             if (maxMembersInput) {
                 maxMembersInput.addEventListener('input', (e) => {
                     let val = parseInt(e.target.value);
@@ -268,9 +265,9 @@
             const formStatus = document.getElementById('formStatus');
             const maxMembersValue = parseInt(document.getElementById('maxMembers').value);
             
-            // Final logic validation for Max Members
+            // Critical Client-Side Validation: Ensure value is not less than 2
             if (maxMembersValue < 2) {
-                if (formStatus) formStatus.textContent = 'Error: Maximum Members must be 2 or greater.';
+                if (formStatus) formStatus.textContent = 'Error: Minimum Members must be 2 or greater.';
                 if (formStatus) formStatus.style.color = 'red';
                 return;
             }
@@ -284,23 +281,25 @@
                 if (formStatus) formStatus.textContent = 'Error: Supabase connection failed. Cannot create group.';
                 return;
             }
-
+            
             const isPaidChecked = document.getElementById('isPaid').checked;
-            // Free Group checkbox is for presentation, the DB uses is_paid, so we invert it for 'isFree' if needed.
-            // Since the DB field is 'is_paid', we just send the value of the 'Paid Group' checkbox.
+            const isFreeChecked = document.getElementById('isFree').checked;
             
             const formData = {
                 name: document.getElementById('groupName').value,
-                max_members: maxMembersValue,
+                max_members: maxMembersValue, 
                 description: document.getElementById('description').value,
                 vcf_type: document.getElementById('vcfType').value,
+                
+                // IMPORTANT: Sending the new 'is_free' value to the DB
                 is_paid: isPaidChecked, 
                 is_incentivized: document.getElementById('isIncentivized').checked,
+                is_free: isFreeChecked, 
             };
 
             // Direct Supabase INSERT call
             const { error } = await supabase
-                .from('groups') // ASSUMING your table name is 'groups'
+                .from('groups') 
                 .insert([formData]); 
 
             if (error) {
@@ -325,20 +324,36 @@
             const groupId = group.id || group.group_id; 
             const isFull = group.is_full;
             const statusClass = isFull ? 'status-full' : 'status-open';
-            const spotsLeft = (group.max_members || 0) - (group.current_members || 0);
-            const statusText = isFull ? 'Group Full' : `${spotsLeft} Spots Left`;
-            // Updated to show "Connection" instead of VCF
+            
+            // max_members is used as the Minimum size threshold
+            const minGroupSize = group.max_members || 0; 
+            const currentMembers = group.current_members || 0;
+            
+            const spotsLeft = minGroupSize - currentMembers;
+            const statusText = currentMembers >= minGroupSize ? 'Min. Size Reached' : `${spotsLeft} More Needed`;
+            
             const typeText = `Connection: ${group.vcf_type ? group.vcf_type.toUpperCase() : 'N/A'}`; 
-            const paidText = group.is_paid ? ' | 💰 Paid' : ' | Free'; // Updated display for free/paid
+            
+            // UPDATED: Show Paid, Free, or Default if neither box was checked (falls back to is_paid logic)
+            let paymentText = '';
+            if (group.is_paid) {
+                paymentText = ' | 💰 Paid';
+            } else if (group.is_free) {
+                paymentText = ' | Free';
+            } else {
+                 // Fallback to original is_paid state if is_free wasn't set (for old records)
+                paymentText = group.is_paid ? ' | 💰 Paid' : ' | Free'; 
+            }
+            
             const incentiveText = group.is_incentivized ? ' | 🎁 Incentivized' : '';
             
             const cardHtml = `
                 <div class="group-card" data-group-id="${groupId}">
                     <h3>${group.name}</h3>
                     <p>${group.description || 'No description provided.'}</p>
-                    <p>Members: <strong>${group.current_members || 0} / ${group.max_members || 0}</strong></p>
+                    <p>Members: <strong>${currentMembers} / Min. ${minGroupSize}</strong></p>
                     <span class="group-status ${statusClass}">${statusText}</span>
-                    <span class="group-status status-direct">${typeText}${paidText}${incentiveText}</span>
+                    <span class="group-status status-direct">${typeText}${paymentText}${incentiveText}</span>
                     <button onclick="viewGroupDetails(${groupId})">View Details</button>
                 </div>
             `;
@@ -355,9 +370,10 @@
             }
 
             try {
+                // Ensure we select the new is_free column
                 const { data: groups, error } = await supabase
                     .from('groups') 
-                    .select('*'); 
+                    .select('*, is_free'); 
 
                 if (error) {
                     throw new Error(`Supabase Query Error: ${error.message}`);
