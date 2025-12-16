@@ -164,82 +164,72 @@
                 <button class="close-btn" id="closePanelBtn">&times;</button>
             </h2>
             
-            <form id="createGroupForm">
-                <h3>Group Details</h3>
-                
-                <div class="form-field">
-                    <label for="groupName">Group Name:</label>
-                    <input type="text" id="groupName" name="groupName" required>
-                </div>
-
-                <div class="form-field">
-                    <label for="maxMembers">Maximum Members:</label>
-                    <input type="number" id="maxMembers" name="maxMembers" required min="2" max="50" value="10">
-                </div>
-
-                <div class="form-field">
-                    <label for="description">Description:</label>
-                    <textarea id="description" name="description" rows="4"></textarea>
-                </div>
-
-                <div class="form-field">
-                    <label for="vcfType">VCF Type:</label>
-                    <select id="vcfType" name="vcfType">
-                        <option value="public">Public (Open Enrollment)</option>
-                        <option value="direct">Direct (Invite Only)</option>
-                    </select>
-                </div>
-
-                <div style="margin-bottom: 20px;">
-                    <input type="checkbox" id="isPaid" name="isPaid">
-                    <label for="isPaid">Paid Group (Requires Fee)</label>
-                    <br>
-                    <input type="checkbox" id="isIncentivized" name="isIncentivized">
-                    <label for="isIncentivized">Incentivized Group (Offers Reward)</label>
-                </div>
-
-                <button type="submit" class="submit-btn">
-                    Create Group
-                </button>
-                
-                <p id="formStatus" style="margin-top: 10px; text-align: center;"></p>
-            </form>
+            <div id="createGroupFormContent">
+                <p>Loading group creation form...</p>
             </div>
+            
+        </div>
     </div>
     <script>
-        // Supabase keys (retained for database interaction, but not used for button click)
         window.SUPABASE_URL = '__SUPABASE_URL_INJECTION__';
         window.SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <script>
-        // Initialize Supabase client
-       // const supabase = window.supabase.createClient(
-        ///    window.SUPABASE_URL,
-        //    window.SUPABASE_ANON_KEY
-    //    );
+        // Use 'let' for supabase so it can be initialized safely later
+        let supabase = null; 
 
         const createGroupBtn = document.getElementById('createGroupBtn');
         const closePanelBtn = document.getElementById('closePanelBtn');
         const groupPanelOverlay = document.getElementById('createGroupPanelOverlay');
-        const createGroupForm = document.getElementById('createGroupForm');
-        const formStatus = document.getElementById('formStatus');
+        const formContentContainer = document.getElementById('createGroupFormContent'); // Re-added
 
         // --- 1. SLIDE-OUT PANEL CONTROLS ---
 
         window.openCreateGroupPanel = function() {
             groupPanelOverlay.classList.add('active');
+            
+            // Re-enabled: Ensure the form content is loaded when the panel opens
+            if (!formContentContainer.innerHTML || formContentContainer.innerHTML.includes('Loading group creation form')) {
+                loadCreateFormContent();
+            }
         }
 
         window.closeCreateGroupPanel = function() {
             groupPanelOverlay.classList.remove('active');
         }
+
+        // Re-added: Logic to dynamically load the form HTML
+        async function loadCreateFormContent() {
+            try {
+                const cacheBuster = Date.now();
+                const formResponse = await fetch(`create-group-form.html?t=${cacheBuster}`);
+                
+                if (formResponse.ok) {
+                    formContentContainer.innerHTML = await formResponse.text();
+                    
+                    // After loading the form HTML, we initialize its internal JS logic
+                    if (window.initializeCreateGroupForm) {
+                        window.initializeCreateGroupForm(); 
+                    }
+                } else {
+                    console.error("Error fetching create-group-form.html. Status:", formResponse.status);
+                    formContentContainer.innerHTML = '<p style="color:red;">Error loading group creation form. Check that **create-group-form.html** exists.</p>';
+                }
+            } catch (error) {
+                console.error("Network error during form fetch:", error);
+                formContentContainer.innerHTML = '<p style="color:red;">Network error loading form content.</p>';
+            }
+        }
         
         // --- 2. FORM SUBMISSION LOGIC (Client-Side) ---
 
-        function handleFormSubmission(event) {
+        // We wrap this function in a global scope so it can be called by the form's local script
+        window.handleFormSubmission = function(event) {
             event.preventDefault();
+            // The form status element is now inside the loaded form, so we get it dynamically
+            const formStatus = document.getElementById('formStatus');
             formStatus.textContent = 'Submitting...';
             formStatus.style.color = '#007bff'; 
 
@@ -252,7 +242,6 @@
                 is_incentivized: document.getElementById('isIncentivized').checked,
             };
 
-            // This fetch call requires the server-side endpoint (/api/create-group) to be implemented.
             fetch('/api/create-group', {
                 method: 'POST',
                 headers: {
@@ -284,7 +273,6 @@
         }
         
         // --- 3. GROUP LIST LOGIC (Supabase) ---
-        // (functions removed for brevity in this response, but assumed to exist in the actual file)
 
         function renderGroupCard(group) {
             const isFull = group.is_full;
@@ -338,21 +326,31 @@
              window.location.href = `/C_${groupId}`; 
         }
 
-        // --- 4. INITIALIZATION (Attach Event Listeners) ---
+        // --- 4. INITIALIZATION (Attach Event Listeners and Initialize Supabase Safely) ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Attach event listener directly to the button element
-            createGroupBtn.addEventListener('click', window.openCreateGroupPanel);
+            // *** FIX FOR CRASHING SCRIPT ***
+            // We initialize Supabase ONLY after the DOM content is loaded AND we verify the library is available.
+            if (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+                supabase = window.supabase.createClient(
+                    window.SUPABASE_URL,
+                    window.SUPABASE_ANON_KEY
+                );
+            } else {
+                // This warning ensures we know if Supabase setup failed without crashing the UI.
+                console.warn("Supabase client not initialized: Keys missing or library failed to load.");
+            }
+            // *** END FIX ***
             
-            // Attach event listener to the close button
+            // 1. Attach button listeners (These run successfully now!)
+            createGroupBtn.addEventListener('click', window.openCreateGroupPanel);
             closePanelBtn.addEventListener('click', window.closeCreateGroupPanel);
 
-            // Attach form submission listener
-            createGroupForm.addEventListener('submit', handleFormSubmission);
-            
+            // 2. Fetch and display groups
             fetchAndDisplayGroups();
         });
 
     </script>
 </body>
 </html>
+
