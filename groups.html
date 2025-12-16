@@ -207,14 +207,13 @@
             </div>
     </div>
     <script>
-        // Supabase keys
-        window.SUPABASE_URL = '__SUPABASE_URL_INJECTION__';
-        window.SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY_INJECTION__';
+        // *** KEYS ARE NOW INSERTED ***
+        window.SUPABASE_URL = 'https://jtnnyfxdjqhtqddisrvp.supabase.co'; 
+        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0bm55ZnhkanFodHFkZGlzcnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MDgyNDksImV4cCI6MjA4MDA4NDI0OX0.fFy_Z36VFHwOpZnSwR2WWlR_2b3hBrfEFXDp2EnAS9A';
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <script>
-        // Use 'let' for global scope access later in fetchAndDisplayGroups
         let supabase = null; 
 
         const createGroupBtn = document.getElementById('createGroupBtn');
@@ -235,10 +234,16 @@
         
         // --- 2. FORM SUBMISSION LOGIC (Client-Side) ---
 
-        function handleFormSubmission(event) {
+        async function handleFormSubmission(event) {
             event.preventDefault();
             formStatus.textContent = 'Submitting...';
             formStatus.style.color = '#007bff'; 
+            
+            if (!supabase) {
+                formStatus.textContent = 'Error: Supabase connection failed. Cannot create group.';
+                formStatus.style.color = 'red';
+                return;
+            }
 
             const formData = {
                 name: document.getElementById('groupName').value,
@@ -249,82 +254,76 @@
                 is_incentivized: document.getElementById('isIncentivized').checked,
             };
 
-            // This fetch call requires the server-side endpoint (/api/create-group) to be implemented.
-            fetch('/api/create-group', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    formStatus.textContent = 'Group created successfully!';
-                    formStatus.style.color = 'green';
-                    
-                    setTimeout(() => {
-                        window.closeCreateGroupPanel();
-                        fetchAndDisplayGroups(); // Refresh the list
-                    }, 1000);
+            // Direct Supabase INSERT call
+            const { error } = await supabase
+                .from('groups') // ASSUMING your table name is 'groups'
+                .insert([formData]); 
 
-                } else {
-                    formStatus.textContent = result.message || 'Error creating group.';
-                    formStatus.style.color = 'red';
-                }
-            })
-            .catch(error => {
-                console.error("Fetch Error:", error);
-                formStatus.textContent = 'Network error. Could not reach the API endpoint.';
+            if (error) {
+                console.error("Supabase Insert Error:", error);
+                formStatus.textContent = `Error creating group: ${error.message}`;
                 formStatus.style.color = 'red';
-            });
+            } else {
+                formStatus.textContent = 'Group created successfully!';
+                formStatus.style.color = 'green';
+                
+                // Clear the form and close the panel after a delay
+                createGroupForm.reset();
+                setTimeout(() => {
+                    window.closeCreateGroupPanel();
+                    fetchAndDisplayGroups(); // Refresh the list
+                }, 1000);
+            }
         }
         
-        // --- 3. GROUP LIST LOGIC (Supabase) ---
+        // --- 3. GROUP LIST LOGIC (Supabase Direct) ---
 
         function renderGroupCard(group) {
+            // Using 'id' for viewGroupDetails for consistency with Supabase primary key naming
+            const groupId = group.id || group.group_id; 
             const isFull = group.is_full;
             const statusClass = isFull ? 'status-full' : 'status-open';
-            const spotsLeft = group.max_members - group.current_members;
+            const spotsLeft = (group.max_members || 0) - (group.current_members || 0);
             const statusText = isFull ? 'Group Full' : `${spotsLeft} Spots Left`;
-            const typeText = `Type: ${group.vcf_type.toUpperCase()}`;
+            const typeText = `Type: ${group.vcf_type ? group.vcf_type.toUpperCase() : 'N/A'}`;
             const paidText = group.is_paid ? ' | 💰 Paid' : '';
             const incentiveText = group.is_incentivized ? ' | 🎁 Incentivized' : '';
             
             const cardHtml = `
-                <div class="group-card" data-group-id="${group.group_id}">
+                <div class="group-card" data-group-id="${groupId}">
                     <h3>${group.name}</h3>
                     <p>${group.description || 'No description provided.'}</p>
-                    <p>Members: <strong>${group.current_members} / ${group.max_members}</strong></p>
+                    <p>Members: <strong>${group.current_members || 0} / ${group.max_members || 0}</strong></p>
                     <span class="group-status ${statusClass}">${statusText}</span>
                     <span class="group-status status-direct">${typeText}${paidText}${incentiveText}</span>
-                    <button onclick="viewGroupDetails(${group.group_id})">View Details</button>
+                    <button onclick="viewGroupDetails(${groupId})">View Details</button>
                 </div>
             `;
             return cardHtml;
         }
 
         async function fetchAndDisplayGroups() {
-            // NOTE: This function will now work because 'supabase' is initialized safely below.
             const container = document.getElementById('groupListContainer');
             container.innerHTML = '<div>Loading groups...</div>'; 
+            
+            if (!supabase) {
+                container.innerHTML = '<div>Supabase connection failed. Cannot load groups. Check console for warnings.</div>';
+                return;
+            }
 
             try {
-                // If the local API endpoint isn't set up yet, it will use the fetch below.
-                // If we need direct Supabase query, we would use: 
-                // const { data: groups, error } = await supabase.from('groups').select('*');
-                
-                // For now, retaining the fetch to the server endpoint
-                const response = await fetch('/api/groups');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                // Direct Supabase SELECT call
+                const { data: groups, error } = await supabase
+                    .from('groups') // ASSUMING your table name is 'groups'
+                    .select('*'); 
+
+                if (error) {
+                    throw new Error(`Supabase Query Error: ${error.message}`);
                 }
                 
-                const result = await response.json();
-
-                if (result.success && result.groups && result.groups.length > 0) {
+                if (groups && groups.length > 0) {
                     container.innerHTML = '';
-                    result.groups.forEach(group => {
+                    groups.forEach(group => {
                         container.innerHTML += renderGroupCard(group);
                     });
                 } else {
@@ -340,22 +339,22 @@
              window.location.href = `/C_${groupId}`; 
         }
 
-        // --- 4. INITIALIZATION (Attach Event Listeners & Supabase Guard) ---
+        // --- 4. INITIALIZATION ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            // *** THE CRITICAL FIX RE-IMPLEMENTED SAFELY ***
-            if (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-                supabase = window.supabase.createClient(
-                    window.SUPABASE_URL,
-                    window.SUPABASE_ANON_KEY
-                );
+            // SAFELY INITIALIZE SUPABASE CLIENT
+            const url = window.SUPABASE_URL;
+            const key = window.SUPABASE_ANON_KEY;
+            
+            // Check if URL is present and not the original placeholder
+            if (window.supabase && url && url.startsWith('http')) { 
+                supabase = window.supabase.createClient(url, key);
                 console.log("Supabase client initialized successfully.");
             } else {
-                console.warn("Supabase client NOT initialized. Group fetching may fail if it relies on the 'supabase' variable.");
+                console.warn("Supabase client NOT initialized. Keys are missing or invalid.");
             }
-            // **********************************************
-
-            // Attach event listeners (Proven to work when the script doesn't crash)
+            
+            // Attach event listeners (Proven to work)
             createGroupBtn.addEventListener('click', window.openCreateGroupPanel);
             closePanelBtn.addEventListener('click', window.closeCreateGroupPanel);
             createGroupForm.addEventListener('submit', handleFormSubmission);
