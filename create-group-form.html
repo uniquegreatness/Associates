@@ -26,7 +26,12 @@
         <label for="description">Description:</label>
         <textarea id="description" name="description" rows="4"></textarea>
     </div>
-
+    
+    <div class="form-field">
+        <label for="referralMessageTemplate">Referral Message Template:</label>
+        <textarea id="referralMessageTemplate" name="referralMessageTemplate" rows="3" required></textarea>
+        <small style="display: block; color: #666; margin-top: 5px;">Use placeholders like [GROUP_NAME] or [LINK].</small>
+    </div>
     <div class="form-field">
         <label for="vcfType">Connection Type:</label>
         <select id="vcfType" name="vcfType">
