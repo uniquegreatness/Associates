@@ -5,7 +5,47 @@ const { supabaseAdmin } = require('../../config/supabase');
 const supabase = supabaseAdmin; 
 const VCF_BUCKET_NAME = 'near_vcf_bucket'; // Define bucket name once
 
-// --- VCF Utility Functions (Required for GENERAL VCF Generation) ---
+// =================================================================
+// 1. HELPER FUNCTION DEFINITION (MOVED HERE TO PREVENT OUTPUT ISSUES)
+// =================================================================
+
+/**
+ * Helper function to retrieve all necessary group status for a final response, 
+ * used when a user attempts to join a group they are already in.
+ */
+async function getUpdatedGroupStatus(groupIdNum, user_id, groupData) {
+    // Note: Re-fetching is crucial to get the most updated counts/VCF status
+    const { data: updatedGroupData } = await supabase
+        .from('groups')
+        .select('vcf_file_name, vcf_uploaded, current_members, members_downloaded, is_full')
+        .eq('group_id', groupIdNum)
+        .single();
+        
+    const { data: memberData } = await supabase
+        .from('group_members')
+        .select('has_downloaded_vcf')
+        .eq('group_id', groupIdNum)
+        .eq('user_id', user_id)
+        .single();
+        
+    return {
+        group_id: groupIdNum,
+        max_members: groupData.max_members,
+        current_members: updatedGroupData.current_members,
+        is_full: updatedGroupData.is_full,
+        vcf_uploaded: updatedGroupData.vcf_uploaded,
+        vcf_file_name: updatedGroupData.vcf_file_name || null,
+        vcf_download_count: updatedGroupData.members_downloaded,
+        spots_left: groupData.max_members - updatedGroupData.current_members,
+        user_is_member: true,
+        user_has_downloaded: memberData ? memberData.has_downloaded_vcf : false,
+    };
+}
+
+
+// =================================================================
+// 2. VCF UTILITY FUNCTIONS 
+// =================================================================
 
 /**
  * Generates the VCF filename. For GENERAL, it's Cohort_Contacts_[group_id].vcf.
@@ -122,6 +162,10 @@ async function handleGeneralGroupCompletion(group, supabase) {
 }
 
 
+// =================================================================
+// 3. MAIN ROUTE HANDLER
+// =================================================================
+
 /**
  * POST /api/groups/join
  * Handles member insertion and triggers GENERAL VCF generation on group completion.
@@ -221,39 +265,9 @@ router.post('/join', async (req, res) => {
     }
 });
 
+// =================================================================
+// 4. MODULE EXPORT (Ensure this is the final executable statement)
+// =================================================================
+
 module.exports = router;
-
-
-/**
- * Helper function to retrieve all necessary group status for a final response, 
- * used when a user attempts to join a group they are already in.
- */
-async function getUpdatedGroupStatus(groupIdNum, user_id, groupData) {
-    // Note: Re-fetching is crucial to get the most updated counts/VCF status
-    const { data: updatedGroupData } = await supabase
-        .from('groups')
-        .select('vcf_file_name, vcf_uploaded, current_members, members_downloaded, is_full')
-        .eq('group_id', groupIdNum)
-        .single();
-        
-    const { data: memberData } = await supabase
-        .from('group_members')
-        .select('has_downloaded_vcf')
-        .eq('group_id', groupIdNum)
-        .eq('user_id', user_id)
-        .single();
-        
-    return {
-        group_id: groupIdNum,
-        max_members: groupData.max_members,
-        current_members: updatedGroupData.current_members,
-        is_full: updatedGroupData.is_full,
-        vcf_uploaded: updatedGroupData.vcf_uploaded,
-        vcf_file_name: updatedGroupData.vcf_file_name || null,
-        vcf_download_count: updatedGroupData.members_downloaded,
-        spots_left: groupData.max_members - updatedGroupData.current_members,
-        user_is_member: true,
-        user_has_downloaded: memberData ? memberData.has_downloaded_vcf : false,
-    };
-}
 
