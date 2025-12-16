@@ -1,4 +1,3 @@
-// config/supabase.js
 // Initializes and exports the Supabase client instances.
 
 const { createClient } = require('@supabase/supabase-js');
@@ -36,3 +35,4 @@ module.exports = {
     supabaseUrl,
     supabaseAnonKey,
 };
+
