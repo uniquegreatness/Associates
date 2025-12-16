@@ -1,23 +1,30 @@
+
+<h2>
+    Create New Group
+    <button class="close-btn" id="closePanelBtn">&times;</button>
+</h2>
+
 <form id="createGroupForm">
     <h3>Group Details</h3>
-    <div style="margin-bottom: 15px;">
-        <label for="groupName" style="display: block; margin-bottom: 5px; font-weight: bold;">Group Name:</label>
-        <input type="text" id="groupName" name="groupName" required style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+    
+    <div class="form-field">
+        <label for="groupName">Group Name:</label>
+        <input type="text" id="groupName" name="groupName" required>
     </div>
 
-    <div style="margin-bottom: 15px;">
-        <label for="maxMembers" style="display: block; margin-bottom: 5px; font-weight: bold;">Maximum Members:</label>
-        <input type="number" id="maxMembers" name="maxMembers" required min="2" max="50" value="10" style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+    <div class="form-field">
+        <label for="maxMembers">Maximum Members:</label>
+        <input type="number" id="maxMembers" name="maxMembers" required min="2" max="50" value="10">
     </div>
 
-    <div style="margin-bottom: 15px;">
-        <label for="description" style="display: block; margin-bottom: 5px; font-weight: bold;">Description:</label>
-        <textarea id="description" name="description" rows="4" style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+    <div class="form-field">
+        <label for="description">Description:</label>
+        <textarea id="description" name="description" rows="4"></textarea>
     </div>
 
-    <div style="margin-bottom: 20px;">
-        <label for="vcfType" style="display: block; margin-bottom: 5px; font-weight: bold;">VCF Type:</label>
-        <select id="vcfType" name="vcfType" style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+    <div class="form-field">
+        <label for="vcfType">VCF Type:</label>
+        <select id="vcfType" name="vcfType">
             <option value="public">Public (Open Enrollment)</option>
             <option value="direct">Direct (Invite Only)</option>
         </select>
@@ -31,59 +38,9 @@
         <label for="isIncentivized">Incentivized Group (Offers Reward)</label>
     </div>
 
-    <button type="submit" style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.1em;">
+    <button type="submit" class="submit-btn">
         Create Group
     </button>
     
-    <p id="formStatus" style="margin-top: 10px; text-align: center; color: red;"></p>
+    <p id="formStatus" style="margin-top: 10px; text-align: center;"></p>
 </form>
-
-<script>
-    // This script handles form submission and attempts to send data to the backend.
-    window.initializeCreateGroupForm = function() {
-        const form = document.getElementById('createGroupForm');
-        const formStatus = document.getElementById('formStatus');
-
-        form.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            formStatus.textContent = 'Submitting...';
-            
-            const formData = {
-                name: document.getElementById('groupName').value,
-                max_members: parseInt(document.getElementById('maxMembers').value),
-                description: document.getElementById('description').value,
-                vcf_type: document.getElementById('vcfType').value,
-                is_paid: document.getElementById('isPaid').checked,
-                is_incentivized: document.getElementById('isIncentivized').checked,
-            };
-
-            try {
-                const response = await fetch('/api/create-group', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    formStatus.textContent = 'Group created successfully!';
-                    formStatus.style.color = 'green';
-                    
-                    // Close panel and refresh group list
-                    window.closeCreateGroupPanel();
-                    window.fetchAndDisplayGroups(); // Calls the function in groups.html
-                } else {
-                    formStatus.textContent = result.message || 'Error creating group.';
-                    formStatus.style.color = 'red';
-                }
-            } catch (error) {
-                formStatus.textContent = 'Network error. Could not reach server.';
-                formStatus.style.color = 'red';
-            }
-        });
-    };
-</script>
-
