@@ -119,8 +119,6 @@
         const emailInput = document.getElementById('email');
         const resetEmailInput = document.getElementById('resetEmail');
         
-        // Removed logDebug function
-
         /**
          * Switches the active view (Login or Forgot Password).
          * @param {'login' | 'forgot'} viewName 
@@ -256,6 +254,31 @@
             resetButton.textContent = 'Send Reset Link';
         }
 
+        // --- NEW INITIALIZATION FUNCTION TO READ QUERY PARAMETER ---
+        /**
+         * Reads the 'redirect_to' query parameter and saves it to sessionStorage 
+         * before clearing the parameter from the URL.
+         */
+        function initializeRedirectPath() {
+            const params = new URLSearchParams(window.location.search);
+            const redirectParam = params.get('redirect_to');
+
+            if (redirectParam) {
+                // Decode the URL-encoded path and save it for post-login use.
+                const decodedPath = decodeURIComponent(redirectParam);
+                sessionStorage.setItem('intended_destination', decodedPath);
+                console.log(`Redirect path found in URL: ${decodedPath}. Saved to sessionStorage.`);
+                
+                // Optional: Clean up the URL in the address bar.
+                // This replaces the current history entry without reloading the page.
+                const newUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            } else {
+                console.log('No redirect_to parameter found in URL.');
+            }
+        }
+        // --- END NEW INITIALIZATION FUNCTION ---
+
 
         /**
          * Check if the user is already logged in and redirect them to their intended page.
@@ -272,10 +295,13 @@
             if (session) {
                 console.log('Session found. Preparing redirect.');
                 // --- REDIRECT LOGIC ---
+                // The intended_destination is now guaranteed to be set if it was passed in the URL, 
+                // OR it will be the value from a previous incomplete attempt.
                 const intendedDestination = sessionStorage.getItem('intended_destination');
                 console.log(`Session Storage Intended Destination on Load: ${intendedDestination}`);
 
                 // Use intended destination or default to /cohort.html
+                // NOTE: '/cohort.html' should likely be the default if 'cohort_template.html' is the default page.
                 const redirectPath = intendedDestination || '/cohort.html';
                 console.log(`Final Redirect Path on Load: ${redirectPath}`);
                 
@@ -290,14 +316,15 @@
                 console.log('No active session. Showing login form.');
                 // NEW: If no session, check the hash to see if we should show the forgot view.
                 if (window.location.hash === '#forgot') {
-                    // Check if we came from an admin page which might need a different redirect later
-                    // We don't store the current path, but we show the view.
                     showView('forgot');
                 }
             }
         }
 
-        // Run session check on page load
+        // --- Run initialization sequence on page load ---
+        // 1. Initialize redirect path from the URL.
+        initializeRedirectPath();
+        // 2. Check for an existing session and redirect if found.
         checkExistingSession();
     </script>
 
